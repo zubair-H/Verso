@@ -64,7 +64,7 @@ export default function FeaturesScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useSharedValue(0);
-  const progressWidth = useSharedValue(0.33);
+  const progressWidth = useSharedValue(0.55);
   const isAnimating = useRef(false);
 
   const triggerHaptic = useCallback(() => {
@@ -93,8 +93,19 @@ export default function FeaturesScreen() {
     if (currentIndex < features.length - 1) {
       isAnimating.current = true;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const nextIndex = currentIndex + 1;
+      setCurrentIndex(nextIndex);
+
+      // Update progress bar: 33% base + 22% per step
+      const newProgress = 0.33 + (nextIndex + 1) * 0.22;
+      progressWidth.value = withSpring(Math.min(newProgress, 0.99), {
+        damping: 20,
+        stiffness: 150,
+      });
+
       flatListRef.current?.scrollToIndex({
-        index: currentIndex + 1,
+        index: nextIndex,
         animated: true,
       });
       setTimeout(() => {
@@ -104,7 +115,7 @@ export default function FeaturesScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       router.push('/(onboarding)/permissions');
     }
-  }, [currentIndex]);
+  }, [currentIndex, progressWidth]);
 
   const progressStyle = useAnimatedStyle(() => ({
     width: `${progressWidth.value * 100}%`,
@@ -169,16 +180,15 @@ export default function FeaturesScreen() {
           snapToAlignment="center"
         />
 
-        {/* Step indicator */}
+      </View>
+
+      {/* Button section with step indicator */}
+      <View style={styles.buttonContainer}>
         <View style={styles.stepIndicator}>
           <Text style={styles.stepText}>
             {currentIndex + 1} of {features.length}
           </Text>
         </View>
-      </View>
-
-      {/* Button */}
-      <View style={styles.buttonContainer}>
         <GradientButton
           label={currentIndex === features.length - 1 ? "Let's Go" : 'Continue'}
           onPress={handleNext}
@@ -327,7 +337,7 @@ const styles = StyleSheet.create({
   },
   stepIndicator: {
     alignItems: 'center',
-    marginTop: 32,
+    marginBottom: 20,
   },
   stepText: {
     ...typography.labelMedium,

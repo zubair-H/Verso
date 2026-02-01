@@ -11,6 +11,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withDelay,
+  withSpring,
   interpolate,
   Easing,
 } from 'react-native-reanimated';
@@ -28,8 +29,15 @@ export default function PermissionsScreen() {
   const contentProgress = useSharedValue(0);
   const cardProgress = useSharedValue(0);
   const bottomProgress = useSharedValue(0);
+  const progressWidth = useSharedValue(0.99);
 
   useEffect(() => {
+    // Animate progress bar to 100%
+    progressWidth.value = withSpring(1, {
+      damping: 20,
+      stiffness: 150,
+    });
+
     // Staggered entrance sequence
     iconProgress.value = withTiming(1, {
       duration: 600,
@@ -84,6 +92,10 @@ export default function PermissionsScreen() {
     };
   });
 
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progressWidth.value * 100}%`,
+  }));
+
   const handleAllowAccess = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -120,12 +132,14 @@ export default function PermissionsScreen() {
       {/* Progress indicator - almost complete */}
       <View style={styles.progressContainer}>
         <View style={styles.progressTrack}>
-          <LinearGradient
-            colors={colors.gradientPrimary}
-            style={[styles.progressFill, { width: '95%' }]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          />
+          <Animated.View style={[styles.progressFillContainer, progressStyle]}>
+            <LinearGradient
+              colors={colors.gradientPrimary}
+              style={styles.progressGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            />
+          </Animated.View>
         </View>
       </View>
 
@@ -203,9 +217,13 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     overflow: 'hidden',
   },
-  progressFill: {
+  progressFillContainer: {
     height: '100%',
     borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressGradient: {
+    flex: 1,
   },
   content: {
     flex: 1,

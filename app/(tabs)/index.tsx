@@ -7,7 +7,9 @@ import {
   Pressable,
   Image,
   Dimensions,
+  Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,6 +29,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
   const [lookImage, setLookImage] = useState<string | null>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const pickImage = async (type: 'selfie' | 'look') => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -73,10 +76,62 @@ export default function HomeScreen() {
         end={{ x: 1, y: 1 }}
       />
 
+      {/* Menu Modal */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setMenuVisible(false)}
+        >
+          <View style={[styles.menuContainer, { paddingTop: insets.top + 16 }]}>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setMenuVisible(false);
+              }}
+            >
+              <Ionicons name="settings-outline" size={22} color={colors.textSecondary} />
+              <Text style={styles.menuItemText}>Settings</Text>
+            </Pressable>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setMenuVisible(false);
+              }}
+            >
+              <Ionicons name="help-circle-outline" size={22} color={colors.textSecondary} />
+              <Text style={styles.menuItemText}>Help & Support</Text>
+            </Pressable>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setMenuVisible(false);
+              }}
+            >
+              <Ionicons name="information-circle-outline" size={22} color={colors.textSecondary} />
+              <Text style={styles.menuItemText}>About</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
       {/* Header */}
       <View style={styles.header}>
-        <Pressable style={styles.menuButton}>
-          <Text style={styles.menuIcon}>☰</Text>
+        <Pressable
+          style={styles.menuButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setMenuVisible(true);
+          }}
+        >
+          <Ionicons name="menu" size={24} color={colors.textSecondary} />
         </Pressable>
         <View style={styles.proBadge}>
           <LinearGradient
@@ -185,9 +240,28 @@ const styles = StyleSheet.create({
   menuButton: {
     padding: 8,
   },
-  menuIcon: {
-    fontSize: 24,
-    color: colors.textSecondary,
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  menuContainer: {
+    backgroundColor: colors.bgSecondary,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.glassBorder,
+  },
+  menuItemText: {
+    ...typography.bodyLarge,
+    color: colors.textPrimary,
+    marginLeft: 16,
   },
   proBadge: {
     overflow: 'hidden',
