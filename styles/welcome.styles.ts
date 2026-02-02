@@ -40,7 +40,6 @@ export const createStyles = (colors: Colors) =>
       borderRadius: 24,
       borderWidth: 1,
       borderColor: colors.border,
-      transform: [{ rotate: '-12deg' }, { translateX: -40 }],
     },
     backCardRight: {
       position: 'absolute',
@@ -50,7 +49,6 @@ export const createStyles = (colors: Colors) =>
       borderRadius: 24,
       borderWidth: 1,
       borderColor: colors.border,
-      transform: [{ rotate: '12deg' }, { translateX: 40 }],
     },
     mainCard: {
       width: 180,

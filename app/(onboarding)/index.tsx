@@ -83,18 +83,66 @@ export default function WelcomeScreen() {
   const buttonOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(1);
 
+  // Card shuffle animation values
+  const leftCardTranslateY = useSharedValue(60);
+  const leftCardOpacity = useSharedValue(0);
+  const rightCardTranslateY = useSharedValue(60);
+  const rightCardOpacity = useSharedValue(0);
+  const mainCardTranslateY = useSharedValue(60);
+  const mainCardOpacity = useSharedValue(0);
+
   useEffect(() => {
     logoOpacity.value = withTiming(1, { duration: DURATION, easing: EASE });
     cardsOpacity.value = withDelay(150, withTiming(1, { duration: DURATION, easing: EASE }));
-    starsOpacity.value = withDelay(300, withTiming(1, { duration: DURATION, easing: EASE }));
-    statementOpacity.value = withDelay(400, withTiming(1, { duration: DURATION, easing: EASE }));
-    buttonOpacity.value = withDelay(500, withTiming(1, { duration: DURATION, easing: EASE }));
+
+    // Staggered card shuffle animations
+    const cardDuration = 500;
+    const cardEase = Easing.out(Easing.back(1.2));
+
+    // Left card shuffles up first
+    leftCardOpacity.value = withDelay(150, withTiming(1, { duration: cardDuration, easing: EASE }));
+    leftCardTranslateY.value = withDelay(150, withTiming(0, { duration: cardDuration, easing: cardEase }));
+
+    // Right card shuffles up second
+    rightCardOpacity.value = withDelay(350, withTiming(1, { duration: cardDuration, easing: EASE }));
+    rightCardTranslateY.value = withDelay(350, withTiming(0, { duration: cardDuration, easing: cardEase }));
+
+    // Main card shuffles up last
+    mainCardOpacity.value = withDelay(550, withTiming(1, { duration: cardDuration, easing: EASE }));
+    mainCardTranslateY.value = withDelay(550, withTiming(0, { duration: cardDuration, easing: cardEase }));
+
+    starsOpacity.value = withDelay(550, withTiming(1, { duration: DURATION, easing: EASE }));
+    statementOpacity.value = withDelay(650, withTiming(1, { duration: DURATION, easing: EASE }));
+    buttonOpacity.value = withDelay(700, withTiming(1, { duration: DURATION, easing: EASE }));
   }, []);
 
   const logoStyle = useAnimatedStyle(() => ({ opacity: logoOpacity.value }));
   const cardsStyle = useAnimatedStyle(() => ({ opacity: cardsOpacity.value }));
   const starsStyle = useAnimatedStyle(() => ({ opacity: starsOpacity.value }));
   const statementStyle = useAnimatedStyle(() => ({ opacity: statementOpacity.value }));
+
+  const leftCardStyle = useAnimatedStyle(() => ({
+    opacity: leftCardOpacity.value,
+    transform: [
+      { rotate: '-12deg' },
+      { translateX: -40 },
+      { translateY: leftCardTranslateY.value },
+    ],
+  }));
+
+  const rightCardStyle = useAnimatedStyle(() => ({
+    opacity: rightCardOpacity.value,
+    transform: [
+      { rotate: '12deg' },
+      { translateX: 40 },
+      { translateY: rightCardTranslateY.value },
+    ],
+  }));
+
+  const mainCardStyle = useAnimatedStyle(() => ({
+    opacity: mainCardOpacity.value,
+    transform: [{ translateY: mainCardTranslateY.value }],
+  }));
   const buttonStyle = useAnimatedStyle(() => ({
     opacity: buttonOpacity.value,
     transform: [{ scale: buttonScale.value }],
@@ -137,14 +185,14 @@ export default function WelcomeScreen() {
               <AnimatedStar size={16} color={colors.textTertiary} style={styles.star3} delay={600} />
               <AnimatedStar size={10} color={colors.textTertiary} style={styles.star4} delay={1000} />
             </Animated.View>
-            <View style={styles.backCardLeft} />
-            <View style={styles.backCardRight} />
-            <View style={styles.mainCard}>
+            <Animated.View style={[styles.backCardLeft, leftCardStyle]} />
+            <Animated.View style={[styles.backCardRight, rightCardStyle]} />
+            <Animated.View style={[styles.mainCard, mainCardStyle]}>
               <View style={styles.cardIconContainer}>
                 <Ionicons name="star-outline" size={28} color={colors.bgPrimary} />
               </View>
               <Text style={styles.cardText}>New You</Text>
-            </View>
+            </Animated.View>
           </Animated.View>
 
           <Animated.View style={[styles.statementContainer, statementStyle]}>
