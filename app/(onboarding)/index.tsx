@@ -119,21 +119,24 @@ export default function WelcomeScreen() {
   const isExiting = useSharedValue(false);
 
   useEffect(() => {
+    // Wait for logo animation to complete (~1800ms) before showing content
+    const LOGO_ANIMATION_DELAY = 1900;
+
     // Tagline line 1 - elegant fade up
-    tagline1Opacity.value = withDelay(550, withTiming(1, { duration: 600, easing: SMOOTH_EASE }));
-    tagline1TranslateY.value = withDelay(550, withSpring(0, { damping: 22, stiffness: 85 }));
+    tagline1Opacity.value = withDelay(LOGO_ANIMATION_DELAY, withTiming(1, { duration: 600, easing: SMOOTH_EASE }));
+    tagline1TranslateY.value = withDelay(LOGO_ANIMATION_DELAY, withSpring(0, { damping: 22, stiffness: 85 }));
 
     // Tagline line 2 - slight stagger
-    tagline2Opacity.value = withDelay(700, withTiming(1, { duration: 600, easing: SMOOTH_EASE }));
-    tagline2TranslateY.value = withDelay(700, withSpring(0, { damping: 22, stiffness: 85 }));
+    tagline2Opacity.value = withDelay(LOGO_ANIMATION_DELAY + 150, withTiming(1, { duration: 600, easing: SMOOTH_EASE }));
+    tagline2TranslateY.value = withDelay(LOGO_ANIMATION_DELAY + 150, withSpring(0, { damping: 22, stiffness: 85 }));
 
     // Subtitle - subtle appearance
-    subtitleOpacity.value = withDelay(950, withTiming(1, { duration: 650, easing: SMOOTH_EASE }));
-    subtitleTranslateY.value = withDelay(950, withSpring(0, { damping: 24, stiffness: 80 }));
+    subtitleOpacity.value = withDelay(LOGO_ANIMATION_DELAY + 400, withTiming(1, { duration: 650, easing: SMOOTH_EASE }));
+    subtitleTranslateY.value = withDelay(LOGO_ANIMATION_DELAY + 400, withSpring(0, { damping: 24, stiffness: 80 }));
 
     // Button - confident entrance
-    buttonOpacity.value = withDelay(1150, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
-    buttonTranslateY.value = withDelay(1150, withSpring(0, { damping: 20, stiffness: 90 }));
+    buttonOpacity.value = withDelay(LOGO_ANIMATION_DELAY + 600, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
+    buttonTranslateY.value = withDelay(LOGO_ANIMATION_DELAY + 600, withSpring(0, { damping: 20, stiffness: 90 }));
   }, []);
 
   const tagline1Style = useAnimatedStyle(() => {
