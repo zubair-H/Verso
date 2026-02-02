@@ -50,6 +50,18 @@ export const createSplashStyles = (colors: Colors) =>
       paddingHorizontal: layout.screenPadding,
       zIndex: 50,
     },
+    bottomPanel: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: colors.bgPrimary,
+      borderTopLeftRadius: 32,
+      borderTopRightRadius: 32,
+      paddingHorizontal: layout.screenPadding,
+      paddingTop: 32,
+      zIndex: 50,
+    },
     textContent: {
       alignItems: 'center',
       marginBottom: 20,

@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { Text, View, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,7 +13,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
-import { AnimatedLogo } from '@/components/ui';
+import { AnimatedLogo, MasonryBackground } from '@/components/ui';
 import { createStyles } from '@/styles/welcome.styles';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -184,13 +183,8 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[colors.bgGradientEdge, colors.bgGradientCenter, colors.bgGradientEdge]}
-        locations={[0, 0.5, 1]}
-        style={styles.gradient}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-      />
+      {/* Blurred Masonry Background */}
+      <MasonryBackground showBlur blurIntensity={80} blurTint="light" />
 
       <View style={styles.content}>
         <Animated.View style={[styles.logoContainer, logoStyle]}>
