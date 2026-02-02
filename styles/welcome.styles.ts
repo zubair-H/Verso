@@ -84,6 +84,24 @@ export const createStyles = (colors: Colors) =>
       textAlign: 'center',
       lineHeight: 24,
     },
+    headline: {
+      ...typography.headlineMedium,
+      color: colors.textPrimary,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    subheadline: {
+      ...typography.bodyMedium,
+      color: colors.textTertiary,
+      textAlign: 'center',
+    },
+    typingContainer: {
+      alignItems: 'center',
+      overflow: 'hidden',
+    },
+    typingClip: {
+      overflow: 'hidden',
+    },
     starsContainer: {
       position: 'absolute',
       width: 320,

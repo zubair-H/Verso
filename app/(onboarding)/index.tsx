@@ -79,7 +79,6 @@ export default function WelcomeScreen() {
   const logoOpacity = useSharedValue(0);
   const cardsOpacity = useSharedValue(0);
   const starsOpacity = useSharedValue(0);
-  const statementOpacity = useSharedValue(0);
   const buttonOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(1);
 
@@ -90,6 +89,10 @@ export default function WelcomeScreen() {
   const rightCardOpacity = useSharedValue(0);
   const mainCardTranslateY = useSharedValue(60);
   const mainCardOpacity = useSharedValue(0);
+
+  // Typing animation values
+  const headlineWidth = useSharedValue(0);
+  const subheadlineWidth = useSharedValue(0);
 
   useEffect(() => {
     // Logo reveal takes 1800ms - start next elements slightly before it finishes for smooth transition
@@ -115,17 +118,27 @@ export default function WelcomeScreen() {
     mainCardOpacity.value = withDelay(startNext + 260, withTiming(1, { duration: cardDuration, easing: EASE }));
     mainCardTranslateY.value = withDelay(startNext + 260, withTiming(0, { duration: cardDuration, easing: cardEase }));
 
-    // 3. Statement appears after cards
-    statementOpacity.value = withDelay(startNext + 400, withTiming(1, { duration: DURATION, easing: EASE }));
+    // 3. Headline types out after cards
+    headlineWidth.value = withDelay(startNext + 400, withTiming(100, { duration: 800, easing: Easing.out(Easing.quad) }));
 
-    // 4. Button appears last
-    buttonOpacity.value = withDelay(startNext + 500, withTiming(1, { duration: DURATION, easing: EASE }));
+    // 4. Subheadline types out after headline
+    subheadlineWidth.value = withDelay(startNext + 900, withTiming(100, { duration: 600, easing: Easing.out(Easing.quad) }));
+
+    // 5. Button appears last
+    buttonOpacity.value = withDelay(startNext + 1200, withTiming(1, { duration: DURATION, easing: EASE }));
   }, []);
 
   const logoStyle = useAnimatedStyle(() => ({ opacity: logoOpacity.value }));
   const cardsStyle = useAnimatedStyle(() => ({ opacity: cardsOpacity.value }));
   const starsStyle = useAnimatedStyle(() => ({ opacity: starsOpacity.value }));
-  const statementStyle = useAnimatedStyle(() => ({ opacity: statementOpacity.value }));
+
+  // Typing animation styles - clip width reveals text from left to right
+  const headlineStyle = useAnimatedStyle(() => ({
+    width: `${headlineWidth.value}%`,
+  }));
+  const subheadlineStyle = useAnimatedStyle(() => ({
+    width: `${subheadlineWidth.value}%`,
+  }));
 
   const leftCardStyle = useAnimatedStyle(() => ({
     opacity: leftCardOpacity.value,
@@ -201,9 +214,18 @@ export default function WelcomeScreen() {
             </Animated.View>
           </Animated.View>
 
-          <Animated.View style={[styles.statementContainer, statementStyle]}>
-            <Text style={styles.statement}>Discover the best version of yourself</Text>
-          </Animated.View>
+          <View style={styles.statementContainer}>
+            <View style={styles.typingContainer}>
+              <Animated.View style={[styles.typingClip, headlineStyle]}>
+                <Text style={styles.headline} numberOfLines={1}>Discover what's possible.</Text>
+              </Animated.View>
+            </View>
+            <View style={styles.typingContainer}>
+              <Animated.View style={[styles.typingClip, subheadlineStyle]}>
+                <Text style={styles.subheadline} numberOfLines={1}>Unlimited styles. Zero commitment.</Text>
+              </Animated.View>
+            </View>
+          </View>
         </View>
       </View>
 
