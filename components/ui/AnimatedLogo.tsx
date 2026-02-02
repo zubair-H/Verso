@@ -13,8 +13,8 @@ interface AnimatedLogoProps {
   animate?: boolean;
 }
 
-const lightLogo = require('@/assets/ios-light.png');
-const darkLogo = require('@/assets/ios-light.png');
+const lightLogo = require('@/assets/ios-tinted.png');
+const darkLogo = require('@/assets/ios-tinted.png');
 
 export function AnimatedLogo({ size = 'large', animate = true }: AnimatedLogoProps) {
   const { isDark } = useTheme();

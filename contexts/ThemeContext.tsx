@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import { darkColors, Colors } from '@/constants/colors';
+import { lightColors, Colors } from '@/constants/colors';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -16,9 +16,9 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  // Force dark mode for now
-  const theme: ThemeMode = 'dark';
-  const colors = darkColors;
+  // Force light mode
+  const theme: ThemeMode = 'light';
+  const colors = lightColors;
 
   return (
     <ThemeContext.Provider value={{ theme, colors, isDark: theme === 'dark' }}>

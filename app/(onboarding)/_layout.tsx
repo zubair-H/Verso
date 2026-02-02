@@ -10,7 +10,9 @@ export default function OnboardingLayout() {
         headerShown: false,
         contentStyle: { backgroundColor: colors.bgPrimary },
         animation: 'fade',
-        animationDuration: 400,
+        animationDuration: 350,
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
       }}
     />
   );

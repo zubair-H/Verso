@@ -126,7 +126,7 @@ export const darkColors = {
   gradientEnd: '#0D1017',
 };
 
-// Default export for backward compatibility (dark mode)
-export const colors = darkColors;
+// Default export for backward compatibility (light mode)
+export const colors = lightColors;
 
 export type Colors = typeof darkColors;
