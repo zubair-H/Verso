@@ -7,6 +7,8 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withDelay,
+  withRepeat,
+  withSequence,
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -18,11 +20,56 @@ import { layout, borderRadius } from '@/constants/spacing';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const Star = ({ size, style, color }: { size: number; style?: any; color: string }) => (
-  <View style={style}>
-    <Ionicons name="sparkles" size={size} color={color} />
-  </View>
-);
+const AnimatedStar = ({
+  size,
+  style,
+  color,
+  delay = 0,
+}: {
+  size: number;
+  style?: any;
+  color: string;
+  delay?: number;
+}) => {
+  const opacity = useSharedValue(0.4);
+  const translateY = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.4, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        false
+      )
+    );
+    translateY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(-4, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(4, { duration: 2500, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      )
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View style={[style, animatedStyle]}>
+      <Ionicons name="sparkles" size={size} color={color} />
+    </Animated.View>
+  );
+};
 
 const DURATION = 350;
 const EASE = Easing.out(Easing.quad);
@@ -89,6 +136,7 @@ export default function WelcomeScreen() {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
+          paddingBottom: 40,
         },
         cardsWrapper: {
           width: 280,
@@ -152,35 +200,24 @@ export default function WelcomeScreen() {
         },
         starsContainer: {
           position: 'absolute',
-          top: 180,
-          left: 0,
-          right: 0,
-          bottom: 280,
+          width: 320,
+          height: 380,
         },
         star1: {
           position: 'absolute',
-          top: 30,
-          left: '10%',
-        },
-        star2: {
-          position: 'absolute',
-          top: 10,
-          right: '20%',
+          top: -30,
+          alignSelf: 'center',
+          left: '45%',
         },
         star3: {
           position: 'absolute',
-          top: '40%',
-          right: '6%',
+          bottom: 20,
+          left: -15,
         },
         star4: {
           position: 'absolute',
           bottom: 40,
-          left: '6%',
-        },
-        star5: {
-          position: 'absolute',
-          bottom: 80,
-          right: '10%',
+          right: -10,
         },
         bottomSection: {
           paddingHorizontal: layout.screenPadding,
@@ -212,14 +249,6 @@ export default function WelcomeScreen() {
         end={{ x: 0.5, y: 1 }}
       />
 
-      <Animated.View style={[styles.starsContainer, starsStyle]} pointerEvents="none">
-        <Star size={20} color={colors.textTertiary} style={styles.star1} />
-        <Star size={16} color={colors.textPrimary} style={styles.star2} />
-        <Star size={12} color={colors.textTertiary} style={styles.star3} />
-        <Star size={16} color={colors.textTertiary} style={styles.star4} />
-        <Star size={14} color={colors.textTertiary} style={styles.star5} />
-      </Animated.View>
-
       <View style={styles.content}>
         <Animated.View style={[styles.logoContainer, logoStyle]}>
           <AnimatedLogo size="large" animate={false} />
@@ -227,6 +256,11 @@ export default function WelcomeScreen() {
 
         <View style={styles.cardsSection}>
           <Animated.View style={[styles.cardsWrapper, cardsStyle]}>
+            <Animated.View style={[styles.starsContainer, starsStyle]} pointerEvents="none">
+              <AnimatedStar size={18} color={colors.textPrimary} style={styles.star1} delay={0} />
+              <AnimatedStar size={16} color={colors.textTertiary} style={styles.star3} delay={600} />
+              <AnimatedStar size={10} color={colors.textTertiary} style={styles.star4} delay={1000} />
+            </Animated.View>
             <View style={styles.backCardLeft} />
             <View style={styles.backCardRight} />
             <View style={styles.mainCard}>
