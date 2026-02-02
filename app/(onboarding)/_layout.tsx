@@ -13,7 +13,10 @@ import Animated, {
 import { BlurView } from 'expo-blur';
 import { AttributesCarousel } from '@/components/ui';
 
-const logoImage = require('@/assets/ios-tinted.png');
+// Logo layer images
+const lineImage = require('@/assets/line.png');
+const swooshImage = require('@/assets/swoosh.png');
+const nameImage = require('@/assets/name.png');
 const { height: screenHeight } = Dimensions.get('window');
 
 // Logo sizes
@@ -30,10 +33,33 @@ export default function OnboardingLayout() {
   // Logo animation progress (0 = large/top position, 1 = small/higher position)
   const logoProgress = useSharedValue(0);
 
+  // Logo reveal animations (for the 3-layer intro animation)
+  const lineReveal = useSharedValue(0);
+  const swooshReveal = useSharedValue(0);
+  const nameReveal = useSharedValue(0);
+  const hasPlayedIntro = useSharedValue(false);
+
   // Carousel visibility and blur state
   const carouselOpacity = useSharedValue(0);
   const blurMaskTop = useSharedValue(0);
   const hasEnteredCarouselScreen = useSharedValue(false);
+
+  // Intro logo animation (runs once on first mount)
+  useEffect(() => {
+    if (!hasPlayedIntro.value) {
+      hasPlayedIntro.value = true;
+      const REVEAL_EASE = Easing.out(Easing.cubic);
+
+      // Line: reveals from left to right (starts at 200ms, 500ms duration)
+      lineReveal.value = withDelay(200, withTiming(1, { duration: 500, easing: REVEAL_EASE }));
+
+      // Swoosh: reveals from right to left (starts at 700ms, 500ms duration)
+      swooshReveal.value = withDelay(700, withTiming(1, { duration: 500, easing: REVEAL_EASE }));
+
+      // Name: reveals from left to right (starts at 1200ms, 600ms duration)
+      nameReveal.value = withDelay(1200, withTiming(1, { duration: 600, easing: REVEAL_EASE }));
+    }
+  }, []);
 
   useEffect(() => {
     const EASE = Easing.out(Easing.cubic);
@@ -86,6 +112,25 @@ export default function OnboardingLayout() {
     };
   });
 
+  // Animated styles for logo layers (clip-path reveal effect via width)
+  const lineLayerStyle = useAnimatedStyle(() => {
+    // Reveal from left to right
+    const width = interpolate(lineReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
+    return { width };
+  });
+
+  const swooshLayerStyle = useAnimatedStyle(() => {
+    // Reveal from right to left
+    const width = interpolate(swooshReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
+    return { width };
+  });
+
+  const nameLayerStyle = useAnimatedStyle(() => {
+    // Reveal from left to right
+    const width = interpolate(nameReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
+    return { width };
+  });
+
   // Carousel animated styles
   const carouselStyle = useAnimatedStyle(() => ({
     opacity: carouselOpacity.value,
@@ -120,13 +165,36 @@ export default function OnboardingLayout() {
         </Animated.View>
       )}
 
-      {/* Persistent logo across all screens */}
+      {/* Persistent logo across all screens - animated 3-layer reveal */}
       <Animated.View style={[styles.logoContainer, logoContainerStyle]}>
-        <Image
-          source={logoImage}
-          style={{ width: LOGO_SIZE_LARGE, height: LOGO_SIZE_LARGE }}
-          resizeMode="contain"
-        />
+        <View style={styles.logoLayersWrapper}>
+          {/* Line layer - reveals from left to right */}
+          <Animated.View style={[styles.logoLayerClip, lineLayerStyle]}>
+            <Image
+              source={lineImage}
+              style={styles.logoLayerImage}
+              resizeMode="contain"
+            />
+          </Animated.View>
+
+          {/* Swoosh layer - reveals from right to left */}
+          <Animated.View style={[styles.logoLayerClipRight, swooshLayerStyle]}>
+            <Image
+              source={swooshImage}
+              style={styles.logoLayerImageRight}
+              resizeMode="contain"
+            />
+          </Animated.View>
+
+          {/* Name layer - reveals from left to right */}
+          <Animated.View style={[styles.logoLayerClip, nameLayerStyle]}>
+            <Image
+              source={nameImage}
+              style={styles.logoLayerImage}
+              resizeMode="contain"
+            />
+          </Animated.View>
+        </View>
       </Animated.View>
 
       <Stack
@@ -160,6 +228,35 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
     zIndex: 100,
+  },
+  logoLayersWrapper: {
+    width: LOGO_SIZE_LARGE,
+    height: LOGO_SIZE_LARGE,
+    position: 'relative',
+  },
+  logoLayerClip: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: LOGO_SIZE_LARGE,
+    overflow: 'hidden',
+  },
+  logoLayerClipRight: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    height: LOGO_SIZE_LARGE,
+    overflow: 'hidden',
+  },
+  logoLayerImage: {
+    width: LOGO_SIZE_LARGE,
+    height: LOGO_SIZE_LARGE,
+  },
+  logoLayerImageRight: {
+    width: LOGO_SIZE_LARGE,
+    height: LOGO_SIZE_LARGE,
+    position: 'absolute',
+    right: 0,
   },
   blurMask: {
     position: 'absolute',
