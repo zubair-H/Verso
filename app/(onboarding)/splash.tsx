@@ -12,18 +12,16 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
-import { MasonryBackground } from '@/components/ui';
+import { AttributesCarousel } from '@/components/ui';
 import { createSplashStyles } from '@/styles/splash.styles';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const AnimatedImage = Animated.createAnimatedComponent(Image);
 
-// Logo assets - crossfade from light to tinted as logo moves up
-const logoLight = require('@/assets/ios-light.png');
-const logoTinted = require('@/assets/ios-tinted.png');
+// Logo asset - same as page 1 and 2
+const logoImage = require('@/assets/ios-tinted.png');
 
-// Logo size
-const LOGO_SIZE = 220;
+// Logo size - same as page 1 and 2
+const LOGO_SIZE = 280;
 
 const DURATION = 350;
 const EASE = Easing.out(Easing.quad);
@@ -32,13 +30,10 @@ export default function SplashScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Logo animation - starts large (like first page), shrinks and moves up
+  // Logo animation - starts at same position as page 2, moves up
   const logoProgress = useSharedValue(0);
   const buttonOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(1);
-
-  // Logo color transition - tied to unmask reaching the logo position
-  const logoColorProgress = useSharedValue(0);
 
   // Bottom panel animation - slides up from bottom
   const bottomPanelTranslateY = useSharedValue(300);
@@ -59,17 +54,10 @@ export default function SplashScreen() {
       withTiming(1, { duration: logoDuration, easing: Easing.out(Easing.cubic) })
     );
 
-    // 2. Blur unmask happens via MasonryBackground props (starts at 600ms, finishes at 1600ms)
+    // 2. Blur unmask happens via AttributesCarousel props (starts at 600ms, finishes at 1600ms)
     const blurUnmaskDelay = 600;
     const blurUnmaskDuration = 1000;
     const blurUnmaskFinished = blurUnmaskDelay + blurUnmaskDuration;
-
-    // Logo color crossfade - starts when unmask reaches the logo position at the top
-    // The unmask reveals from top, so crossfade happens when unmask passes the logo
-    logoColorProgress.value = withDelay(
-      blurUnmaskDelay + 350, // Start when unmask has progressed enough to reach the logo
-      withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) })
-    );
 
     // 3. Bottom panel slides up before content appears
     const panelStartDelay = blurUnmaskFinished - 400; // Panel starts sliding up
@@ -91,29 +79,18 @@ export default function SplashScreen() {
     buttonOpacity.value = withDelay(contentStartDelay + 700, withTiming(1, { duration: DURATION, easing: EASE }));
   }, []);
 
-  // Logo animated style - shrinks from large to small and moves up
-  // Logo starts at page 1 position (marginTop: 80) and moves to very top
-  // Since scale transforms from center, we need to compensate by moving top much higher
+  // Logo animated style - moves up from page 2 position to top
   const logoContainerStyle = useAnimatedStyle(() => {
     const top = interpolate(
       logoProgress.value,
       [0, 1],
-      [80, insets.top - 60]
+      [80, insets.top - 60] // Start at marginTop: 80 (same as page 1 & 2), move to top
     );
 
     return {
       top,
     };
   });
-
-  // Crossfade logo from light to tinted when unmask reaches logo position
-  const logoLightStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(logoColorProgress.value, [0, 1], [1, 0]),
-  }));
-
-  const logoTintedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(logoColorProgress.value, [0, 1], [0, 1]),
-  }));
 
   const headlineStyle = useAnimatedStyle(() => ({
     width: `${headlineWidth.value}%`,
@@ -149,32 +126,23 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Masonry Grid - blur animates out after logo moves */}
-      <MasonryBackground
+      {/* Attributes Carousel - blur animates out after logo moves to reveal attributes */}
+      <AttributesCarousel
         animateBlurOut
         blurIntensity={100}
-        blurTint="dark"
+        blurTint="light"
         blurOutDelay={600}
         blurOutDuration={1000}
         topPadding={100 + insets.top}
-        overlayOpacity={0.55}
-        animateOverlayOut
       />
 
-      {/* Logo - starts at same position as page 1 (marginTop: 80), animates up and crossfades */}
+      {/* Logo - starts at same position as page 1 & 2, animates up */}
       <Animated.View style={[styles.logoContainer, logoContainerStyle]}>
-        <View style={{ width: LOGO_SIZE, height: LOGO_SIZE }}>
-          <AnimatedImage
-            source={logoLight}
-            style={[{ width: LOGO_SIZE, height: LOGO_SIZE, position: 'absolute' }, logoLightStyle]}
-            resizeMode="contain"
-          />
-          <AnimatedImage
-            source={logoTinted}
-            style={[{ width: LOGO_SIZE, height: LOGO_SIZE, position: 'absolute' }, logoTintedStyle]}
-            resizeMode="contain"
-          />
-        </View>
+        <Image
+          source={logoImage}
+          style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
+          resizeMode="contain"
+        />
       </Animated.View>
 
       {/* Bottom Panel - slides up from bottom */}
@@ -187,7 +155,7 @@ export default function SplashScreen() {
           </View>
           <View style={styles.typingContainer}>
             <Animated.View style={[styles.typingClip, subheadlineStyle]}>
-              <Text style={styles.subline} numberOfLines={1}>Unlimited looks. Zero commitment.</Text>
+              <Text style={styles.subline} numberOfLines={1}>Your attributes. Celebrity styles.</Text>
             </Animated.View>
           </View>
         </View>

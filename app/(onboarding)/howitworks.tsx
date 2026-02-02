@@ -7,70 +7,46 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withDelay,
-  withSpring,
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '@/contexts/ThemeContext';
+import { AttributesCarousel } from '@/components/ui';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 
 const logoImage = require('@/assets/ios-tinted.png');
-const LOGO_SIZE = 280;
+const LOGO_SIZE = 280; // Same size as page 1
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export default function WelcomeScreen() {
-  const { colors } = useTheme();
+const DURATION = 400;
+const EASE = Easing.out(Easing.quad);
+
+export default function HowItWorksScreen() {
   const insets = useSafeAreaInsets();
 
-  // Animation values
-  const logoOpacity = useSharedValue(0);
-  const logoScale = useSharedValue(0.8);
-  const taglineOpacity = useSharedValue(0);
-  const subtitleOpacity = useSharedValue(0);
+  const textOpacity = useSharedValue(0);
   const buttonOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(1);
 
   useEffect(() => {
-    const EASE = Easing.out(Easing.cubic);
-
-    // Logo fades in and scales up
-    logoOpacity.value = withDelay(200, withTiming(1, { duration: 600, easing: EASE }));
-    logoScale.value = withDelay(200, withSpring(1, { damping: 15, stiffness: 100 }));
-
-    // Tagline appears
-    taglineOpacity.value = withDelay(700, withTiming(1, { duration: 500, easing: EASE }));
-
-    // Subtitle appears
-    subtitleOpacity.value = withDelay(1000, withTiming(1, { duration: 500, easing: EASE }));
+    // Text appears
+    textOpacity.value = withDelay(300, withTiming(1, { duration: DURATION, easing: EASE }));
 
     // Button appears last
-    buttonOpacity.value = withDelay(1400, withTiming(1, { duration: 400, easing: EASE }));
+    buttonOpacity.value = withDelay(600, withTiming(1, { duration: DURATION, easing: EASE }));
   }, []);
 
-  const logoStyle = useAnimatedStyle(() => ({
-    opacity: logoOpacity.value,
-    transform: [{ scale: logoScale.value }],
-  }));
-
-  const taglineStyle = useAnimatedStyle(() => ({
-    opacity: taglineOpacity.value,
-  }));
-
-  const subtitleStyle = useAnimatedStyle(() => ({
-    opacity: subtitleOpacity.value,
-  }));
-
+  const textStyle = useAnimatedStyle(() => ({ opacity: textOpacity.value }));
   const buttonStyle = useAnimatedStyle(() => ({
     opacity: buttonOpacity.value,
     transform: [{ scale: buttonScale.value }],
   }));
 
-  const handleGetStarted = () => {
+  const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/(onboarding)/howitworks');
+    router.push('/(onboarding)/splash');
   };
 
   const handlePressIn = () => {
@@ -81,47 +57,36 @@ export default function WelcomeScreen() {
     buttonScale.value = withTiming(1, { duration: 100 });
   };
 
-  const styles = useMemo(() => createStyles(colors, insets), [colors, insets]);
+  const styles = useMemo(() => createStyles(insets), [insets]);
 
   return (
     <View style={styles.container}>
-      {/* White and blue tinge gradient background */}
-      <LinearGradient
-        colors={['#FFFFFF', '#F0F7FF', '#E8F4FD']}
-        locations={[0, 0.5, 1]}
-        style={StyleSheet.absoluteFill}
-      />
+      {/* Attributes carousel with light blur */}
+      <AttributesCarousel showBlur blurIntensity={100} blurTint="light" />
 
-      {/* Content */}
+      {/* Content - same layout as page 1 */}
       <View style={styles.content}>
-        {/* Logo */}
-        <Animated.View style={[styles.logoContainer, logoStyle]}>
+        {/* Logo - same position as page 1 */}
+        <View style={styles.logoContainer}>
           <Image
             source={logoImage}
             style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
             resizeMode="contain"
           />
-        </Animated.View>
+        </View>
 
         {/* Text content */}
         <View style={styles.textSection}>
-          <Animated.View style={taglineStyle}>
-            <Text style={styles.tagline}>Try any look.</Text>
-            <Text style={styles.tagline}>Risk nothing.</Text>
-          </Animated.View>
-
-          <Animated.View style={[styles.subtitleContainer, subtitleStyle]}>
-            <Text style={styles.subtitle}>
-              See yourself in celebrity styles before you commit.
-            </Text>
+          <Animated.View style={textStyle}>
+            <Text style={styles.headline}>How it works.</Text>
+            <Text style={styles.subheadline}>Pick any attribute. See it transform into celebrity styles.</Text>
           </Animated.View>
         </View>
       </View>
 
-      {/* Bottom button */}
       <Animated.View style={[styles.bottomSection, buttonStyle]}>
         <AnimatedPressable
-          onPress={handleGetStarted}
+          onPress={handleContinue}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
         >
@@ -130,7 +95,7 @@ export default function WelcomeScreen() {
             locations={[0.68, 1]}
             style={styles.button}
           >
-            <Text style={styles.buttonText}>Get Started</Text>
+            <Text style={styles.buttonText}>Continue</Text>
           </LinearGradient>
         </AnimatedPressable>
       </Animated.View>
@@ -138,7 +103,7 @@ export default function WelcomeScreen() {
   );
 }
 
-const createStyles = (_colors: any, insets: any) =>
+const createStyles = (insets: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -150,31 +115,29 @@ const createStyles = (_colors: any, insets: any) =>
       paddingHorizontal: layout.screenPadding,
     },
     logoContainer: {
-      marginTop: 80,
-      marginBottom: 48,
+      marginTop: 80, // Same as page 1
+      marginBottom: 48, // Same as page 1
     },
     textSection: {
       alignItems: 'center',
     },
-    tagline: {
+    headline: {
       ...typography.displayLarge,
       fontSize: 38,
       fontWeight: '700',
-      color: '#1A2B42',
+      color: '#1A1F2E',
       textAlign: 'center',
       lineHeight: 46,
       letterSpacing: -1,
     },
-    subtitleContainer: {
-      marginTop: 20,
-      paddingHorizontal: 20,
-    },
-    subtitle: {
+    subheadline: {
       ...typography.bodyLarge,
       fontSize: 17,
-      color: '#5A6B7D',
+      color: '#0D1017',
       textAlign: 'center',
       lineHeight: 24,
+      marginTop: 20,
+      opacity: 0.7,
     },
     bottomSection: {
       paddingHorizontal: layout.screenPadding,

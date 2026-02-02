@@ -6,3 +6,4 @@ export { AnimatedLogo } from './AnimatedLogo';
 export { ProgressRing } from './ProgressRing';
 export { CelebrationBurst } from './CelebrationBurst';
 export { MasonryBackground } from './MasonryBackground';
+export { AttributesCarousel } from './AttributesCarousel';
