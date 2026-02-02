@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { AttributesCarousel } from '@/components/ui';
+import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 
 // Logo layer images
 const lineImage = require('@/assets/line.png');
@@ -23,9 +24,10 @@ const { height: screenHeight } = Dimensions.get('window');
 const LOGO_SIZE_LARGE = 280;
 const LOGO_SIZE_SMALL = 220;
 
-export default function OnboardingLayout() {
+function OnboardingLayoutContent() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
+  const { logoExitProgress } = useOnboarding();
 
   // Get current screen from segments
   const currentScreen = segments[segments.length - 1] || 'index';
@@ -111,6 +113,7 @@ export default function OnboardingLayout() {
     const top = interpolate(logoProgress.value, [0, 1], [topLarge, topSmall]);
     const scale = interpolate(logoProgress.value, [0, 1], [1, LOGO_SIZE_SMALL / LOGO_SIZE_LARGE]);
 
+    // Logo container stays in place - only layers animate during exit
     return {
       top,
       transform: [{ scale }],
@@ -118,22 +121,29 @@ export default function OnboardingLayout() {
   });
 
   // Animated styles for logo layers (clip-path reveal effect via width)
+  // Exit animation: reverse of intro (name masks first, then swoosh, then line)
   const lineLayerStyle = useAnimatedStyle(() => {
     // Reveal from left to right
-    const width = interpolate(lineReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
-    return { width };
+    const revealWidth = interpolate(lineReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
+    // During exit, line masks LAST - multiplier goes 1→0
+    const exitMultiplier = interpolate(logoExitProgress.value, [0.6, 1], [1, 0], 'clamp');
+    return { width: revealWidth * exitMultiplier };
   });
 
   const swooshLayerStyle = useAnimatedStyle(() => {
     // Reveal from right to left
-    const width = interpolate(swooshReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
-    return { width };
+    const revealWidth = interpolate(swooshReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
+    // During exit, swoosh masks SECOND - multiplier goes 1→0
+    const exitMultiplier = interpolate(logoExitProgress.value, [0.35, 0.75], [1, 0], 'clamp');
+    return { width: revealWidth * exitMultiplier };
   });
 
   const nameLayerStyle = useAnimatedStyle(() => {
     // Reveal from left to right
-    const width = interpolate(nameReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
-    return { width };
+    const revealWidth = interpolate(nameReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
+    // During exit, name masks FIRST - starts at 10% to give pause after checkmark
+    const exitMultiplier = interpolate(logoExitProgress.value, [0.1, 0.5], [1, 0], 'clamp');
+    return { width: revealWidth * exitMultiplier };
   });
 
   // Carousel animated styles
@@ -173,7 +183,7 @@ export default function OnboardingLayout() {
         </Animated.View>
       )}
 
-      {/* Persistent logo - only on first 4 screens */}
+      {/* Persistent logo - only on onboarding screens */}
       {showLogo && (
         <Animated.View style={[styles.logoContainer, logoContainerStyle]}>
           <View style={styles.logoLayersWrapper}>
@@ -222,6 +232,14 @@ export default function OnboardingLayout() {
         <Stack.Screen name="splash" options={{ animation: 'none' }} />
       </Stack>
     </View>
+  );
+}
+
+export default function OnboardingLayout() {
+  return (
+    <OnboardingProvider>
+      <OnboardingLayoutContent />
+    </OnboardingProvider>
   );
 }
 
