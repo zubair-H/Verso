@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,8 +24,12 @@ import { CelebrationBurst } from '@/components/ui/CelebrationBurst';
 const { height } = Dimensions.get('window');
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// Logo size from layout
+const LOGO_SIZE_SMALL = 220;
+
 export default function PermissionsScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
@@ -132,7 +137,11 @@ export default function PermissionsScreen() {
   const dynamicStyles = useMemo(() => ({
     container: {
       flex: 1,
-      backgroundColor: colors.bgPrimary,
+      backgroundColor: '#F0F6FC',
+    },
+    logoSpacer: {
+      height: LOGO_SIZE_SMALL,
+      marginTop: insets.top - 40,
     },
     iconCircle: {
       width: 120,
@@ -194,7 +203,7 @@ export default function PermissionsScreen() {
       ...typography.bodyMedium,
       color: colors.textTertiary,
     },
-  }), [colors]);
+  }), [colors, insets]);
 
   return (
     <View style={dynamicStyles.container}>
@@ -204,6 +213,9 @@ export default function PermissionsScreen() {
         duration={1200}
         originY={height * 0.4}
       />
+
+      {/* Logo spacer - actual logo is in layout */}
+      <View style={dynamicStyles.logoSpacer} />
 
       {/* Content */}
       <Animated.View style={[styles.content, contentStyle]}>
@@ -236,7 +248,7 @@ export default function PermissionsScreen() {
       </Animated.View>
 
       {/* Bottom */}
-      <View style={styles.bottomSection}>
+      <View style={[styles.bottomSection, { paddingBottom: Math.max(insets.bottom, 16) + 24 }]}>
         {!permissionGranted && (
           <>
             <AnimatedPressable
@@ -265,13 +277,12 @@ export default function PermissionsScreen() {
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: layout.screenPadding,
+    paddingTop: 20,
   },
   bottomSection: {
     paddingHorizontal: layout.screenPadding,
-    paddingBottom: 50,
     gap: 16,
   },
   skipButton: {

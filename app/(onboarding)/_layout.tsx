@@ -65,7 +65,7 @@ export default function OnboardingLayout() {
     const EASE = Easing.out(Easing.cubic);
     const SMOOTH_EASE = Easing.bezier(0.4, 0, 0.2, 1);
 
-    if (currentScreen === 'howitworks' || currentScreen === 'splash' || currentScreen === 'options') {
+    if (currentScreen === 'howitworks' || currentScreen === 'splash' || currentScreen === 'permissions') {
       // Show carousel with fade-in on howitworks (starts first)
       if (currentScreen === 'howitworks' && !hasEnteredCarouselScreen.value) {
         hasEnteredCarouselScreen.value = true;
@@ -76,19 +76,22 @@ export default function OnboardingLayout() {
           100,
           withTiming(1, { duration: 600, easing: SMOOTH_EASE })
         );
-      } else if (currentScreen === 'splash' || currentScreen === 'options') {
-        // On splash/options, logo should be in small position
+      } else if (currentScreen === 'splash') {
+        // On splash, logo should be in small position
         logoProgress.value = withTiming(1, { duration: 300, easing: EASE });
-        // Animate blur out only on splash
-        if (currentScreen === 'splash') {
-          blurMaskTop.value = withDelay(
-            200,
-            withTiming(screenHeight, {
-              duration: 1000,
-              easing: Easing.inOut(Easing.cubic),
-            })
-          );
-        }
+        // Animate blur out on splash
+        blurMaskTop.value = withDelay(
+          200,
+          withTiming(screenHeight, {
+            duration: 1000,
+            easing: Easing.inOut(Easing.cubic),
+          })
+        );
+      } else if (currentScreen === 'permissions') {
+        // Fade out carousel when entering permissions
+        carouselOpacity.value = withTiming(0, { duration: 500, easing: SMOOTH_EASE });
+        // On permissions, keep logo in small position
+        logoProgress.value = withTiming(1, { duration: 300, easing: EASE });
       }
     } else {
       // Animate to larger, lower position
@@ -145,8 +148,8 @@ export default function OnboardingLayout() {
   // Check if we should show carousel (on howitworks or splash)
   const showCarousel = currentScreen === 'howitworks' || currentScreen === 'splash';
 
-  // Only show logo on the first 5 screens (always show on index/initial load)
-  const showLogo = !currentScreen || currentScreen === '(onboarding)' || ['index', 'possibilities', 'howitworks', 'splash', 'options'].includes(currentScreen);
+  // Only show logo on onboarding screens
+  const showLogo = !currentScreen || currentScreen === '(onboarding)' || ['index', 'possibilities', 'howitworks', 'splash', 'permissions'].includes(currentScreen);
 
   return (
     <View style={styles.container}>

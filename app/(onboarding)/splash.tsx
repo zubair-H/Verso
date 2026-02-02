@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
   withDelay,
   Easing,
+  interpolate,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -17,6 +18,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const DURATION = 350;
 const EASE = Easing.out(Easing.quad);
+const EXIT_DURATION = 400;
+const EXIT_EASE = Easing.bezier(0.33, 1, 0.68, 1);
 
 export default function SplashScreen() {
   const { colors } = useTheme();
@@ -32,6 +35,10 @@ export default function SplashScreen() {
   // Typing animation values
   const headlineWidth = useSharedValue(0);
   const subheadlineWidth = useSharedValue(0);
+
+  // Exit animation values
+  const exitProgress = useSharedValue(0);
+  const isExiting = useSharedValue(false);
 
   useEffect(() => {
     // Animation sequence: Blur unmask → Bottom content
@@ -61,26 +68,56 @@ export default function SplashScreen() {
     buttonOpacity.value = withDelay(contentStartDelay + 700, withTiming(1, { duration: DURATION, easing: EASE }));
   }, []);
 
-  const headlineStyle = useAnimatedStyle(() => ({
-    width: `${headlineWidth.value}%`,
-  }));
+  const headlineStyle = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, -40]);
+    return {
+      width: `${headlineWidth.value}%`,
+      opacity: exitOpacity,
+      transform: [{ translateX: exitTranslateX }],
+    };
+  });
 
-  const subheadlineStyle = useAnimatedStyle(() => ({
-    width: `${subheadlineWidth.value}%`,
-  }));
+  const subheadlineStyle = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 40]);
+    return {
+      width: `${subheadlineWidth.value}%`,
+      opacity: exitOpacity,
+      transform: [{ translateX: exitTranslateX }],
+    };
+  });
 
-  const buttonStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-    transform: [{ scale: buttonScale.value }],
-  }));
+  const buttonStyle = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateY = interpolate(exitProgress.value, [0, 1], [0, 30]);
+    return {
+      opacity: buttonOpacity.value * exitOpacity,
+      transform: [{ scale: buttonScale.value }, { translateY: exitTranslateY }],
+    };
+  });
 
-  const bottomPanelStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: bottomPanelTranslateY.value }],
-  }));
+  const bottomPanelStyle = useAnimatedStyle(() => {
+    const exitTranslateY = interpolate(exitProgress.value, [0, 1], [0, 80]);
+    return {
+      transform: [{ translateY: bottomPanelTranslateY.value + exitTranslateY }],
+    };
+  });
 
   const handleContinue = () => {
+    // Prevent double taps
+    if (isExiting.value) return;
+    isExiting.value = true;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/(onboarding)/options');
+
+    // Animate content out elegantly
+    exitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EXIT_EASE });
+
+    // Navigate after exit animation
+    setTimeout(() => {
+      router.push('/(onboarding)/permissions');
+    }, EXIT_DURATION - 80);
   };
 
   const handlePressIn = () => {
