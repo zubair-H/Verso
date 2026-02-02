@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,30 +6,42 @@ import {
   ScrollView,
   Pressable,
   Image,
-  Dimensions,
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { ImageUploadCard, GradientButton, GlassCard } from '@/components/ui';
-import { colors } from '@/constants/colors';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { ImageUploadCard, PrimaryButton } from '@/components/ui';
+import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 import { presets } from '@/utils/presets';
 import { trackEvent } from '@/utils/analytics';
 
-const { width } = Dimensions.get('window');
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 export default function HomeScreen() {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
   const [lookImage, setLookImage] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [greeting, setGreeting] = useState(getGreeting());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGreeting(getGreeting());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const pickImage = async (type: 'selfie' | 'look') => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -67,15 +79,191 @@ export default function HomeScreen() {
 
   const canGenerate = selfieImage && lookImage;
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bgPrimary,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: layout.screenPadding,
+      paddingVertical: 16,
+    },
+    menuButton: {
+      padding: 8,
+    },
+    menuOverlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+    },
+    menuContainer: {
+      backgroundColor: colors.bgSecondary,
+      paddingHorizontal: 20,
+      paddingBottom: 20,
+      borderBottomLeftRadius: 20,
+      borderBottomRightRadius: 20,
+    },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 16,
+      borderBottomWidth: 0.5,
+      borderBottomColor: colors.border,
+    },
+    menuItemText: {
+      ...typography.bodyLarge,
+      color: colors.textPrimary,
+      marginLeft: 16,
+    },
+    proBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.accent,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: borderRadius.full,
+    },
+    proText: {
+      ...typography.proBadge,
+      color: colors.textOnAccent,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: layout.screenPadding,
+      paddingBottom: layout.tabBarHeight + 20,
+    },
+    greeting: {
+      ...typography.bodyLarge,
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    title: {
+      ...typography.displayMedium,
+      color: colors.textPrimary,
+      marginBottom: 20,
+    },
+    progressCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.bgCard,
+      borderRadius: borderRadius.lg,
+      padding: 16,
+      marginBottom: 28,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    progressIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: colors.accentSecondaryMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    progressContent: {
+      flex: 1,
+    },
+    progressTitle: {
+      ...typography.labelMedium,
+      color: colors.textPrimary,
+      marginBottom: 2,
+    },
+    progressSubtitle: {
+      ...typography.caption,
+      color: colors.textTertiary,
+    },
+    streakBadge: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.accentSecondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    streakText: {
+      ...typography.labelMedium,
+      color: colors.textOnAccent,
+    },
+    uploadSection: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 28,
+    },
+    generateSection: {
+      marginBottom: 36,
+    },
+    generateButton: {
+      width: '100%',
+    },
+    presetSection: {
+      marginBottom: 20,
+    },
+    dividerContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    divider: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.border,
+    },
+    dividerText: {
+      ...typography.caption,
+      color: colors.textTertiary,
+      marginHorizontal: 16,
+    },
+    presetStrip: {
+      paddingVertical: 4,
+    },
+    presetItem: {
+      marginRight: 16,
+      position: 'relative',
+    },
+    presetBorder: {
+      padding: 2,
+      borderRadius: borderRadius.full,
+      borderWidth: 2,
+      borderColor: colors.border,
+    },
+    presetBorderActive: {
+      borderColor: colors.accent,
+    },
+    presetImageContainer: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      overflow: 'hidden',
+      backgroundColor: colors.bgSecondary,
+    },
+    presetImage: {
+      width: '100%',
+      height: '100%',
+      resizeMode: 'cover',
+    },
+    newBadge: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      backgroundColor: colors.accent,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: borderRadius.sm,
+    },
+    newBadgeText: {
+      ...typography.proBadge,
+      fontSize: 8,
+      color: colors.textOnAccent,
+    },
+  }), [colors]);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <LinearGradient
-        colors={['rgba(0, 212, 255, 0.06)', 'rgba(0, 0, 0, 0)', 'rgba(0, 191, 165, 0.04)']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
-
       {/* Menu Modal */}
       <Modal
         visible={menuVisible}
@@ -134,14 +322,8 @@ export default function HomeScreen() {
           <Ionicons name="menu" size={24} color={colors.textSecondary} />
         </Pressable>
         <View style={styles.proBadge}>
-          <LinearGradient
-            colors={colors.gradientPrimary}
-            style={styles.proBadgeGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <Text style={styles.proText}>PRO ✦</Text>
-          </LinearGradient>
+          <Ionicons name="sparkles" size={12} color={colors.textOnAccent} style={{ marginRight: 4 }} />
+          <Text style={styles.proText}>PRO</Text>
         </View>
       </View>
 
@@ -150,22 +332,38 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title */}
+        {/* Personalized Greeting */}
         <Animated.View entering={FadeIn.delay(100)}>
-          <Text style={styles.title}>Try a Look</Text>
-          <Text style={styles.subtitle}>See it on you first</Text>
+          <Text style={styles.greeting}>{greeting}</Text>
+          <Text style={styles.title}>Explore a Look</Text>
+        </Animated.View>
+
+        {/* Progress indicator */}
+        <Animated.View entering={FadeInDown.delay(150)} style={styles.progressCard}>
+          <View style={styles.progressIcon}>
+            <Ionicons name="flame" size={20} color={colors.accentSecondary} />
+          </View>
+          <View style={styles.progressContent}>
+            <Text style={styles.progressTitle}>You're on a roll!</Text>
+            <Text style={styles.progressSubtitle}>3 looks explored this week</Text>
+          </View>
+          <View style={styles.streakBadge}>
+            <Text style={styles.streakText}>3</Text>
+          </View>
         </Animated.View>
 
         {/* Upload Cards */}
-        <Animated.View entering={FadeIn.delay(200)} style={styles.uploadSection}>
+        <Animated.View entering={FadeInDown.delay(200)} style={styles.uploadSection}>
           <ImageUploadCard
             label="Your Photo"
+            sublabel="Selfie or portrait"
             image={selfieImage}
             onSelect={() => pickImage('selfie')}
             onRemove={() => setSelfieImage(null)}
           />
           <ImageUploadCard
             label="The Look"
+            sublabel="Style inspiration"
             image={lookImage}
             onSelect={() => pickImage('look')}
             onRemove={() => setLookImage(null)}
@@ -173,19 +371,18 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Generate Button */}
-        <Animated.View entering={FadeIn.delay(300)} style={styles.generateSection}>
-          <GradientButton
-            label="Generate Look"
+        <Animated.View entering={FadeInDown.delay(300)} style={styles.generateSection}>
+          <PrimaryButton
+            label="See Your Look"
             onPress={handleGenerate}
             disabled={!canGenerate}
-            size="large"
-            haptic="medium"
+            icon={canGenerate ? 'sparkles' : undefined}
             style={styles.generateButton}
           />
         </Animated.View>
 
         {/* Preset Strip */}
-        <Animated.View entering={FadeIn.delay(400)} style={styles.presetSection}>
+        <Animated.View entering={FadeInDown.delay(400)} style={styles.presetSection}>
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />
             <Text style={styles.dividerText}>or try a preset</Text>
@@ -197,25 +394,28 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.presetStrip}
           >
-            {presets.slice(0, 8).map((preset) => (
+            {presets.slice(0, 8).map((preset, index) => (
               <Pressable
                 key={preset.id}
                 onPress={() => selectPreset(preset.image)}
                 style={styles.presetItem}
               >
-                <LinearGradient
-                  colors={colors.gradientPrimary}
-                  style={styles.presetBorder}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
+                <View style={[
+                  styles.presetBorder,
+                  lookImage === preset.image && styles.presetBorderActive
+                ]}>
                   <View style={styles.presetImageContainer}>
                     <Image
                       source={{ uri: preset.image }}
                       style={styles.presetImage}
                     />
                   </View>
-                </LinearGradient>
+                </View>
+                {index === 0 && (
+                  <View style={styles.newBadge}>
+                    <Text style={styles.newBadgeText}>NEW</Text>
+                  </View>
+                )}
               </Pressable>
             ))}
           </ScrollView>
@@ -224,123 +424,3 @@ export default function HomeScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgPrimary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: 16,
-  },
-  menuButton: {
-    padding: 8,
-  },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  menuContainer: {
-    backgroundColor: colors.bgSecondary,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.glassBorder,
-  },
-  menuItemText: {
-    ...typography.bodyLarge,
-    color: colors.textPrimary,
-    marginLeft: 16,
-  },
-  proBadge: {
-    overflow: 'hidden',
-    borderRadius: borderRadius.full,
-  },
-  proBadgeGradient: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  proText: {
-    ...typography.labelSmall,
-    color: colors.textPrimary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: layout.screenPadding,
-    paddingBottom: layout.tabBarHeight + 20,
-  },
-  title: {
-    ...typography.displayMedium,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  subtitle: {
-    ...typography.bodyLarge,
-    color: colors.textSecondary,
-    marginBottom: 32,
-  },
-  uploadSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 32,
-  },
-  generateSection: {
-    marginBottom: 40,
-  },
-  generateButton: {
-    width: '100%',
-  },
-  presetSection: {
-    marginBottom: 20,
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.glassBorder,
-  },
-  dividerText: {
-    ...typography.labelSmall,
-    color: colors.textTertiary,
-    marginHorizontal: 16,
-  },
-  presetStrip: {
-    paddingVertical: 4,
-  },
-  presetItem: {
-    marginRight: 16,
-  },
-  presetBorder: {
-    padding: 2,
-    borderRadius: borderRadius.full,
-  },
-  presetImageContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    overflow: 'hidden',
-    backgroundColor: colors.bgSecondary,
-  },
-  presetImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-});

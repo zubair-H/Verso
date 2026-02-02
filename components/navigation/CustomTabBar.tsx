@@ -1,22 +1,22 @@
-import React from 'react';
-import { StyleSheet, View, Text, Pressable, Dimensions } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useMemo } from 'react';
+import { StyleSheet, View, Text, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  FadeIn,
 } from 'react-native-reanimated';
-import { colors } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
-import { layout } from '@/constants/spacing';
+import { layout, springs } from '@/constants/spacing';
 
 interface TabItem {
   name: string;
   label: string;
-  icon: string;
-  iconFilled: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconFilled: keyof typeof Ionicons.glyphMap;
 }
 
 interface CustomTabBarProps {
@@ -26,20 +26,63 @@ interface CustomTabBarProps {
 }
 
 const tabs: TabItem[] = [
-  { name: 'index', label: 'Home', icon: '○', iconFilled: '●' },
-  { name: 'presets', label: 'Presets', icon: '◇', iconFilled: '◆' },
-  { name: 'saved', label: 'Saved', icon: '♡', iconFilled: '♥' },
+  { name: 'index', label: 'Home', icon: 'home-outline', iconFilled: 'home' },
+  { name: 'presets', label: 'Presets', icon: 'grid-outline', iconFilled: 'grid' },
+  { name: 'saved', label: 'Saved', icon: 'heart-outline', iconFilled: 'heart' },
 ];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarProps) {
+  const { colors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: layout.tabBarHeight,
+      backgroundColor: colors.bgSecondary,
+    },
+    topBorder: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 1,
+      backgroundColor: colors.borderLight,
+    },
+    tabsContainer: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-around',
+      paddingHorizontal: 20,
+      paddingBottom: 20,
+    },
+    tabButton: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 64,
+    },
+    activeTab: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    inactiveTab: {
+      padding: 10,
+    },
+    labelActive: {
+      ...typography.labelSmall,
+      color: colors.accent,
+    },
+  }), [colors]);
+
   return (
     <View style={styles.container}>
-      <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-      <View style={[StyleSheet.absoluteFill, styles.overlay]} />
       <View style={styles.topBorder} />
-
       <View style={styles.tabsContainer}>
         {state.routes.map((route: any, index: number) => {
           const tab = tabs.find((t) => t.name === route.name) || tabs[0];
@@ -65,6 +108,8 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
               tab={tab}
               isFocused={isFocused}
               onPress={onPress}
+              colors={colors}
+              styles={styles}
             />
           );
         })}
@@ -77,10 +122,14 @@ function TabButton({
   tab,
   isFocused,
   onPress,
+  colors,
+  styles,
 }: {
   tab: TabItem;
   isFocused: boolean;
   onPress: () => void;
+  colors: any;
+  styles: any;
 }) {
   const scale = useSharedValue(1);
 
@@ -89,11 +138,11 @@ function TabButton({
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.9, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(0.9, springs.snappy);
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(1, springs.snappy);
   };
 
   return (
@@ -104,77 +153,18 @@ function TabButton({
       style={[styles.tabButton, animatedStyle]}
     >
       {isFocused ? (
-        <LinearGradient
-          colors={colors.gradientPrimary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+        <Animated.View
+          entering={FadeIn.duration(150)}
           style={styles.activeTab}
         >
-          <Text style={styles.iconActive}>{tab.iconFilled}</Text>
+          <Ionicons name={tab.iconFilled} size={20} color={colors.accent} />
           <Text style={styles.labelActive}>{tab.label}</Text>
-        </LinearGradient>
+        </Animated.View>
       ) : (
         <View style={styles.inactiveTab}>
-          <Text style={styles.iconInactive}>{tab.icon}</Text>
+          <Ionicons name={tab.icon} size={22} color={colors.textTertiary} />
         </View>
       )}
     </AnimatedPressable>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: layout.tabBarHeight,
-    overflow: 'hidden',
-  },
-  overlay: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  topBorder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: colors.glassBorder,
-  },
-  tabsContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  tabButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  inactiveTab: {
-    padding: 10,
-  },
-  iconActive: {
-    fontSize: 16,
-    color: colors.textPrimary,
-    marginRight: 6,
-  },
-  iconInactive: {
-    fontSize: 20,
-    color: colors.textTertiary,
-  },
-  labelActive: {
-    ...typography.labelMedium,
-    color: colors.textPrimary,
-  },
-});

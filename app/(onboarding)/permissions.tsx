@@ -1,6 +1,5 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useState, useMemo } from 'react';
+import { StyleSheet, Text, View, Pressable, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -12,88 +11,79 @@ import Animated, {
   withTiming,
   withDelay,
   withSpring,
-  interpolate,
-  Easing,
+  withRepeat,
+  withSequence,
 } from 'react-native-reanimated';
-import { GradientButton, GlassCard } from '@/components/ui';
-import { colors } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
-import { layout } from '@/constants/spacing';
+import { layout, springs, borderRadius } from '@/constants/spacing';
 import { trackEvent } from '@/utils/analytics';
+import { CelebrationBurst } from '@/components/ui/CelebrationBurst';
 
+const { height } = Dimensions.get('window');
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function PermissionsScreen() {
-  // Orchestrated entrance animations
-  const iconProgress = useSharedValue(0);
-  const contentProgress = useSharedValue(0);
-  const cardProgress = useSharedValue(0);
-  const bottomProgress = useSharedValue(0);
-  const progressWidth = useSharedValue(0.99);
+  const { colors } = useTheme();
+  const [permissionGranted, setPermissionGranted] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+
+  const contentOpacity = useSharedValue(0);
+  const contentTranslateY = useSharedValue(20);
+
+  // Main button
+  const buttonScale = useSharedValue(1);
+  const buttonGlow = useSharedValue(0.4);
+
+  // Success state
+  const checkScale = useSharedValue(0);
+  const checkOpacity = useSharedValue(0);
+
+  // Skip link
+  const skipOpacity = useSharedValue(0);
+
+  // Trust badge
+  const trustOpacity = useSharedValue(0);
 
   useEffect(() => {
-    // Animate progress bar to 100%
-    progressWidth.value = withSpring(1, {
-      damping: 20,
-      stiffness: 150,
-    });
+    contentOpacity.value = withTiming(1, { duration: 500 });
+    contentTranslateY.value = withSpring(0, springs.smooth);
 
-    // Staggered entrance sequence
-    iconProgress.value = withTiming(1, {
-      duration: 600,
-      easing: Easing.out(Easing.cubic),
-    });
+    // Pulsing glow on button
+    buttonGlow.value = withDelay(500, withRepeat(
+      withSequence(
+        withTiming(0.6, { duration: 1200 }),
+        withTiming(0.3, { duration: 1200 })
+      ),
+      -1,
+      true
+    ));
 
-    contentProgress.value = withDelay(
-      200,
-      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })
-    );
-
-    cardProgress.value = withDelay(
-      400,
-      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })
-    );
-
-    bottomProgress.value = withDelay(
-      600,
-      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })
-    );
+    skipOpacity.value = withDelay(600, withTiming(1, { duration: 400 }));
+    trustOpacity.value = withDelay(400, withTiming(1, { duration: 400 }));
   }, []);
 
-  const iconStyle = useAnimatedStyle(() => {
-    const scale = interpolate(iconProgress.value, [0, 1], [0.9, 1]);
-    return {
-      opacity: iconProgress.value,
-      transform: [{ scale }],
-    };
-  });
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+    transform: [{ translateY: contentTranslateY.value }],
+  }));
 
-  const contentStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(contentProgress.value, [0, 1], [30, 0]);
-    return {
-      opacity: contentProgress.value,
-      transform: [{ translateY }],
-    };
-  });
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+    shadowOpacity: buttonGlow.value,
+  }));
 
-  const cardStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(cardProgress.value, [0, 1], [40, 0]);
-    return {
-      opacity: cardProgress.value,
-      transform: [{ translateY }],
-    };
-  });
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: checkOpacity.value,
+    transform: [{ scale: checkScale.value }],
+  }));
 
-  const bottomStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(bottomProgress.value, [0, 1], [60, 0]);
-    return {
-      opacity: bottomProgress.value,
-      transform: [{ translateY }],
-    };
-  });
+  const skipStyle = useAnimatedStyle(() => ({
+    opacity: skipOpacity.value,
+  }));
 
-  const progressStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value * 100}%`,
+  const trustStyle = useAnimatedStyle(() => ({
+    opacity: trustOpacity.value,
   }));
 
   const handleAllowAccess = async () => {
@@ -101,14 +91,26 @@ export default function PermissionsScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status === 'granted') {
+      setPermissionGranted(true);
+
+      // Celebration animation
+      checkOpacity.value = withTiming(1, { duration: 200 });
+      checkScale.value = withSpring(1, springs.celebration);
+
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowCelebration(true);
+
+      // Wait for celebration, then navigate
+      setTimeout(async () => {
+        await completeOnboarding();
+      }, 1500);
     } else {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      // Still complete onboarding even without permission
+      await completeOnboarding();
     }
-    await completeOnboarding();
   };
 
-  const handleMaybeLater = async () => {
+  const handleSkip = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await completeOnboarding();
   };
@@ -119,192 +121,161 @@ export default function PermissionsScreen() {
     router.replace('/(tabs)');
   };
 
+  const handlePressIn = () => {
+    buttonScale.value = withSpring(0.96, springs.snappy);
+  };
+
+  const handlePressOut = () => {
+    buttonScale.value = withSpring(1, springs.snappy);
+  };
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bgPrimary,
+    },
+    iconCircle: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: colors.accentMuted,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginBottom: 32,
+    },
+    title: {
+      ...typography.displayMedium,
+      color: colors.textPrimary,
+      textAlign: 'center' as const,
+      marginBottom: 16,
+    },
+    description: {
+      ...typography.bodyLarge,
+      color: colors.textSecondary,
+      textAlign: 'center' as const,
+      lineHeight: 26,
+      marginBottom: 32,
+      maxWidth: 300,
+    },
+    trustBadge: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 10,
+      paddingVertical: 14,
+      paddingHorizontal: 20,
+      backgroundColor: colors.accentTertiaryMuted,
+      borderRadius: borderRadius.full,
+    },
+    trustText: {
+      ...typography.bodySmall,
+      color: colors.accentTertiary,
+      fontWeight: '500' as const,
+    },
+    button: {
+      width: '100%' as const,
+      height: 60,
+      backgroundColor: colors.accent,
+      borderRadius: borderRadius.lg,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: 10,
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 8 },
+      shadowRadius: 24,
+      elevation: 10,
+    },
+    buttonText: {
+      ...typography.labelLarge,
+      color: colors.textOnAccent,
+      fontSize: 18,
+    },
+    skipText: {
+      ...typography.bodyMedium,
+      color: colors.textTertiary,
+    },
+  }), [colors]);
+
   return (
-    <View style={styles.container}>
-      {/* Ambient background */}
-      <LinearGradient
-        colors={['rgba(0, 212, 255, 0.04)', 'transparent', 'rgba(0, 191, 165, 0.03)']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0.3, y: 0 }}
-        end={{ x: 0.7, y: 1 }}
+    <View style={dynamicStyles.container}>
+      <CelebrationBurst
+        trigger={showCelebration}
+        particleCount={30}
+        duration={1200}
+        originY={height * 0.4}
       />
 
-      {/* Progress indicator - almost complete */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressTrack}>
-          <Animated.View style={[styles.progressFillContainer, progressStyle]}>
-            <LinearGradient
-              colors={colors.gradientPrimary}
-              style={styles.progressGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            />
-          </Animated.View>
+      {/* Content */}
+      <Animated.View style={[styles.content, contentStyle]}>
+        <View style={dynamicStyles.iconCircle}>
+          {permissionGranted ? (
+            <Animated.View style={checkStyle}>
+              <Ionicons name="checkmark" size={48} color={colors.success} />
+            </Animated.View>
+          ) : (
+            <Ionicons name="camera" size={48} color={colors.accent} />
+          )}
         </View>
-      </View>
 
-      <View style={styles.content}>
-        {/* Icon */}
-        <Animated.View style={[styles.iconContainer, iconStyle]}>
-          <View style={styles.iconBackground}>
-            <Ionicons name="images" size={48} color={colors.textPrimary} />
-          </View>
-        </Animated.View>
+        <Text style={dynamicStyles.title}>
+          {permissionGranted ? "You're all set!" : "Let's Make Magic"}
+        </Text>
+        <Text style={dynamicStyles.description}>
+          {permissionGranted
+            ? "Get ready to discover your next look"
+            : "To visualize looks on yourself, we need access to your photos."}
+        </Text>
 
-        {/* Title and description */}
-        <Animated.View style={[styles.textContainer, contentStyle]}>
-          <Text style={styles.title}>One last thing</Text>
-          <Text style={styles.description}>
-            We need access to your photos to work our magic.
+        {/* Trust badge */}
+        <Animated.View style={[dynamicStyles.trustBadge, trustStyle]}>
+          <Ionicons name="shield-checkmark" size={18} color={colors.accentTertiary} />
+          <Text style={dynamicStyles.trustText}>
+            Your photos never leave your device
           </Text>
         </Animated.View>
-
-        {/* Privacy card */}
-        <Animated.View style={[styles.cardContainer, cardStyle]}>
-          <GlassCard style={styles.privacyCard} padding={20}>
-            <View style={styles.privacyRow}>
-              <View style={styles.privacyIconContainer}>
-                <Ionicons
-                  name="shield-checkmark"
-                  size={24}
-                  color={colors.accentSecondary}
-                />
-              </View>
-              <View style={styles.privacyTextContainer}>
-                <Text style={styles.privacyTitle}>Private by design</Text>
-                <Text style={styles.privacyDescription}>
-                  Your photos never leave your device.
-                </Text>
-              </View>
-            </View>
-          </GlassCard>
-        </Animated.View>
-      </View>
-
-      {/* Bottom section */}
-      <Animated.View style={[styles.bottomSection, bottomStyle]}>
-        <GradientButton
-          label="Allow Photo Access"
-          onPress={handleAllowAccess}
-          size="large"
-          haptic="medium"
-          style={styles.button}
-        />
-
-        <AnimatedPressable onPress={handleMaybeLater} style={styles.maybeLater}>
-          <Text style={styles.maybeLaterText}>I'll do this later</Text>
-        </AnimatedPressable>
       </Animated.View>
+
+      {/* Bottom */}
+      <View style={styles.bottomSection}>
+        {!permissionGranted && (
+          <>
+            <AnimatedPressable
+              onPress={handleAllowAccess}
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+            >
+              <Animated.View style={[dynamicStyles.button, buttonAnimatedStyle]}>
+                <Ionicons name="camera-outline" size={22} color={colors.textOnAccent} />
+                <Text style={dynamicStyles.buttonText}>Enable Photo Access</Text>
+              </Animated.View>
+            </AnimatedPressable>
+
+            <Animated.View style={skipStyle}>
+              <Pressable onPress={handleSkip} style={styles.skipButton}>
+                <Text style={dynamicStyles.skipText}>I'll do this later</Text>
+              </Pressable>
+            </Animated.View>
+          </>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgPrimary,
-  },
-  progressContainer: {
-    position: 'absolute',
-    top: 60,
-    left: layout.screenPadding,
-    right: layout.screenPadding,
-    zIndex: 10,
-  },
-  progressTrack: {
-    height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFillContainer: {
-    height: '100%',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressGradient: {
-    flex: 1,
-  },
   content: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: layout.screenPadding,
-  },
-  iconContainer: {
-    marginBottom: 32,
-  },
-  iconBackground: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  textContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  title: {
-    ...typography.displayMedium,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  description: {
-    ...typography.bodyLarge,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    maxWidth: 280,
-  },
-  cardContainer: {
-    width: '100%',
-  },
-  privacyCard: {
-    width: '100%',
-  },
-  privacyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  privacyIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 191, 165, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  privacyTextContainer: {
-    flex: 1,
-  },
-  privacyTitle: {
-    ...typography.labelLarge,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  privacyDescription: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
   },
   bottomSection: {
     paddingHorizontal: layout.screenPadding,
     paddingBottom: 50,
+    gap: 16,
   },
-  button: {
-    width: '100%',
-  },
-  maybeLater: {
-    marginTop: 20,
+  skipButton: {
     alignItems: 'center',
     paddingVertical: 12,
-  },
-  maybeLaterText: {
-    ...typography.bodyMedium,
-    color: colors.textTertiary,
   },
 });

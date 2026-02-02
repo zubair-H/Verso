@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,7 +8,7 @@ import {
   Image,
   Dimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,10 +18,10 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { GradientButton, GlassCard } from '@/components/ui';
-import { colors } from '@/constants/colors';
+import { PrimaryButton } from '@/components/ui';
+import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
-import { layout, borderRadius } from '@/constants/spacing';
+import { layout, borderRadius, springs } from '@/constants/spacing';
 import { useStorage, SavedLook } from '@/hooks/useStorage';
 
 const { width } = Dimensions.get('window');
@@ -31,7 +31,18 @@ const CARD_WIDTH = (width - layout.screenPadding * 2 - CARD_GAP * (COLUMN_COUNT 
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+interface ColorsType {
+  bgPrimary: string;
+  textPrimary: string;
+  textSecondary: string;
+  textTertiary: string;
+  accent: string;
+  bgTertiary: string;
+  border: string;
+}
+
 export default function SavedScreen() {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { savedLooks, toggleFavorite, isLoading } = useStorage();
   const [activeTab, setActiveTab] = useState<'all' | 'favorites'>('all');
@@ -59,8 +70,6 @@ export default function SavedScreen() {
       setSelectedIds((prev) =>
         prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
       );
-    } else {
-      // View look details
     }
   };
 
@@ -75,47 +84,125 @@ export default function SavedScreen() {
   };
 
   const handleCompare = () => {
-    // Navigate to compare view with selected looks
+    // Navigate to compare view
   };
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <LinearGradient
-        colors={['rgba(0, 212, 255, 0.06)', 'rgba(0, 0, 0, 0)', 'rgba(0, 191, 165, 0.04)']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
+  const handleTryALook = () => {
+    router.push('/(tabs)');
+  };
 
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bgPrimary,
+    },
+    title: {
+      ...typography.displayMedium,
+      color: colors.textPrimary,
+    },
+    editButton: {
+      ...typography.labelLarge,
+      color: colors.accent,
+    },
+    tabsContainer: {
+      flexDirection: 'row' as const,
+      marginHorizontal: layout.screenPadding,
+      marginBottom: 24,
+      backgroundColor: colors.bgTertiary,
+      borderRadius: borderRadius.md,
+      padding: 4,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 12,
+      alignItems: 'center' as const,
+      borderRadius: borderRadius.sm,
+    },
+    tabActive: {
+      backgroundColor: colors.border,
+    },
+    tabText: {
+      ...typography.labelMedium,
+      color: colors.textSecondary,
+    },
+    tabTextActive: {
+      color: colors.textPrimary,
+    },
+    emptyTitle: {
+      ...typography.headlineLarge,
+      color: colors.textPrimary,
+      marginBottom: 8,
+    },
+    emptyDescription: {
+      ...typography.bodyMedium,
+      color: colors.textSecondary,
+      textAlign: 'center' as const,
+      marginBottom: 32,
+    },
+    savedCardSelected: {
+      borderColor: colors.accent,
+    },
+    favoriteBadge: {
+      position: 'absolute' as const,
+      top: 8,
+      right: 8,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.bgTertiary,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    selectionIndicator: {
+      position: 'absolute' as const,
+      top: 8,
+      right: 8,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.textSecondary,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: 'transparent',
+    },
+    selectionIndicatorActive: {
+      borderWidth: 0,
+      backgroundColor: colors.accent,
+    },
+  }), [colors]);
+
+  return (
+    <View style={[dynamicStyles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Saved Looks</Text>
+        <Text style={dynamicStyles.title}>Saved Looks</Text>
         {selectionMode ? (
           <Pressable onPress={exitSelectionMode}>
-            <Text style={styles.editButton}>Done</Text>
+            <Text style={dynamicStyles.editButton}>Done</Text>
           </Pressable>
         ) : (
           <Pressable onPress={() => setSelectionMode(true)}>
-            <Text style={styles.editButton}>Edit</Text>
+            <Text style={dynamicStyles.editButton}>Edit</Text>
           </Pressable>
         )}
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabsContainer}>
+      <View style={dynamicStyles.tabsContainer}>
         <Pressable
           onPress={() => handleTabChange('all')}
-          style={[styles.tab, activeTab === 'all' && styles.tabActive]}
+          style={[dynamicStyles.tab, activeTab === 'all' && dynamicStyles.tabActive]}
         >
-          <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
+          <Text style={[dynamicStyles.tabText, activeTab === 'all' && dynamicStyles.tabTextActive]}>
             All ({savedLooks.length})
           </Text>
         </Pressable>
         <Pressable
           onPress={() => handleTabChange('favorites')}
-          style={[styles.tab, activeTab === 'favorites' && styles.tabActive]}
+          style={[dynamicStyles.tab, activeTab === 'favorites' && dynamicStyles.tabActive]}
         >
-          <Text style={[styles.tabText, activeTab === 'favorites' && styles.tabTextActive]}>
+          <Text style={[dynamicStyles.tabText, activeTab === 'favorites' && dynamicStyles.tabTextActive]}>
             Favorites
           </Text>
         </Pressable>
@@ -124,17 +211,22 @@ export default function SavedScreen() {
       {/* Grid or Empty State */}
       {displayedLooks.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="camera" size={64} color={colors.textTertiary} style={styles.emptyIcon} />
-          <Text style={styles.emptyTitle}>No saved looks yet</Text>
-          <Text style={styles.emptyDescription}>
-            Generate some looks and save your favorites here!
+          <Ionicons name="camera-outline" size={64} color={colors.textTertiary} style={styles.emptyIcon} />
+          <Text style={dynamicStyles.emptyTitle}>
+            {activeTab === 'favorites' ? 'No favorites yet' : 'Start your collection'}
           </Text>
-          <GradientButton
-            label="Try a Look"
-            onPress={() => {}}
-            size="medium"
-            style={styles.emptyButton}
-          />
+          <Text style={dynamicStyles.emptyDescription}>
+            {activeTab === 'favorites'
+              ? 'Tap the heart on any saved look to add it here.'
+              : 'Explore some looks and save your favorites to build your style inspiration board!'}
+          </Text>
+          {activeTab === 'all' && (
+            <PrimaryButton
+              label="Try a Look"
+              onPress={handleTryALook}
+              style={styles.emptyButton}
+            />
+          )}
         </View>
       ) : (
         <ScrollView
@@ -153,6 +245,7 @@ export default function SavedScreen() {
                 onPress={() => handlePress(look.id)}
                 onLongPress={() => handleLongPress(look.id)}
                 onToggleFavorite={() => handleToggleFavorite(look.id)}
+                colors={colors}
               />
             ))}
           </View>
@@ -162,11 +255,10 @@ export default function SavedScreen() {
       {/* Compare Button */}
       {selectionMode && selectedIds.length > 0 && (
         <Animated.View entering={FadeIn} style={styles.compareContainer}>
-          <GradientButton
+          <PrimaryButton
             label={`Compare (${selectedIds.length})`}
             onPress={handleCompare}
-            disabled={selectedIds.length < 2 || selectedIds.length > 2}
-            size="large"
+            disabled={selectedIds.length !== 2}
             style={styles.compareButton}
           />
         </Animated.View>
@@ -183,6 +275,7 @@ function SavedLookCard({
   onPress,
   onLongPress,
   onToggleFavorite,
+  colors,
 }: {
   look: SavedLook;
   index: number;
@@ -191,6 +284,7 @@ function SavedLookCard({
   onPress: () => void;
   onLongPress: () => void;
   onToggleFavorite: () => void;
+  colors: ColorsType;
 }) {
   const scale = useSharedValue(1);
 
@@ -199,12 +293,49 @@ function SavedLookCard({
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(0.95, springs.snappy);
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(1, springs.snappy);
   };
+
+  const cardStyles = useMemo(() => ({
+    savedCard: {
+      width: CARD_WIDTH,
+      height: CARD_WIDTH * 1.3,
+      marginHorizontal: CARD_GAP / 2,
+      marginBottom: CARD_GAP,
+      borderRadius: borderRadius.md,
+      overflow: 'hidden' as const,
+      borderWidth: 2,
+      borderColor: selected ? colors.accent : 'transparent',
+    },
+    favoriteBadge: {
+      position: 'absolute' as const,
+      top: 8,
+      right: 8,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.bgTertiary,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    selectionIndicator: {
+      position: 'absolute' as const,
+      top: 8,
+      right: 8,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: selected ? 0 : 2,
+      borderColor: colors.textSecondary,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: selected ? colors.accent : 'transparent',
+    },
+  }), [colors, selected]);
 
   return (
     <AnimatedPressable
@@ -212,45 +343,22 @@ function SavedLookCard({
       onLongPress={onLongPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.savedCard, animatedStyle]}
+      style={[cardStyles.savedCard, animatedStyle]}
     >
       <Animated.View entering={FadeIn.delay(index * 50)}>
         <Image source={{ uri: look.result }} style={styles.savedImage} />
 
         {/* Favorite badge */}
         {look.isFavorite && !selectionMode && (
-          <View style={styles.favoriteBadge}>
-            <Ionicons name="heart" size={12} color={colors.accentPrimary} />
+          <View style={cardStyles.favoriteBadge}>
+            <Ionicons name="heart" size={12} color={colors.accent} />
           </View>
         )}
 
         {/* Selection indicator */}
         {selectionMode && (
-          <View
-            style={[
-              styles.selectionIndicator,
-              selected && styles.selectionIndicatorActive,
-            ]}
-          >
-            {selected && (
-              <LinearGradient
-                colors={colors.gradientPrimary}
-                style={StyleSheet.absoluteFill}
-              />
-            )}
+          <View style={cardStyles.selectionIndicator}>
             {selected && <Ionicons name="checkmark" size={14} color={colors.textPrimary} />}
-          </View>
-        )}
-
-        {/* Gradient border when selected */}
-        {selected && (
-          <View style={styles.selectedBorder}>
-            <LinearGradient
-              colors={colors.gradientPrimary}
-              style={styles.selectedBorderGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            />
           </View>
         )}
       </Animated.View>
@@ -259,48 +367,12 @@ function SavedLookCard({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgPrimary,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: layout.screenPadding,
     paddingVertical: 16,
-  },
-  title: {
-    ...typography.displayMedium,
-    color: colors.textPrimary,
-  },
-  editButton: {
-    ...typography.labelLarge,
-    color: colors.accentPrimary,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    marginHorizontal: layout.screenPadding,
-    marginBottom: 24,
-    backgroundColor: colors.bgCard,
-    borderRadius: borderRadius.lg,
-    padding: 4,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: borderRadius.md,
-  },
-  tabActive: {
-    backgroundColor: colors.bgCardHover,
-  },
-  tabText: {
-    ...typography.labelMedium,
-    color: colors.textSecondary,
-  },
-  tabTextActive: {
-    color: colors.textPrimary,
   },
   emptyState: {
     flex: 1,
@@ -310,17 +382,6 @@ const styles = StyleSheet.create({
   },
   emptyIcon: {
     marginBottom: 24,
-  },
-  emptyTitle: {
-    ...typography.headlineLarge,
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  emptyDescription: {
-    ...typography.bodyMedium,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 32,
   },
   emptyButton: {
     minWidth: 160,
@@ -337,55 +398,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     marginHorizontal: -CARD_GAP / 2,
   },
-  savedCard: {
-    width: CARD_WIDTH,
-    height: CARD_WIDTH * 1.3,
-    marginHorizontal: CARD_GAP / 2,
-    marginBottom: CARD_GAP,
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
-  },
   savedImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
-  },
-  favoriteBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectionIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.textSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  selectionIndicatorActive: {
-    borderWidth: 0,
-  },
-  selectedBorder: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: borderRadius.md,
-  },
-  selectedBorderGradient: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: borderRadius.md,
-    borderWidth: 3,
-    borderColor: 'transparent',
   },
   compareContainer: {
     position: 'absolute',

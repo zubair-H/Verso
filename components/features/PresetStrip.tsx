@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,24 +6,30 @@ import {
   Pressable,
   Image,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { colors } from '@/constants/colors';
-import { borderRadius } from '@/constants/spacing';
+import { useTheme } from '@/contexts/ThemeContext';
+import { borderRadius, springs } from '@/constants/spacing';
 import { presets, Preset } from '@/utils/presets';
 
 interface PresetStripProps {
   onSelectPreset: (preset: Preset) => void;
 }
 
+interface ColorsType {
+  accent: string;
+  bgSecondary: string;
+}
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function PresetStrip({ onSelectPreset }: PresetStripProps) {
+  const { colors } = useTheme();
+
   return (
     <ScrollView
       horizontal
@@ -35,6 +41,7 @@ export function PresetStrip({ onSelectPreset }: PresetStripProps) {
           key={preset.id}
           preset={preset}
           onSelect={() => onSelectPreset(preset)}
+          colors={colors}
         />
       ))}
     </ScrollView>
@@ -44,9 +51,11 @@ export function PresetStrip({ onSelectPreset }: PresetStripProps) {
 function PresetItem({
   preset,
   onSelect,
+  colors,
 }: {
   preset: Preset;
   onSelect: () => void;
+  colors: ColorsType;
 }) {
   const scale = useSharedValue(1);
 
@@ -55,17 +64,33 @@ function PresetItem({
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.9, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(0.9, springs.snappy);
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(1, springs.snappy);
   };
 
   const handlePress = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onSelect();
   };
+
+  const itemStyles = useMemo(() => ({
+    presetBorder: {
+      padding: 2,
+      borderRadius: borderRadius.full,
+      borderWidth: 2,
+      borderColor: colors.accent,
+    },
+    presetImageContainer: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      overflow: 'hidden' as const,
+      backgroundColor: colors.bgSecondary,
+    },
+  }), [colors]);
 
   return (
     <AnimatedPressable
@@ -74,16 +99,12 @@ function PresetItem({
       onPressOut={handlePressOut}
       style={[styles.presetItem, animatedStyle]}
     >
-      <LinearGradient
-        colors={colors.gradientPrimary}
-        style={styles.presetBorder}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.presetImageContainer}>
+      {/* Solid mint border instead of gradient */}
+      <View style={itemStyles.presetBorder}>
+        <View style={itemStyles.presetImageContainer}>
           <Image source={{ uri: preset.image }} style={styles.presetImage} />
         </View>
-      </LinearGradient>
+      </View>
     </AnimatedPressable>
   );
 }
@@ -94,17 +115,6 @@ const styles = StyleSheet.create({
   },
   presetItem: {
     marginRight: 16,
-  },
-  presetBorder: {
-    padding: 2,
-    borderRadius: borderRadius.full,
-  },
-  presetImageContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    overflow: 'hidden',
-    backgroundColor: colors.bgSecondary,
   },
   presetImage: {
     width: '100%',

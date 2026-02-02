@@ -1,354 +1,310 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  Dimensions,
-  FlatList,
-  ViewToken,
+  Pressable,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  withTiming,
+  withDelay,
   withSpring,
-  interpolate,
-  Extrapolation,
-  runOnJS,
+  withSequence,
 } from 'react-native-reanimated';
-import { GradientButton } from '@/components/ui';
-import { colors } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
-import { layout } from '@/constants/spacing';
+import { layout, springs, borderRadius } from '@/constants/spacing';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width - 48;
-const CARD_SPACING = 24;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-interface FeatureCard {
-  id: string;
+interface Feature {
+  icon: string;
   title: string;
   description: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  accentColor: string;
+  unlockDelay: number;
 }
 
-const features: FeatureCard[] = [
+const features: Feature[] = [
   {
-    id: '1',
-    title: 'Try Any Look',
-    description: 'Upload a celebrity or influencer photo. See their style on you.',
     icon: 'sparkles',
-    accentColor: '#00D4FF',
+    title: 'Try Any Look',
+    description: 'Celebrity styles, haircuts, outfits, makeup — all on you',
+    unlockDelay: 400,
   },
   {
-    id: '2',
+    icon: 'grid-outline',
     title: 'Mix & Match',
-    description: 'Hair from one look. Outfit from another. Glasses from a third. You control everything.',
-    icon: 'color-palette',
-    accentColor: '#00BFA5',
+    description: 'Combine elements. Hair from one, glasses from another',
+    unlockDelay: 700,
   },
   {
-    id: '3',
-    title: 'Save & Compare',
-    description: 'Save your favorite looks. Compare side by side. Never regret a haircut again.',
-    icon: 'layers',
-    accentColor: '#00E676',
+    icon: 'heart-outline',
+    title: 'Save Favorites',
+    description: 'Build your style inspiration board',
+    unlockDelay: 1000,
   },
 ];
 
-export default function FeaturesScreen() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
-  const scrollX = useSharedValue(0);
-  const progressWidth = useSharedValue(0.55);
-  const isAnimating = useRef(false);
+interface ColorsType {
+  accent: string;
+  success: string;
+  textOnAccent: string;
+  bgPrimary: string;
+  textPrimary: string;
+  bgCard: string;
+  border: string;
+  accentMuted: string;
+  textSecondary: string;
+  successMuted: string;
+}
 
-  const triggerHaptic = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+function FeatureCard({ feature, index, colors }: { feature: Feature; index: number; colors: ColorsType }) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(20);
+  const scale = useSharedValue(0.9);
+  const unlocked = useSharedValue(0);
+
+  useEffect(() => {
+    // Card enters
+    opacity.value = withDelay(feature.unlockDelay, withTiming(1, { duration: 400 }));
+    translateY.value = withDelay(feature.unlockDelay, withSpring(0, springs.smooth));
+    scale.value = withDelay(feature.unlockDelay, withSequence(
+      withSpring(1.02, springs.unlock),
+      withSpring(1, springs.snappy)
+    ));
+
+    // Unlock animation
+    unlocked.value = withDelay(feature.unlockDelay + 200, withSpring(1, springs.bouncy));
+
+    // Haptic when unlocked
+    setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }, feature.unlockDelay);
   }, []);
 
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems[0] && !isAnimating.current) {
-        const index = viewableItems[0].index ?? 0;
-        if (index !== currentIndex) {
-          setCurrentIndex(index);
-          // Calculate progress: 33% base + 33% per step
-          const newProgress = 0.33 + (index + 1) * 0.22;
-          progressWidth.value = withSpring(Math.min(newProgress, 0.99), {
-            damping: 20,
-            stiffness: 150,
-          });
-          runOnJS(triggerHaptic)();
-        }
-      }
-    }
-  ).current;
-
-  const handleNext = useCallback(() => {
-    if (currentIndex < features.length - 1) {
-      isAnimating.current = true;
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      const nextIndex = currentIndex + 1;
-      setCurrentIndex(nextIndex);
-
-      // Update progress bar: 33% base + 22% per step
-      const newProgress = 0.33 + (nextIndex + 1) * 0.22;
-      progressWidth.value = withSpring(Math.min(newProgress, 0.99), {
-        damping: 20,
-        stiffness: 150,
-      });
-
-      flatListRef.current?.scrollToIndex({
-        index: nextIndex,
-        animated: true,
-      });
-      setTimeout(() => {
-        isAnimating.current = false;
-      }, 400);
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      router.push('/(onboarding)/permissions');
-    }
-  }, [currentIndex, progressWidth]);
-
-  const progressStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value * 100}%`,
+  const cardStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
   }));
 
-  const renderCard = useCallback(
-    ({ item, index }: { item: FeatureCard; index: number }) => (
-      <FeatureCardComponent
-        item={item}
-        index={index}
-        scrollX={scrollX}
-        currentIndex={currentIndex}
-      />
-    ),
-    [currentIndex]
-  );
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: unlocked.value,
+    transform: [{ scale: unlocked.value }],
+  }));
+
+  const cardStyles = useMemo(() => ({
+    card: {
+      backgroundColor: colors.bgCard,
+      borderRadius: borderRadius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden' as const,
+    },
+    iconContainer: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: colors.accentMuted,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    featureTitle: {
+      ...typography.labelLarge,
+      color: colors.textPrimary,
+      marginBottom: 4,
+    },
+    featureDescription: {
+      ...typography.bodySmall,
+      color: colors.textSecondary,
+      lineHeight: 18,
+    },
+  }), [colors]);
 
   return (
-    <View style={styles.container}>
-      {/* Ambient background */}
-      <View style={StyleSheet.absoluteFill}>
-        <LinearGradient
-          colors={['rgba(0, 212, 255, 0.04)', 'transparent', 'rgba(0, 191, 165, 0.03)']}
-          style={StyleSheet.absoluteFill}
-          start={{ x: 0.3, y: 0 }}
-          end={{ x: 0.7, y: 1 }}
-        />
-      </View>
-
-      {/* Progress indicator */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressTrack}>
-          <Animated.View style={[styles.progressFillContainer, progressStyle]}>
-            <LinearGradient
-              colors={colors.gradientPrimary}
-              style={styles.progressGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            />
-          </Animated.View>
+    <Animated.View style={[cardStyles.card, cardStyle]}>
+      <View style={styles.cardContent}>
+        <View style={cardStyles.iconContainer}>
+          <Ionicons name={feature.icon as any} size={24} color={colors.accent} />
         </View>
-      </View>
-
-      <View style={styles.contentContainer}>
-        <FlatList
-          ref={flatListRef}
-          data={features}
-          renderItem={renderCard}
-          keyExtractor={(item) => item.id}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={{ viewAreaCoveragePercentThreshold: 60 }}
-          onScroll={(e) => {
-            scrollX.value = e.nativeEvent.contentOffset.x;
-          }}
-          scrollEventThrottle={16}
-          contentContainerStyle={styles.listContent}
-          decelerationRate="fast"
-          snapToInterval={width}
-          snapToAlignment="center"
-        />
-
-      </View>
-
-      {/* Button section with step indicator */}
-      <View style={styles.buttonContainer}>
-        <View style={styles.stepIndicator}>
-          <Text style={styles.stepText}>
-            {currentIndex + 1} of {features.length}
-          </Text>
+        <View style={styles.textContainer}>
+          <Text style={cardStyles.featureTitle}>{feature.title}</Text>
+          <Text style={cardStyles.featureDescription}>{feature.description}</Text>
         </View>
-        <GradientButton
-          label={currentIndex === features.length - 1 ? "Let's Go" : 'Continue'}
-          onPress={handleNext}
-          size="large"
-          haptic="medium"
-          style={styles.button}
-        />
+        <Animated.View style={[styles.checkContainer, checkStyle]}>
+          <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+        </Animated.View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
-function FeatureCardComponent({
-  item,
-  index,
-  scrollX,
-}: {
-  item: FeatureCard;
-  index: number;
-  scrollX: Animated.SharedValue<number>;
-  currentIndex: number;
-}) {
-  const cardStyle = useAnimatedStyle(() => {
-    const inputRange = [
-      (index - 1) * width,
-      index * width,
-      (index + 1) * width,
-    ];
+export default function FeaturesScreen() {
+  const { colors } = useTheme();
+  const headerOpacity = useSharedValue(0);
+  const badgeOpacity = useSharedValue(0);
+  const badgeScale = useSharedValue(0.8);
+  const buttonOpacity = useSharedValue(0);
 
-    const opacity = interpolate(
-      scrollX.value,
-      inputRange,
-      [0.3, 1, 0.3],
-      Extrapolation.CLAMP
-    );
+  useEffect(() => {
+    headerOpacity.value = withTiming(1, { duration: 500 });
 
-    return { opacity };
-  });
+    // Badge appears after all features unlock
+    badgeOpacity.value = withDelay(1400, withTiming(1, { duration: 400 }));
+    badgeScale.value = withDelay(1400, withSpring(1, springs.celebration));
+
+    buttonOpacity.value = withDelay(1600, withTiming(1, { duration: 400 }));
+  }, []);
+
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+  }));
+
+  const badgeStyle = useAnimatedStyle(() => ({
+    opacity: badgeOpacity.value,
+    transform: [{ scale: badgeScale.value }],
+  }));
+
+  const buttonStyle = useAnimatedStyle(() => ({
+    opacity: buttonOpacity.value,
+  }));
+
+  const handleContinue = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/(onboarding)/permissions');
+  };
+
+  const buttonScale = useSharedValue(1);
+
+  const handlePressIn = () => {
+    buttonScale.value = withSpring(0.96, springs.snappy);
+  };
+
+  const handlePressOut = () => {
+    buttonScale.value = withSpring(1, springs.snappy);
+  };
+
+  const buttonPressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bgPrimary,
+    },
+    title: {
+      ...typography.displayMedium,
+      color: colors.textPrimary,
+    },
+    unlockedBadge: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: 8,
+      marginTop: 24,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      backgroundColor: colors.successMuted,
+      borderRadius: borderRadius.full,
+      alignSelf: 'center' as const,
+    },
+    unlockedText: {
+      ...typography.labelMedium,
+      color: colors.success,
+    },
+    button: {
+      width: '100%' as const,
+      height: 60,
+      backgroundColor: colors.accent,
+      borderRadius: borderRadius.lg,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: 8,
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.4,
+      shadowRadius: 24,
+      elevation: 10,
+    },
+    buttonText: {
+      ...typography.labelLarge,
+      color: colors.textOnAccent,
+      fontSize: 18,
+    },
+  }), [colors]);
 
   return (
-    <View style={styles.cardWrapper}>
-      <Animated.View style={[styles.card, cardStyle]}>
-        <View style={styles.iconSection}>
-          <View style={[styles.iconGlow, { backgroundColor: item.accentColor }]} />
-          <View style={styles.iconContainer}>
-            <Ionicons
-              name={item.icon}
-              size={48}
-              color={item.accentColor}
-            />
-          </View>
-        </View>
+    <View style={dynamicStyles.container}>
+      {/* Header */}
+      <Animated.View style={[styles.header, headerStyle]}>
+        <Text style={dynamicStyles.title}>Your Transformation{'\n'}Toolkit</Text>
+      </Animated.View>
 
-        <View style={styles.textContainer}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          <Text style={styles.cardDescription}>{item.description}</Text>
-        </View>
+      {/* Feature cards */}
+      <View style={styles.cardsContainer}>
+        {features.map((feature, index) => (
+          <FeatureCard key={feature.title} feature={feature} index={index} colors={colors} />
+        ))}
+
+        {/* All unlocked badge */}
+        <Animated.View style={[dynamicStyles.unlockedBadge, badgeStyle]}>
+          <Ionicons name="shield-checkmark" size={20} color={colors.success} />
+          <Text style={dynamicStyles.unlockedText}>All features unlocked!</Text>
+        </Animated.View>
+      </View>
+
+      {/* Bottom */}
+      <Animated.View style={[styles.bottomSection, buttonStyle]}>
+        <AnimatedPressable
+          onPress={handleContinue}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          style={buttonPressStyle}
+        >
+          <View style={dynamicStyles.button}>
+            <Text style={dynamicStyles.buttonText}>Almost There</Text>
+            <Ionicons name="arrow-forward" size={20} color={colors.textOnAccent} />
+          </View>
+        </AnimatedPressable>
       </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgPrimary,
-  },
-  progressContainer: {
-    position: 'absolute',
-    top: 60,
-    left: layout.screenPadding,
-    right: layout.screenPadding,
-    zIndex: 10,
-  },
-  progressTrack: {
-    height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFillContainer: {
-    height: '100%',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressGradient: {
-    flex: 1,
-  },
-  contentContainer: {
-    flex: 1,
-    paddingTop: 100,
-  },
-  listContent: {
-    alignItems: 'center',
-  },
-  cardWrapper: {
-    width: width,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: CARD_SPACING,
-  },
-  card: {
-    width: CARD_WIDTH,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-  },
-  iconSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  header: {
+    paddingTop: 80,
+    paddingHorizontal: layout.screenPadding,
     marginBottom: 40,
   },
-  iconGlow: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    opacity: 0.08,
+  cardsContainer: {
+    flex: 1,
+    paddingHorizontal: layout.screenPadding,
+    gap: 16,
   },
-  iconContainer: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  cardContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    padding: 20,
+    gap: 16,
   },
   textContainer: {
-    alignItems: 'center',
+    flex: 1,
   },
-  cardTitle: {
-    ...typography.displayMedium,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 16,
+  checkContainer: {
+    marginLeft: 8,
   },
-  cardDescription: {
-    ...typography.bodyLarge,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 26,
-    maxWidth: 300,
-  },
-  stepIndicator: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  stepText: {
-    ...typography.labelMedium,
-    color: colors.textTertiary,
-    letterSpacing: 1,
-  },
-  buttonContainer: {
+  bottomSection: {
     paddingHorizontal: layout.screenPadding,
     paddingBottom: 50,
-  },
-  button: {
-    width: '100%',
   },
 });

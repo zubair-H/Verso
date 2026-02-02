@@ -1,19 +1,16 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, Text, Pressable, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  interpolateColor,
-  useAnimatedProps,
+  withSequence,
 } from 'react-native-reanimated';
-import { colors } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
-import { borderRadius } from '@/constants/spacing';
+import { borderRadius, springs } from '@/constants/spacing';
 
 interface SelectableChipProps {
   label: string;
@@ -32,32 +29,92 @@ export function SelectableChip({
   onPress,
   fullWidth = false,
 }: SelectableChipProps) {
+  const { colors } = useTheme();
   const scale = useSharedValue(1);
-  const selectedAnim = useSharedValue(selected ? 1 : 0);
-
-  React.useEffect(() => {
-    selectedAnim.value = withSpring(selected ? 1 : 0, {
-      damping: 15,
-      stiffness: 400,
-    });
-  }, [selected, selectedAnim]);
+  const prevSelected = useSharedValue(selected);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  useEffect(() => {
+    if (selected && !prevSelected.value) {
+      scale.value = withSequence(
+        withSpring(0.92, springs.snappy),
+        withSpring(1.05, springs.celebration),
+        withSpring(1, springs.snappy)
+      );
+    }
+    prevSelected.value = selected;
+  }, [selected]);
+
   const handlePressIn = () => {
-    scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(0.95, springs.snappy);
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(1, springs.snappy);
   };
 
   const handlePress = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await Haptics.impactAsync(
+      selected ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium
+    );
     onPress();
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      width: '47%',
+      marginBottom: 12,
+    },
+    fullWidth: {
+      width: '100%',
+    },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1.5,
+    },
+    chipFullWidth: {
+      paddingVertical: 18,
+      justifyContent: 'center',
+    },
+    chipUnselected: {
+      backgroundColor: colors.bgCard,
+      borderColor: colors.border,
+    },
+    chipSelected: {
+      backgroundColor: colors.accentMuted,
+      borderColor: colors.accent,
+    },
+    iconContainer: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: colors.bgTertiary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    iconContainerSelected: {
+      backgroundColor: colors.accent,
+    },
+    label: {
+      ...typography.labelMedium,
+      color: colors.textSecondary,
+      flex: 1,
+    },
+    labelSelected: {
+      color: colors.textPrimary,
+    },
+    checkmark: {
+      marginLeft: 8,
+    },
+  }), [colors]);
 
   return (
     <AnimatedPressable
@@ -70,75 +127,37 @@ export function SelectableChip({
         fullWidth && styles.fullWidth,
       ]}
     >
-      {selected ? (
-        <LinearGradient
-          colors={colors.gradientPrimary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.chip, fullWidth && styles.chipFullWidth]}
-        >
-          <Ionicons name={icon as any} size={24} color="#FFFFFF" style={styles.icon} />
-          <Text style={[styles.label, styles.labelSelected]}>{label}</Text>
-          <View style={styles.checkmark}>
-            <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-          </View>
-        </LinearGradient>
-      ) : (
-        <View style={[styles.chip, styles.chipUnselected, fullWidth && styles.chipFullWidth]}>
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, styles.overlay]} />
-          <Ionicons name={icon as any} size={24} color={colors.textSecondary} style={styles.icon} />
-          <Text style={styles.label}>{label}</Text>
+      <View
+        style={[
+          styles.chip,
+          selected ? styles.chipSelected : styles.chipUnselected,
+          fullWidth && styles.chipFullWidth,
+        ]}
+      >
+        <View style={[styles.iconContainer, selected && styles.iconContainerSelected]}>
+          <Ionicons
+            name={icon as any}
+            size={22}
+            color={selected ? colors.textOnAccent : colors.textSecondary}
+          />
         </View>
-      )}
+        <Text
+          style={[
+            styles.label,
+            selected && styles.labelSelected,
+          ]}
+        >
+          {label}
+        </Text>
+        {selected && (
+          <Ionicons
+            name="checkmark-circle"
+            size={18}
+            color={colors.accent}
+            style={styles.checkmark}
+          />
+        )}
+      </View>
     </AnimatedPressable>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: '47%',
-    marginBottom: 12,
-  },
-  fullWidth: {
-    width: '100%',
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-  },
-  chipFullWidth: {
-    paddingVertical: 20,
-  },
-  chipUnselected: {
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-  },
-  overlay: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  icon: {
-    marginRight: 10,
-  },
-  label: {
-    ...typography.labelLarge,
-    color: colors.textSecondary,
-  },
-  labelSelected: {
-    color: '#FFFFFF',
-  },
-  checkmark: {
-    marginLeft: 'auto',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

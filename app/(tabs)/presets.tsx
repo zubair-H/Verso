@@ -9,11 +9,9 @@ import {
   TextInput,
   Dimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   FadeIn,
@@ -21,9 +19,9 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { colors } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
-import { layout, borderRadius } from '@/constants/spacing';
+import { layout, borderRadius, springs } from '@/constants/spacing';
 import { presets, categories, getPresetsByCategory, Preset } from '@/utils/presets';
 
 const { width } = Dimensions.get('window');
@@ -33,7 +31,19 @@ const CARD_WIDTH = (width - layout.screenPadding * 2 - CARD_GAP * (COLUMN_COUNT 
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+interface ColorsType {
+  bgPrimary: string;
+  textPrimary: string;
+  textSecondary: string;
+  textTertiary: string;
+  textOnAccent: string;
+  accent: string;
+  bgTertiary: string;
+  border: string;
+}
+
 export default function PresetsScreen() {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -50,7 +60,6 @@ export default function PresetsScreen() {
 
   const handleSelectPreset = async (preset: Preset) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Navigate back to home with preset selected
     router.push({
       pathname: '/(tabs)',
       params: { presetImage: preset.image },
@@ -62,39 +71,64 @@ export default function PresetsScreen() {
     setSelectedCategory(categoryId);
   };
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <LinearGradient
-        colors={['rgba(0, 212, 255, 0.06)', 'rgba(0, 0, 0, 0)', 'rgba(0, 191, 165, 0.04)']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bgPrimary,
+    },
+    title: {
+      ...typography.displayMedium,
+      color: colors.textPrimary,
+    },
+    searchBar: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: colors.bgTertiary,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    searchInput: {
+      flex: 1,
+      ...typography.bodyMedium,
+      color: colors.textPrimary,
+    },
+    sectionTitle: {
+      ...typography.headlineMedium,
+      color: colors.textPrimary,
+    },
+    presetName: {
+      ...typography.caption,
+      color: colors.textPrimary,
+    },
+  }), [colors]);
 
+  return (
+    <View style={[dynamicStyles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Discover Looks</Text>
+        <Text style={dynamicStyles.title}>Discover</Text>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <BlurView intensity={20} tint="dark" style={styles.searchBlur}>
-          <View style={styles.searchInner}>
-            <Ionicons name="search" size={16} color={colors.textTertiary} style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search looks..."
-              placeholderTextColor={colors.textTertiary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery('')}>
-                <Ionicons name="close" size={14} color={colors.textTertiary} style={styles.clearIcon} />
-              </Pressable>
-            )}
-          </View>
-        </BlurView>
+        <View style={dynamicStyles.searchBar}>
+          <Ionicons name="search" size={16} color={colors.textTertiary} style={styles.searchIcon} />
+          <TextInput
+            style={dynamicStyles.searchInput}
+            placeholder="Search looks..."
+            placeholderTextColor={colors.textTertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={16} color={colors.textTertiary} />
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {/* Categories */}
@@ -111,6 +145,7 @@ export default function PresetsScreen() {
             icon={category.icon}
             selected={selectedCategory === category.id}
             onPress={() => handleCategorySelect(category.id)}
+            colors={colors}
           />
         ))}
       </ScrollView>
@@ -122,11 +157,11 @@ export default function PresetsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>
+          <Text style={dynamicStyles.sectionTitle}>
             {selectedCategory === 'all' ? 'Trending Now' : categories.find(c => c.id === selectedCategory)?.label}
           </Text>
           {selectedCategory === 'all' && (
-            <Ionicons name="flame" size={20} color={colors.accentPrimary} style={styles.flameIcon} />
+            <Ionicons name="flame" size={20} color={colors.accent} style={styles.flameIcon} />
           )}
         </View>
 
@@ -137,6 +172,7 @@ export default function PresetsScreen() {
               preset={preset}
               index={index}
               onPress={() => handleSelectPreset(preset)}
+              colors={colors}
             />
           ))}
         </View>
@@ -150,30 +186,44 @@ function CategoryChip({
   icon,
   selected,
   onPress,
+  colors,
 }: {
   label: string;
   icon: string;
   selected: boolean;
   onPress: () => void;
+  colors: ColorsType;
 }) {
+  const chipStyles = useMemo(() => ({
+    categoryInner: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: borderRadius.full,
+      backgroundColor: selected ? colors.accent : colors.bgTertiary,
+      borderWidth: 1,
+      borderColor: selected ? colors.accent : colors.border,
+    },
+    categoryLabel: {
+      ...typography.labelMedium,
+      color: selected ? colors.textOnAccent : colors.textSecondary,
+    },
+  }), [colors, selected]);
+
   return (
     <Pressable onPress={onPress} style={styles.categoryChip}>
-      {selected ? (
-        <LinearGradient
-          colors={colors.gradientPrimary}
-          style={styles.categoryGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-        >
-          <Ionicons name={icon as any} size={14} color={colors.textPrimary} style={styles.categoryIcon} />
-          <Text style={[styles.categoryLabel, styles.categoryLabelSelected]}>{label}</Text>
-        </LinearGradient>
-      ) : (
-        <View style={styles.categoryInactive}>
-          <Ionicons name={icon as any} size={14} color={colors.textSecondary} style={styles.categoryIcon} />
-          <Text style={styles.categoryLabel}>{label}</Text>
-        </View>
-      )}
+      <View style={chipStyles.categoryInner}>
+        <Ionicons
+          name={icon as any}
+          size={14}
+          color={selected ? colors.textOnAccent : colors.textSecondary}
+          style={styles.categoryIcon}
+        />
+        <Text style={chipStyles.categoryLabel}>
+          {label}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -182,10 +232,12 @@ function PresetCard({
   preset,
   index,
   onPress,
+  colors,
 }: {
   preset: Preset;
   index: number;
   onPress: () => void;
+  colors: ColorsType;
 }) {
   const scale = useSharedValue(1);
 
@@ -194,12 +246,19 @@ function PresetCard({
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(0.95, springs.snappy);
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(1, springs.snappy);
   };
+
+  const cardStyles = useMemo(() => ({
+    presetName: {
+      ...typography.caption,
+      color: colors.textPrimary,
+    },
+  }), [colors]);
 
   return (
     <AnimatedPressable
@@ -210,59 +269,27 @@ function PresetCard({
     >
       <Animated.View entering={FadeIn.delay(index * 50)}>
         <Image source={{ uri: preset.image }} style={styles.presetImage} />
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.7)']}
-          style={styles.presetOverlay}
-        >
-          <Text style={styles.presetName} numberOfLines={1}>
+        <View style={styles.presetOverlay}>
+          <Text style={cardStyles.presetName} numberOfLines={1}>
             {preset.name}
           </Text>
-        </LinearGradient>
+        </View>
       </Animated.View>
     </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgPrimary,
-  },
   header: {
     paddingHorizontal: layout.screenPadding,
     paddingVertical: 16,
-  },
-  title: {
-    ...typography.displayMedium,
-    color: colors.textPrimary,
   },
   searchContainer: {
     paddingHorizontal: layout.screenPadding,
     marginBottom: 16,
   },
-  searchBlur: {
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-  },
-  searchInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
   searchIcon: {
     marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    ...typography.bodyMedium,
-    color: colors.textPrimary,
-  },
-  clearIcon: {
-    padding: 4,
   },
   categoriesScroll: {
     maxHeight: 50,
@@ -274,32 +301,8 @@ const styles = StyleSheet.create({
   categoryChip: {
     marginRight: 12,
   },
-  categoryGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: borderRadius.full,
-  },
-  categoryInactive: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.bgCard,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-  },
   categoryIcon: {
     marginRight: 6,
-  },
-  categoryLabel: {
-    ...typography.labelMedium,
-    color: colors.textSecondary,
-  },
-  categoryLabelSelected: {
-    color: colors.textPrimary,
   },
   gridScroll: {
     flex: 1,
@@ -312,10 +315,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  sectionTitle: {
-    ...typography.headlineMedium,
-    color: colors.textPrimary,
   },
   flameIcon: {
     marginLeft: 6,
@@ -344,9 +343,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 8,
-  },
-  presetName: {
-    ...typography.labelSmall,
-    color: colors.textPrimary,
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
 });

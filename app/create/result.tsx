@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,11 +8,10 @@ import {
   Image,
   Dimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,13 +22,12 @@ import Animated, {
   withRepeat,
   runOnJS,
   Easing,
-  FadeIn,
-  SlideInUp,
+  interpolate,
 } from 'react-native-reanimated';
-import { GradientButton, GlassCard } from '@/components/ui';
-import { colors } from '@/constants/colors';
+import { PrimaryButton, SecondaryButton } from '@/components/ui';
+import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
-import { layout, borderRadius } from '@/constants/spacing';
+import { layout, borderRadius, springs } from '@/constants/spacing';
 import { useStorage } from '@/hooks/useStorage';
 import { trackEvent } from '@/utils/analytics';
 import { getProductsForElements, Product } from '@/utils/mockProducts';
@@ -37,7 +35,20 @@ import { getProductsForElements, Product } from '@/utils/mockProducts';
 const { width } = Dimensions.get('window');
 const IMAGE_WIDTH = width - layout.screenPadding * 2;
 
+interface ColorsType {
+  bgPrimary: string;
+  textPrimary: string;
+  textSecondary: string;
+  textTertiary: string;
+  accent: string;
+  accentMuted: string;
+  accentGlow: string;
+  bgTertiary: string;
+  border: string;
+}
+
 export default function ResultScreen() {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     selfie: string;
@@ -49,71 +60,102 @@ export default function ResultScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRevealed, setIsRevealed] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [showTitle, setShowTitle] = useState(false);
+  const [showSubtitle, setShowSubtitle] = useState(false);
+  const [showActions, setShowActions] = useState(false);
+  const [showProducts, setShowProducts] = useState(false);
 
   const elements = params.elements?.split(',') || [];
   const products = getProductsForElements(elements);
 
-  // Animation values
-  const shimmerPosition = useSharedValue(-1);
+  // Animation values - THE SIGNATURE REVEAL
+  const loaderScale = useSharedValue(1);
+  const loaderOpacity = useSharedValue(1);
   const imageOpacity = useSharedValue(0);
   const imageScale = useSharedValue(0.95);
   const glowOpacity = useSharedValue(0);
-  const confettiOpacity = useSharedValue(0);
+  const titleOpacity = useSharedValue(0);
+  const titleTranslateY = useSharedValue(20);
+  const subtitleOpacity = useSharedValue(0);
+  const subtitleTranslateY = useSharedValue(20);
+  const actionsOpacity = useSharedValue(0);
 
   useEffect(() => {
     startLoadingAnimation();
     // Simulate AI processing delay
     const timer = setTimeout(() => {
-      revealResult();
+      runSignatureReveal();
     }, 2000);
 
     return () => clearTimeout(timer);
   }, []);
 
+  // Phase 1: Anticipation - Pulsing loader
   const startLoadingAnimation = () => {
-    // Shimmer animation
-    shimmerPosition.value = withRepeat(
-      withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+    loaderScale.value = withRepeat(
+      withSequence(
+        withTiming(1.1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) })
+      ),
       -1,
-      false
+      true
     );
   };
 
-  const revealResult = async () => {
-    setIsLoading(false);
+  // THE SIGNATURE REVEAL - 1200ms cinematic sequence
+  const runSignatureReveal = useCallback(async () => {
+    // Phase 1 ends - fade out loader
+    loaderOpacity.value = withTiming(0, { duration: 200 });
 
-    // Stop shimmer
-    shimmerPosition.value = -1;
+    // Phase 2: Reveal (300-800ms) - Image fade + scale with dramatic spring
+    setTimeout(() => {
+      runOnJS(setIsLoading)(false);
 
-    // Image fade in with scale
-    imageOpacity.value = withTiming(1, { duration: 400 });
-    imageScale.value = withSpring(1, { damping: 12, stiffness: 100 });
+      // Image fade in
+      imageOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) });
 
-    // Glow pulse
-    glowOpacity.value = withDelay(
-      200,
-      withSequence(
-        withTiming(0.8, { duration: 300 }),
-        withTiming(0.3, { duration: 500 })
-      )
-    );
+      // Image scale with dramatic spring
+      imageScale.value = withSpring(1, springs.dramatic);
 
-    // Confetti burst
-    confettiOpacity.value = withDelay(
-      100,
-      withSequence(
-        withTiming(1, { duration: 200 }),
-        withDelay(600, withTiming(0, { duration: 400 }))
-      )
-    );
+      // Subtle mint glow pulse
+      glowOpacity.value = withSequence(
+        withTiming(0.6, { duration: 300 }),
+        withTiming(0.2, { duration: 400 })
+      );
+    }, 300);
 
-    // Haptic success
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Phase 3: Settling (800-1100ms) - Text fades in
+    setTimeout(() => {
+      runOnJS(setShowTitle)(true);
+      titleOpacity.value = withTiming(1, { duration: 300 });
+      titleTranslateY.value = withSpring(0, springs.smooth);
+    }, 800);
 
-    runOnJS(setIsRevealed)(true);
-    runOnJS(trackEventWrapper)();
-    runOnJS(decrementTry)();
-  };
+    // Subtitle with 100ms stagger
+    setTimeout(() => {
+      runOnJS(setShowSubtitle)(true);
+      subtitleOpacity.value = withTiming(1, { duration: 300 });
+      subtitleTranslateY.value = withSpring(0, springs.smooth);
+    }, 900);
+
+    // Phase 4: Actions (1100-1200ms) - Buttons fade in + Heavy haptic
+    setTimeout(async () => {
+      runOnJS(setShowActions)(true);
+      actionsOpacity.value = withTiming(1, { duration: 200 });
+
+      // Heavy haptic - the satisfying finale
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+      runOnJS(setIsRevealed)(true);
+      runOnJS(trackEventWrapper)();
+      runOnJS(decrementTry)();
+    }, 1100);
+
+    // Products appear last
+    setTimeout(() => {
+      runOnJS(setShowProducts)(true);
+    }, 1300);
+  }, []);
 
   const trackEventWrapper = () => {
     trackEvent('look_generated', { elements: params.elements });
@@ -130,7 +172,7 @@ export default function ResultScreen() {
     await saveLook({
       selfie: params.selfie || '',
       reference: params.look || '',
-      result: params.look || '', // Using look as result for mock
+      result: params.look || '',
       elements,
     });
 
@@ -139,16 +181,30 @@ export default function ResultScreen() {
 
   const handleRegenerate = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Reset states
     setIsLoading(true);
     setIsRevealed(false);
+    setShowTitle(false);
+    setShowSubtitle(false);
+    setShowActions(false);
+    setShowProducts(false);
 
+    // Reset animation values
     imageOpacity.value = 0;
     imageScale.value = 0.95;
+    glowOpacity.value = 0;
+    titleOpacity.value = 0;
+    titleTranslateY.value = 20;
+    subtitleOpacity.value = 0;
+    subtitleTranslateY.value = 20;
+    actionsOpacity.value = 0;
+    loaderOpacity.value = 1;
 
     startLoadingAnimation();
 
     setTimeout(() => {
-      revealResult();
+      runSignatureReveal();
     }, 2000);
   };
 
@@ -157,8 +213,9 @@ export default function ResultScreen() {
   };
 
   // Animated styles
-  const shimmerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: shimmerPosition.value * IMAGE_WIDTH * 1.5 }],
+  const loaderStyle = useAnimatedStyle(() => ({
+    opacity: loaderOpacity.value,
+    transform: [{ scale: loaderScale.value }],
   }));
 
   const imageStyle = useAnimatedStyle(() => ({
@@ -170,23 +227,134 @@ export default function ResultScreen() {
     opacity: glowOpacity.value,
   }));
 
-  const confettiStyle = useAnimatedStyle(() => ({
-    opacity: confettiOpacity.value,
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: titleTranslateY.value }],
+  }));
+
+  const subtitleStyle = useAnimatedStyle(() => ({
+    opacity: subtitleOpacity.value,
+    transform: [{ translateY: subtitleTranslateY.value }],
+  }));
+
+  const actionsStyle = useAnimatedStyle(() => ({
+    opacity: actionsOpacity.value,
   }));
 
   const elementsText = elements.includes('entire_look')
-    ? 'Entire Look'
+    ? 'Entire look'
     : elements.map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(' + ');
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <LinearGradient
-        colors={['rgba(0, 212, 255, 0.08)', 'rgba(0, 0, 0, 0)', 'rgba(0, 191, 165, 0.05)']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bgPrimary,
+    },
+    glow: {
+      position: 'absolute' as const,
+      width: IMAGE_WIDTH + 40,
+      height: IMAGE_WIDTH * 1.3 + 40,
+      borderRadius: borderRadius.xl + 20,
+      top: -20,
+      left: -20,
+      backgroundColor: colors.accentGlow,
+    },
+    imageCard: {
+      width: IMAGE_WIDTH,
+      height: IMAGE_WIDTH * 1.3,
+      borderRadius: borderRadius.lg,
+      borderWidth: 2,
+      borderColor: colors.border,
+      backgroundColor: colors.bgTertiary,
+      overflow: 'hidden' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    loaderOuter: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.accentMuted,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginBottom: 16,
+    },
+    loaderInner: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: colors.bgTertiary,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    loaderText: {
+      ...typography.bodyMedium,
+      color: colors.textSecondary,
+    },
+    resultTitle: {
+      ...typography.headlineLarge,
+      color: colors.textPrimary,
+    },
+    resultSubtitle: {
+      ...typography.bodyMedium,
+      color: colors.textSecondary,
+    },
+    actionButton: {
+      alignItems: 'center' as const,
+      paddingVertical: 16,
+      paddingHorizontal: 32,
+      backgroundColor: colors.bgTertiary,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minWidth: 100,
+    },
+    actionButtonSaved: {
+      backgroundColor: colors.accentMuted,
+      borderColor: colors.accent,
+    },
+    actionLabel: {
+      ...typography.labelMedium,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    actionLabelSaved: {
+      color: colors.accent,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.border,
+    },
+    sectionTitle: {
+      ...typography.labelSmall,
+      color: colors.textTertiary,
+      marginHorizontal: 16,
+    },
+    productCardInner: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      padding: 12,
+      backgroundColor: colors.bgTertiary,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    productName: {
+      ...typography.bodyMedium,
+      color: colors.textPrimary,
+      marginBottom: 2,
+    },
+    productPrice: {
+      ...typography.labelMedium,
+      color: colors.accent,
+    },
+  }), [colors]);
 
+  return (
+    <View style={[dynamicStyles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -204,31 +372,21 @@ export default function ResultScreen() {
       >
         {/* Result Image Container */}
         <View style={styles.resultContainer}>
-          {/* Glow effect */}
-          <Animated.View style={[styles.glow, glowStyle]}>
-            <LinearGradient
-              colors={[colors.accentPrimary, colors.accentSecondary]}
-              style={StyleSheet.absoluteFill}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            />
-          </Animated.View>
+          {/* Mint glow effect */}
+          <Animated.View style={[dynamicStyles.glow, glowStyle]} />
 
-          {/* Image with loading state */}
-          <GlassCard padding={8} style={styles.imageCard}>
-            {/* Shimmer loading */}
+          {/* Image container - solid with border */}
+          <View style={dynamicStyles.imageCard}>
+            {/* Pulsing loader */}
             {isLoading && (
-              <View style={styles.shimmerContainer}>
-                <View style={styles.shimmerPlaceholder} />
-                <Animated.View style={[styles.shimmer, shimmerStyle]}>
-                  <LinearGradient
-                    colors={['transparent', 'rgba(255,255,255,0.1)', 'transparent']}
-                    style={styles.shimmerGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  />
-                </Animated.View>
-              </View>
+              <Animated.View style={[styles.loaderContainer, loaderStyle]}>
+                <View style={dynamicStyles.loaderOuter}>
+                  <View style={dynamicStyles.loaderInner}>
+                    <Ionicons name="sparkles" size={32} color={colors.accent} />
+                  </View>
+                </View>
+                <Text style={dynamicStyles.loaderText}>Creating your transformation...</Text>
+              </Animated.View>
             )}
 
             {/* Actual result image */}
@@ -236,102 +394,137 @@ export default function ResultScreen() {
               source={{ uri: params.look }}
               style={[styles.resultImage, imageStyle]}
             />
-
-            {/* Confetti burst */}
-            <Animated.View style={[styles.confetti, confettiStyle]}>
-              <Ionicons name="sparkles" size={40} color={colors.accentPrimary} style={styles.confettiEmoji} />
-              <MaterialCommunityIcons name="party-popper" size={40} color={colors.accentSecondary} style={[styles.confettiEmoji, styles.confettiTopLeft]} />
-              <Ionicons name="sparkles" size={40} color={colors.accentPrimary} style={[styles.confettiEmoji, styles.confettiTopRight]} />
-              <MaterialCommunityIcons name="party-popper" size={40} color={colors.accentSecondary} style={[styles.confettiEmoji, styles.confettiBottomLeft]} />
-              <Ionicons name="sparkles" size={40} color={colors.accentPrimary} style={[styles.confettiEmoji, styles.confettiBottomRight]} />
-            </Animated.View>
-          </GlassCard>
+          </View>
         </View>
 
         {/* Title */}
-        {isRevealed && (
-          <Animated.View entering={FadeIn.delay(200)} style={styles.titleContainer}>
+        {showTitle && (
+          <Animated.View style={[styles.titleContainer, titleStyle]}>
             <View style={styles.titleRow}>
-              <Text style={styles.resultTitle}>Your new look </Text>
-              <Ionicons name="sparkles" size={24} color={colors.accentPrimary} />
+              <Text style={dynamicStyles.resultTitle}>Look at you!</Text>
+              <Ionicons name="sparkles" size={24} color={colors.accent} style={styles.sparkleIcon} />
             </View>
-            <Text style={styles.resultSubtitle}>{elementsText}</Text>
+          </Animated.View>
+        )}
+
+        {/* Subtitle */}
+        {showSubtitle && (
+          <Animated.View style={[styles.subtitleContainer, subtitleStyle]}>
+            <Text style={dynamicStyles.resultSubtitle}>{elementsText}</Text>
           </Animated.View>
         )}
 
         {/* Action Buttons */}
-        {isRevealed && (
-          <Animated.View entering={SlideInUp.delay(300)} style={styles.actionsContainer}>
+        {showActions && (
+          <Animated.View style={[styles.actionsContainer, actionsStyle]}>
             <Pressable
               onPress={handleSave}
-              style={[styles.actionButton, isSaved && styles.actionButtonSaved]}
+              style={[dynamicStyles.actionButton, isSaved && dynamicStyles.actionButtonSaved]}
             >
-              <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={24} color={isSaved ? colors.accentPrimary : colors.textPrimary} />
-              <Text style={styles.actionLabel}>Save</Text>
+              <Ionicons
+                name={isSaved ? 'heart' : 'heart-outline'}
+                size={24}
+                color={isSaved ? colors.accent : colors.textPrimary}
+              />
+              <Text style={[dynamicStyles.actionLabel, isSaved && dynamicStyles.actionLabelSaved]}>
+                {isSaved ? 'Saved' : 'Save'}
+              </Text>
             </Pressable>
 
-            <Pressable onPress={handleRegenerate} style={styles.actionButton}>
+            <Pressable onPress={handleRegenerate} style={dynamicStyles.actionButton}>
               <Ionicons name="refresh" size={24} color={colors.textPrimary} />
-              <Text style={styles.actionLabel}>Re-gen</Text>
+              <Text style={dynamicStyles.actionLabel}>Re-gen</Text>
             </Pressable>
           </Animated.View>
         )}
 
         {/* Products Section */}
-        {isRevealed && products.length > 0 && (
-          <Animated.View entering={SlideInUp.delay(400)} style={styles.productsSection}>
+        {showProducts && products.length > 0 && (
+          <Animated.View style={styles.productsSection}>
             <View style={styles.sectionDivider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.sectionTitle}>Get the products</Text>
-              <View style={styles.dividerLine} />
+              <View style={dynamicStyles.dividerLine} />
+              <Text style={dynamicStyles.sectionTitle}>Get the products</Text>
+              <View style={dynamicStyles.dividerLine} />
             </View>
 
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} colors={colors} />
             ))}
           </Animated.View>
         )}
 
         {/* Try Another Button */}
         {isRevealed && (
-          <Animated.View entering={SlideInUp.delay(500)} style={styles.tryAnotherContainer}>
-            <GradientButton
-              label="Try Another Look"
+          <View style={styles.tryAnotherContainer}>
+            <PrimaryButton
+              label="Ready for more?"
               onPress={handleTryAnother}
-              size="large"
               style={styles.tryAnotherButton}
             />
-          </Animated.View>
+          </View>
         )}
       </ScrollView>
     </View>
   );
 }
 
-function ProductCard({ product }: { product: Product }) {
+function ProductCard({ product, colors }: { product: Product; colors: ColorsType }) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.98, springs.snappy);
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, springs.snappy);
+  };
+
+  const cardStyles = useMemo(() => ({
+    productCardInner: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      padding: 12,
+      backgroundColor: colors.bgTertiary,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    productName: {
+      ...typography.bodyMedium,
+      color: colors.textPrimary,
+      marginBottom: 2,
+    },
+    productPrice: {
+      ...typography.labelMedium,
+      color: colors.accent,
+    },
+  }), [colors]);
+
   return (
-    <Pressable style={styles.productCard}>
-      <GlassCard padding={12}>
-        <View style={styles.productContent}>
-          <Image source={{ uri: product.image }} style={styles.productImage} />
-          <View style={styles.productInfo}>
-            <Text style={styles.productName} numberOfLines={1}>
-              {product.name}
-            </Text>
-            <Text style={styles.productPrice}>{product.price}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+    <Animated.View style={[styles.productCard, animatedStyle]}>
+      <Pressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={cardStyles.productCardInner}
+      >
+        <Image source={{ uri: product.image }} style={styles.productImage} />
+        <View style={styles.productInfo}>
+          <Text style={cardStyles.productName} numberOfLines={1}>
+            {product.name}
+          </Text>
+          <Text style={cardStyles.productPrice}>{product.price}</Text>
         </View>
-      </GlassCard>
-    </Pressable>
+        <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgPrimary,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -362,106 +555,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  glow: {
+  loaderContainer: {
     position: 'absolute',
-    width: IMAGE_WIDTH + 40,
-    height: IMAGE_WIDTH * 1.3 + 40,
-    borderRadius: borderRadius.xl + 20,
-    top: -20,
-    left: -20,
-  },
-  imageCard: {
-    width: IMAGE_WIDTH,
-    height: IMAGE_WIDTH * 1.3,
-  },
-  shimmerContainer: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-    borderRadius: borderRadius.lg,
-  },
-  shimmerPlaceholder: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.bgTertiary,
-  },
-  shimmer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  shimmerGradient: {
-    width: '50%',
-    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   resultImage: {
     width: '100%',
     height: '100%',
-    borderRadius: borderRadius.lg,
     resizeMode: 'cover',
-  },
-  confetti: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-  },
-  confettiEmoji: {
-    fontSize: 40,
-    position: 'absolute',
-  },
-  confettiTopLeft: {
-    top: 20,
-    left: 20,
-  },
-  confettiTopRight: {
-    top: 30,
-    right: 30,
-  },
-  confettiBottomLeft: {
-    bottom: 30,
-    left: 30,
-  },
-  confettiBottomRight: {
-    bottom: 20,
-    right: 20,
   },
   titleContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 4,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  resultTitle: {
-    ...typography.headlineLarge,
-    color: colors.textPrimary,
-    marginBottom: 4,
+  sparkleIcon: {
+    marginLeft: 8,
   },
-  resultSubtitle: {
-    ...typography.bodyMedium,
-    color: colors.textSecondary,
+  subtitleContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
   },
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 16,
     marginBottom: 40,
-  },
-  actionButton: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    backgroundColor: colors.bgCard,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    minWidth: 100,
-  },
-  actionButtonSaved: {
-    backgroundColor: 'rgba(0, 212, 255, 0.15)',
-    borderColor: colors.accentPrimary,
-  },
-  actionLabel: {
-    ...typography.labelMedium,
-    color: colors.textSecondary,
   },
   productsSection: {
     marginBottom: 32,
@@ -471,22 +595,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.glassBorder,
-  },
-  sectionTitle: {
-    ...typography.labelSmall,
-    color: colors.textTertiary,
-    marginHorizontal: 16,
-  },
   productCard: {
     marginBottom: 12,
-  },
-  productContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   productImage: {
     width: 50,
@@ -496,15 +606,6 @@ const styles = StyleSheet.create({
   },
   productInfo: {
     flex: 1,
-  },
-  productName: {
-    ...typography.bodyMedium,
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  productPrice: {
-    ...typography.labelMedium,
-    color: colors.accentPrimary,
   },
   tryAnotherContainer: {
     marginTop: 8,

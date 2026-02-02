@@ -1,33 +1,30 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Image } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withTiming,
-  Easing,
+  withSpring,
 } from 'react-native-reanimated';
-import { colors } from '@/constants/colors';
-import { typography } from '@/constants/typography';
+import { useTheme } from '@/contexts/ThemeContext';
+import { springs } from '@/constants/spacing';
 
 interface AnimatedLogoProps {
   size?: 'small' | 'medium' | 'large';
   animate?: boolean;
 }
 
+const lightLogo = require('@/assets/ios-light.png');
+const darkLogo = require('@/assets/ios-light.png');
+
 export function AnimatedLogo({ size = 'large', animate = true }: AnimatedLogoProps) {
+  const { isDark } = useTheme();
   const scale = useSharedValue(animate ? 0.95 : 1);
   const opacity = useSharedValue(animate ? 0 : 1);
 
   useEffect(() => {
     if (animate) {
-      scale.value = withTiming(1, {
-        duration: 600,
-        easing: Easing.out(Easing.cubic),
-      });
-      opacity.value = withTiming(1, {
-        duration: 500,
-        easing: Easing.out(Easing.ease),
-      });
+      scale.value = withSpring(1, springs.smooth);
+      opacity.value = withSpring(1, springs.smooth);
     }
   }, [animate]);
 
@@ -37,22 +34,21 @@ export function AnimatedLogo({ size = 'large', animate = true }: AnimatedLogoPro
   }));
 
   const sizeStyles = {
-    small: { fontSize: 24, starSize: 12 },
-    medium: { fontSize: 36, starSize: 16 },
-    large: { fontSize: 48, starSize: 20 },
+    small: { width: 100, height: 100 },
+    medium: { width: 160, height: 160 },
+    large: { width: 220, height: 220 },
   };
 
   const currentSize = sizeStyles[size];
+  const logoSource = isDark ? darkLogo : lightLogo;
 
   return (
     <Animated.View style={[styles.container, animatedStyle]}>
-      <View style={styles.logoRow}>
-        <Text style={[styles.star, { fontSize: currentSize.starSize }]}>✦</Text>
-        <Text style={[styles.logoText, { fontSize: currentSize.fontSize }]}>
-          LOOKR
-        </Text>
-        <Text style={[styles.star, { fontSize: currentSize.starSize }]}>✦</Text>
-      </View>
+      <Image
+        source={logoSource}
+        style={[styles.logo, currentSize]}
+        resizeMode="contain"
+      />
     </Animated.View>
   );
 }
@@ -62,18 +58,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoText: {
-    ...typography.displayLarge,
-    color: colors.textPrimary,
-    fontWeight: '800',
-    letterSpacing: 4,
-    marginHorizontal: 8,
-  },
-  star: {
-    color: colors.accentPrimary,
+  logo: {
+    // Size is applied dynamically
   },
 });

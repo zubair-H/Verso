@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,13 +7,13 @@ import {
   Pressable,
   Image,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, SlideInUp } from 'react-native-reanimated';
-import { GradientButton, SelectableChip, GlassCard } from '@/components/ui';
-import { colors } from '@/constants/colors';
+import { PrimaryButton, SelectableChip } from '@/components/ui';
+import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 import { trackEvent } from '@/utils/analytics';
@@ -21,17 +21,18 @@ import { trackEvent } from '@/utils/analytics';
 interface Element {
   id: string;
   label: string;
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
 }
 
 const elements: Element[] = [
-  { id: 'hair', label: 'Hair', icon: '💇' },
-  { id: 'outfit', label: 'Outfit', icon: '👔' },
-  { id: 'glasses', label: 'Glasses', icon: '👓' },
-  { id: 'makeup', label: 'Makeup', icon: '💄' },
+  { id: 'hair', label: 'Hair', icon: 'cut' },
+  { id: 'outfit', label: 'Outfit', icon: 'shirt' },
+  { id: 'glasses', label: 'Glasses', icon: 'glasses' },
+  { id: 'makeup', label: 'Makeup', icon: 'sparkles' },
 ];
 
 export default function SelectElementsScreen() {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ selfie: string; look: string }>();
   const [selectedElements, setSelectedElements] = useState<string[]>([]);
@@ -84,24 +85,47 @@ export default function SelectElementsScreen() {
   const canGenerate = entireLook || selectedElements.length > 0;
   const selectedCount = entireLook ? elements.length : selectedElements.length;
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <LinearGradient
-        colors={['rgba(0, 212, 255, 0.06)', 'rgba(0, 0, 0, 0)', 'rgba(0, 191, 165, 0.04)']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bgPrimary,
+    },
+    headerTitle: {
+      ...typography.headlineMedium,
+      color: colors.textPrimary,
+    },
+    title: {
+      ...typography.headlineLarge,
+      color: colors.textPrimary,
+      textAlign: 'center' as const,
+      marginBottom: 24,
+    },
+    imageCard: {
+      borderRadius: borderRadius.lg,
+      borderWidth: 2,
+      borderColor: colors.border,
+      overflow: 'hidden' as const,
+    },
+    bottomSection: {
+      paddingHorizontal: layout.screenPadding,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      backgroundColor: colors.bgPrimary,
+    },
+  }), [colors]);
 
+  return (
+    <View style={[dynamicStyles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Text style={styles.backIcon}>←</Text>
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle}>Select Elements</Text>
+        <Text style={dynamicStyles.headerTitle}>Select Elements</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -112,17 +136,17 @@ export default function SelectElementsScreen() {
       >
         {/* Title */}
         <Animated.View entering={FadeIn.delay(100)}>
-          <Text style={styles.title}>What do you want to try?</Text>
+          <Text style={dynamicStyles.title}>Choose your transformation</Text>
         </Animated.View>
 
         {/* Reference Image */}
         <Animated.View entering={FadeIn.delay(200)} style={styles.imageContainer}>
-          <GlassCard padding={8}>
+          <View style={dynamicStyles.imageCard}>
             <Image
               source={{ uri: params.look }}
               style={styles.referenceImage}
             />
-          </GlassCard>
+          </View>
         </Animated.View>
 
         {/* Element Chips */}
@@ -141,8 +165,8 @@ export default function SelectElementsScreen() {
         {/* Entire Look Option */}
         <Animated.View entering={SlideInUp.delay(400)}>
           <SelectableChip
-            label="ENTIRE LOOK"
-            icon="✦"
+            label="Entire look"
+            icon="sparkles"
             selected={entireLook}
             onPress={toggleEntireLook}
             fullWidth
@@ -153,14 +177,12 @@ export default function SelectElementsScreen() {
       {/* Bottom Section */}
       <Animated.View
         entering={SlideInUp.delay(500)}
-        style={[styles.bottomSection, { paddingBottom: insets.bottom + 20 }]}
+        style={[dynamicStyles.bottomSection, { paddingBottom: insets.bottom + 20 }]}
       >
-        <GradientButton
-          label={`Generate${selectedCount > 0 ? ` (${selectedCount})` : ''}`}
+        <PrimaryButton
+          label={`Create my look${selectedCount > 0 ? ` (${selectedCount})` : ''}`}
           onPress={handleGenerate}
           disabled={!canGenerate}
-          size="large"
-          haptic="medium"
           style={styles.generateButton}
         />
       </Animated.View>
@@ -169,10 +191,6 @@ export default function SelectElementsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgPrimary,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -186,14 +204,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backIcon: {
-    fontSize: 24,
-    color: colors.textPrimary,
-  },
-  headerTitle: {
-    ...typography.headlineMedium,
-    color: colors.textPrimary,
-  },
   placeholder: {
     width: 40,
   },
@@ -204,12 +214,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.screenPadding,
     paddingBottom: 20,
   },
-  title: {
-    ...typography.headlineLarge,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
   imageContainer: {
     alignItems: 'center',
     marginBottom: 32,
@@ -217,7 +221,6 @@ const styles = StyleSheet.create({
   referenceImage: {
     width: 200,
     height: 260,
-    borderRadius: borderRadius.md,
     resizeMode: 'cover',
   },
   elementsGrid: {
@@ -225,13 +228,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 16,
-  },
-  bottomSection: {
-    paddingHorizontal: layout.screenPadding,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.glassBorder,
-    backgroundColor: colors.bgPrimary,
   },
   generateButton: {
     width: '100%',
