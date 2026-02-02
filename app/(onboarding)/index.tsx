@@ -169,7 +169,7 @@ export default function WelcomeScreen() {
 
   const handleGetStarted = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/(onboarding)/potential');
+    router.push('/(onboarding)/splash');
   };
 
   const handlePressIn = () => {
