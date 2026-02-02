@@ -14,6 +14,9 @@ export default function OnboardingLayout() {
         gestureEnabled: true,
         gestureDirection: 'horizontal',
       }}
-    />
+    >
+      {/* No animation between page 1 and 2 for seamless logo */}
+      <Stack.Screen name="possibilities" options={{ animation: 'none' }} />
+    </Stack>
   );
 }

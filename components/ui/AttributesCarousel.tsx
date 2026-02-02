@@ -3,31 +3,31 @@ import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withRepeat,
   withTiming,
   withDelay,
   Easing,
+  useFrameCallback,
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width, height: screenHeight } = Dimensions.get('window');
+const { height: screenHeight } = Dimensions.get('window');
 
 // Muted color palette with variety
 const CARD_COLORS = [
-  { bg: '#4A6572', iconBg: 'rgba(255,255,255,0.18)', accent: '#B8D4E3' },      // Steel Blue
-  { bg: '#5D4E6D', iconBg: 'rgba(255,255,255,0.18)', accent: '#C9B8D9' },      // Muted Purple
-  { bg: '#3D5A5B', iconBg: 'rgba(255,255,255,0.18)', accent: '#A8C5C6' },      // Teal Gray
-  { bg: '#6B5344', iconBg: 'rgba(255,255,255,0.18)', accent: '#D4C4B5' },      // Warm Brown
-  { bg: '#4A5D4A', iconBg: 'rgba(255,255,255,0.18)', accent: '#B5C9B5' },      // Sage Green
-  { bg: '#5C4A4A', iconBg: 'rgba(255,255,255,0.18)', accent: '#D1BFBF' },      // Dusty Rose
-  { bg: '#3A4F6A', iconBg: 'rgba(255,255,255,0.18)', accent: '#A3B8D1' },      // Navy Blue
-  { bg: '#5A5A5A', iconBg: 'rgba(255,255,255,0.18)', accent: '#C8C8C8' },      // Neutral Gray
-  { bg: '#4D5D53', iconBg: 'rgba(255,255,255,0.18)', accent: '#B3C4BA' },      // Forest
-  { bg: '#6A5A6A', iconBg: 'rgba(255,255,255,0.18)', accent: '#D1C1D1' },      // Mauve
-  { bg: '#4F5D6A', iconBg: 'rgba(255,255,255,0.18)', accent: '#B5C3D1' },      // Slate
-  { bg: '#5A6A5A', iconBg: 'rgba(255,255,255,0.18)', accent: '#C1D1C1' },      // Moss
+  { bg: '#7D8E7A', iconBg: 'rgba(255,255,255,0.18)', accent: '#B5C4B2' },      // Dusty Sage
+  { bg: '#9C8B7A', iconBg: 'rgba(255,255,255,0.18)', accent: '#CFC2B5' },      // Warm Taupe
+  { bg: '#6B7A8C', iconBg: 'rgba(255,255,255,0.18)', accent: '#A8B5C3' },      // Slate Blue
+  { bg: '#B8A0A0', iconBg: 'rgba(255,255,255,0.18)', accent: '#DBCECE' },      // Dusty Rose
+  { bg: '#808872', iconBg: 'rgba(255,255,255,0.18)', accent: '#B8BFB0' },      // Muted Olive
+  { bg: '#8C8680', iconBg: 'rgba(255,255,255,0.18)', accent: '#C4C1BD' },      // Warm Gray
+  { bg: '#8A7B8C', iconBg: 'rgba(255,255,255,0.18)', accent: '#C1B6C3' },      // Soft Plum
+  { bg: '#7A8899', iconBg: 'rgba(255,255,255,0.18)', accent: '#B1BBC7' },      // Faded Denim
+  { bg: '#A08070', iconBg: 'rgba(255,255,255,0.18)', accent: '#D0C0B3' },      // Clay
+  { bg: '#909A8C', iconBg: 'rgba(255,255,255,0.18)', accent: '#C4CBC2' },      // Sage Gray
+  { bg: '#787E88', iconBg: 'rgba(255,255,255,0.18)', accent: '#B2B6BD' },      // Steel
+  { bg: '#A09098', iconBg: 'rgba(255,255,255,0.18)', accent: '#CEC9CD' },      // Dusty Mauve
 ];
 
 // Attribute data with icons - representing transformable features
@@ -100,13 +100,17 @@ interface AttributeCardProps {
 
 const AttributeCard = ({ attribute, celebrityStyle, height }: AttributeCardProps) => {
   const cardColor = CARD_COLORS[attribute.colorIndex];
+  // Smaller icon for small cards to prevent overflow
+  const isSmall = height <= 110;
+  const iconSize = isSmall ? 36 : 48;
+  const iconFontSize = isSmall ? 18 : 24;
 
   return (
     <View style={[styles.attributeCard, { height, backgroundColor: cardColor.bg }]}>
-      <View style={[styles.iconContainer, { backgroundColor: cardColor.iconBg }]}>
+      <View style={[styles.iconContainer, { backgroundColor: cardColor.iconBg, width: iconSize, height: iconSize, borderRadius: iconSize / 2 }]}>
         <Ionicons
           name={attribute.icon as any}
-          size={24}
+          size={iconFontSize}
           color="#FFF"
         />
       </View>
@@ -115,7 +119,7 @@ const AttributeCard = ({ attribute, celebrityStyle, height }: AttributeCardProps
           {attribute.label}
         </Text>
         <View style={styles.arrowContainer}>
-          <Ionicons name="arrow-forward" size={12} color="rgba(255,255,255,0.7)" />
+          <Ionicons name="arrow-forward" size={10} color="rgba(255,255,255,0.7)" />
         </View>
         <Text style={[styles.celebrityLabel, { color: cardColor.accent }]} numberOfLines={1}>
           {celebrityStyle}
@@ -141,16 +145,20 @@ const AttributeColumn = ({
     0
   );
 
-  useEffect(() => {
-    translateY.value = withRepeat(
-      withTiming(-singleSetHeight, {
-        duration: animationDuration,
-        easing: Easing.linear,
-      }),
-      -1,
-      false
-    );
-  }, [singleSetHeight, animationDuration]);
+  // Speed in pixels per millisecond for smooth continuous scrolling
+  const speed = singleSetHeight / animationDuration;
+
+  // Use frame callback for truly seamless infinite loop
+  useFrameCallback((frameInfo) => {
+    if (frameInfo.timeSincePreviousFrame === null) return;
+
+    translateY.value -= speed * frameInfo.timeSincePreviousFrame;
+
+    // Reset seamlessly when we've scrolled past one complete set
+    if (translateY.value <= -singleSetHeight) {
+      translateY.value += singleSetHeight;
+    }
+  });
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -309,8 +317,9 @@ const styles = StyleSheet.create({
   attributeCard: {
     borderRadius: 20,
     marginBottom: 12,
-    padding: 16,
+    padding: 12,
     justifyContent: 'space-between',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -318,25 +327,23 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardTextContainer: {
-    gap: 3,
+    gap: 2,
+    overflow: 'hidden',
   },
   attributeLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
   arrowContainer: {
-    marginVertical: 3,
+    marginVertical: 2,
   },
   celebrityLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     letterSpacing: -0.2,
   },
