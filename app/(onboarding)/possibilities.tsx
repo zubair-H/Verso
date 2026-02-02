@@ -188,10 +188,10 @@ export default function PossibilitiesScreen() {
   }, []);
 
   // Row styles - alternating slide directions with exit animations
-  // Exit: rows slide out in opposite direction (creates satisfying reverse zigzag)
+  // Exit: rows slide back to where they came from (left→left, right→right)
   const row1Style = useAnimatedStyle(() => {
     const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 80]); // slides right on exit
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, -80]); // slides back left on exit
     return {
       opacity: row1Progress.value * exitOpacity,
       transform: [{ translateX: interpolate(row1Progress.value, [0, 1], [-60, 0]) + exitTranslateX }],
@@ -200,7 +200,7 @@ export default function PossibilitiesScreen() {
 
   const row2Style = useAnimatedStyle(() => {
     const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, -80]); // slides left on exit
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 80]); // slides back right on exit
     return {
       opacity: row2Progress.value * exitOpacity,
       transform: [{ translateX: interpolate(row2Progress.value, [0, 1], [60, 0]) + exitTranslateX }],
@@ -209,7 +209,7 @@ export default function PossibilitiesScreen() {
 
   const row3Style = useAnimatedStyle(() => {
     const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 80]); // slides right on exit
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, -80]); // slides back left on exit
     return {
       opacity: row3Progress.value * exitOpacity,
       transform: [{ translateX: interpolate(row3Progress.value, [0, 1], [-60, 0]) + exitTranslateX }],
@@ -218,7 +218,7 @@ export default function PossibilitiesScreen() {
 
   const row4Style = useAnimatedStyle(() => {
     const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, -80]); // slides left on exit
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 80]); // slides back right on exit
     return {
       opacity: row4Progress.value * exitOpacity,
       transform: [{ translateX: interpolate(row4Progress.value, [0, 1], [60, 0]) + exitTranslateX }],

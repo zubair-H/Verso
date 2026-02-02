@@ -43,6 +43,7 @@ function OnboardingLayoutContent() {
 
   // Carousel visibility and blur state
   const carouselOpacity = useSharedValue(0);
+  const carouselTranslateY = useSharedValue(0);
   const blurMaskTop = useSharedValue(0);
   const hasEnteredCarouselScreen = useSharedValue(false);
 
@@ -90,8 +91,9 @@ function OnboardingLayoutContent() {
           })
         );
       } else if (currentScreen === 'permissions') {
-        // Fade out carousel when entering permissions
-        carouselOpacity.value = withTiming(0, { duration: 500, easing: SMOOTH_EASE });
+        // Slide carousel up and out when entering permissions
+        carouselTranslateY.value = withTiming(-screenHeight, { duration: 600, easing: SMOOTH_EASE });
+        carouselOpacity.value = withDelay(400, withTiming(0, { duration: 200, easing: SMOOTH_EASE }));
         // On permissions, keep logo in small position
         logoProgress.value = withTiming(1, { duration: 300, easing: EASE });
       }
@@ -100,6 +102,7 @@ function OnboardingLayoutContent() {
       logoProgress.value = withTiming(0, { duration: 500, easing: EASE });
       // Reset carousel state when going back
       carouselOpacity.value = 0;
+      carouselTranslateY.value = 0;
       blurMaskTop.value = 0;
       hasEnteredCarouselScreen.value = false;
     }
@@ -149,14 +152,15 @@ function OnboardingLayoutContent() {
   // Carousel animated styles
   const carouselStyle = useAnimatedStyle(() => ({
     opacity: carouselOpacity.value,
+    transform: [{ translateY: carouselTranslateY.value }],
   }));
 
   const blurMaskStyle = useAnimatedStyle(() => ({
     top: blurMaskTop.value,
   }));
 
-  // Check if we should show carousel (on howitworks or splash)
-  const showCarousel = currentScreen === 'howitworks' || currentScreen === 'splash';
+  // Check if we should show carousel (on howitworks, splash, or permissions for exit animation)
+  const showCarousel = currentScreen === 'howitworks' || currentScreen === 'splash' || currentScreen === 'permissions';
 
   // Only show logo on onboarding screens
   const showLogo = !currentScreen || currentScreen === '(onboarding)' || ['index', 'possibilities', 'howitworks', 'splash', 'permissions'].includes(currentScreen);
@@ -165,7 +169,7 @@ function OnboardingLayoutContent() {
     <View style={styles.container}>
       {/* Shared carousel background - persists across howitworks and splash */}
       {showCarousel && (
-        <Animated.View style={[StyleSheet.absoluteFill, carouselStyle]}>
+        <Animated.View style={[styles.carouselContainer, carouselStyle]}>
           {/* Single carousel instance that persists */}
           <AttributesCarousel
             blurIntensity={100}
@@ -247,6 +251,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F0F6FC',
+  },
+  carouselContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: screenHeight,
   },
   logoContainer: {
     position: 'absolute',
