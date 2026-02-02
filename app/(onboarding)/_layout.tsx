@@ -65,7 +65,7 @@ export default function OnboardingLayout() {
     const EASE = Easing.out(Easing.cubic);
     const SMOOTH_EASE = Easing.bezier(0.4, 0, 0.2, 1);
 
-    if (currentScreen === 'howitworks' || currentScreen === 'splash') {
+    if (currentScreen === 'howitworks' || currentScreen === 'splash' || currentScreen === 'options') {
       // Show carousel with fade-in on howitworks (starts first)
       if (currentScreen === 'howitworks' && !hasEnteredCarouselScreen.value) {
         hasEnteredCarouselScreen.value = true;
@@ -76,17 +76,19 @@ export default function OnboardingLayout() {
           100,
           withTiming(1, { duration: 600, easing: SMOOTH_EASE })
         );
-      } else if (currentScreen === 'splash') {
-        // On splash, logo should already be at position 1, just ensure it's there
+      } else if (currentScreen === 'splash' || currentScreen === 'options') {
+        // On splash/options, logo should be in small position
         logoProgress.value = withTiming(1, { duration: 300, easing: EASE });
-        // Animate blur out (reveal carousel)
-        blurMaskTop.value = withDelay(
-          200,
-          withTiming(screenHeight, {
-            duration: 1000,
-            easing: Easing.inOut(Easing.cubic),
-          })
-        );
+        // Animate blur out only on splash
+        if (currentScreen === 'splash') {
+          blurMaskTop.value = withDelay(
+            200,
+            withTiming(screenHeight, {
+              duration: 1000,
+              easing: Easing.inOut(Easing.cubic),
+            })
+          );
+        }
       }
     } else {
       // Animate to larger, lower position
@@ -143,6 +145,9 @@ export default function OnboardingLayout() {
   // Check if we should show carousel (on howitworks or splash)
   const showCarousel = currentScreen === 'howitworks' || currentScreen === 'splash';
 
+  // Only show logo on the first 5 screens (always show on index/initial load)
+  const showLogo = !currentScreen || currentScreen === '(onboarding)' || ['index', 'possibilities', 'howitworks', 'splash', 'options'].includes(currentScreen);
+
   return (
     <View style={styles.container}>
       {/* Shared carousel background - persists across howitworks and splash */}
@@ -165,46 +170,46 @@ export default function OnboardingLayout() {
         </Animated.View>
       )}
 
-      {/* Persistent logo across all screens - animated 3-layer reveal */}
-      <Animated.View style={[styles.logoContainer, logoContainerStyle]}>
-        <View style={styles.logoLayersWrapper}>
-          {/* Line layer - reveals from left to right */}
-          <Animated.View style={[styles.logoLayerClip, lineLayerStyle]}>
-            <Image
-              source={lineImage}
-              style={styles.logoLayerImage}
-              resizeMode="contain"
-            />
-          </Animated.View>
+      {/* Persistent logo - only on first 4 screens */}
+      {showLogo && (
+        <Animated.View style={[styles.logoContainer, logoContainerStyle]}>
+          <View style={styles.logoLayersWrapper}>
+            {/* Line layer - reveals from left to right */}
+            <Animated.View style={[styles.logoLayerClip, lineLayerStyle]}>
+              <Image
+                source={lineImage}
+                style={styles.logoLayerImage}
+                resizeMode="contain"
+              />
+            </Animated.View>
 
-          {/* Swoosh layer - reveals from right to left */}
-          <Animated.View style={[styles.logoLayerClipRight, swooshLayerStyle]}>
-            <Image
-              source={swooshImage}
-              style={styles.logoLayerImageRight}
-              resizeMode="contain"
-            />
-          </Animated.View>
+            {/* Swoosh layer - reveals from right to left */}
+            <Animated.View style={[styles.logoLayerClipRight, swooshLayerStyle]}>
+              <Image
+                source={swooshImage}
+                style={styles.logoLayerImageRight}
+                resizeMode="contain"
+              />
+            </Animated.View>
 
-          {/* Name layer - reveals from left to right */}
-          <Animated.View style={[styles.logoLayerClip, nameLayerStyle]}>
-            <Image
-              source={nameImage}
-              style={styles.logoLayerImage}
-              resizeMode="contain"
-            />
-          </Animated.View>
-        </View>
-      </Animated.View>
+            {/* Name layer - reveals from left to right */}
+            <Animated.View style={[styles.logoLayerClip, nameLayerStyle]}>
+              <Image
+                source={nameImage}
+                style={styles.logoLayerImage}
+                resizeMode="contain"
+              />
+            </Animated.View>
+          </View>
+        </Animated.View>
+      )}
 
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: 'transparent' },
-          animation: 'fade',
-          animationDuration: 350,
-          gestureEnabled: true,
-          gestureDirection: 'horizontal',
+          animation: 'none',
+          gestureEnabled: false,
         }}
       >
         {/* No animation between pages for seamless logo continuity */}

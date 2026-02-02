@@ -80,7 +80,7 @@ export default function SplashScreen() {
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/(onboarding)/potential');
+    router.push('/(onboarding)/options');
   };
 
   const handlePressIn = () => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Text, View, Pressable, Image, StyleSheet, ScrollView } from 'react-native';
+import { Text, View, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -19,9 +19,8 @@ import { layout, borderRadius, springs } from '@/constants/spacing';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// Logo asset - same as previous pages
-const logoImage = require('@/assets/ios-tinted.png');
-const LOGO_SIZE = 220;
+// Logo size for spacing reference (logo is in layout)
+const LOGO_SIZE_SMALL = 220;
 
 // Transformation categories with their options
 const TRANSFORMATION_CATEGORIES = [
@@ -142,15 +141,6 @@ export default function OptionsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Logo at top - same position as previous pages */}
-      <View style={styles.logoContainer}>
-        <Image
-          source={logoImage}
-          style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
-          resizeMode="contain"
-        />
-      </View>
-
       {/* Content area */}
       <Animated.View style={[styles.content, contentStyle]}>
         {/* Headline */}
@@ -219,18 +209,10 @@ const createStyles = (colors: any, insets: any) =>
       flex: 1,
       backgroundColor: colors.bgPrimary,
     },
-    logoContainer: {
-      position: 'absolute',
-      top: insets.top - 60,
-      left: 0,
-      right: 0,
-      alignItems: 'center',
-      zIndex: 100,
-    },
     content: {
       flex: 1,
       paddingHorizontal: layout.screenPadding,
-      paddingTop: insets.top + LOGO_SIZE - 40,
+      paddingTop: insets.top + LOGO_SIZE_SMALL - 40,
     },
     headlineContainer: {
       marginBottom: 24,
