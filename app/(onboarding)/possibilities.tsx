@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Text, View, Pressable, Image, StyleSheet } from 'react-native';
+import { Text, View, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -17,9 +17,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 
-const logoImage = require('@/assets/ios-tinted.png');
-
-const LOGO_SIZE = 280;
+const LOGO_SIZE = 280; // Keep for spacing reference
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -54,6 +52,10 @@ export default function PossibilitiesScreen() {
   const buttonTranslateY = useSharedValue(30);
   const buttonScale = useSharedValue(1);
 
+  // Exit animation
+  const exitProgress = useSharedValue(0);
+  const isExiting = useSharedValue(false);
+
   useEffect(() => {
     const EASE = Easing.out(Easing.cubic);
 
@@ -87,35 +89,76 @@ export default function PossibilitiesScreen() {
     buttonTranslateY.value = withDelay(buttonDelay, withSpring(0, SMOOTH_SPRING));
   }, []);
 
-  // Row styles - alternating slide directions
-  const row1Style = useAnimatedStyle(() => ({
-    opacity: row1Progress.value,
-    transform: [{ translateX: interpolate(row1Progress.value, [0, 1], [-60, 0]) }],
-  }));
+  // Row styles - alternating slide directions with exit animations
+  // Exit: rows slide out in opposite direction (creates satisfying reverse zigzag)
+  const row1Style = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 80]); // slides right on exit
+    return {
+      opacity: row1Progress.value * exitOpacity,
+      transform: [{ translateX: interpolate(row1Progress.value, [0, 1], [-60, 0]) + exitTranslateX }],
+    };
+  });
 
-  const row2Style = useAnimatedStyle(() => ({
-    opacity: row2Progress.value,
-    transform: [{ translateX: interpolate(row2Progress.value, [0, 1], [60, 0]) }],
-  }));
+  const row2Style = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, -80]); // slides left on exit
+    return {
+      opacity: row2Progress.value * exitOpacity,
+      transform: [{ translateX: interpolate(row2Progress.value, [0, 1], [60, 0]) + exitTranslateX }],
+    };
+  });
 
-  const row3Style = useAnimatedStyle(() => ({
-    opacity: row3Progress.value,
-    transform: [{ translateX: interpolate(row3Progress.value, [0, 1], [-60, 0]) }],
-  }));
+  const row3Style = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 80]); // slides right on exit
+    return {
+      opacity: row3Progress.value * exitOpacity,
+      transform: [{ translateX: interpolate(row3Progress.value, [0, 1], [-60, 0]) + exitTranslateX }],
+    };
+  });
 
-  const row4Style = useAnimatedStyle(() => ({
-    opacity: row4Progress.value,
-    transform: [{ translateX: interpolate(row4Progress.value, [0, 1], [60, 0]) }],
-  }));
+  const row4Style = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, -80]); // slides left on exit
+    return {
+      opacity: row4Progress.value * exitOpacity,
+      transform: [{ translateX: interpolate(row4Progress.value, [0, 1], [60, 0]) + exitTranslateX }],
+    };
+  });
 
-  const buttonStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-    transform: [{ translateY: buttonTranslateY.value }, { scale: buttonScale.value }],
-  }));
+  const buttonStyle = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateY = interpolate(exitProgress.value, [0, 1], [0, 40]);
+    return {
+      opacity: buttonOpacity.value * exitOpacity,
+      transform: [{ translateY: buttonTranslateY.value + exitTranslateY }, { scale: buttonScale.value }],
+    };
+  });
+
+  // Gradient fades out during exit
+  const gradientStyle = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 0.8], [1, 0]);
+    return { opacity: exitOpacity };
+  });
 
   const handleContinue = () => {
+    // Prevent double taps
+    if (isExiting.value) return;
+    isExiting.value = true;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/(onboarding)/howitworks');
+
+    const EXIT_DURATION = 400;
+    const EASE_OUT = Easing.bezier(0.33, 1, 0.68, 1);
+
+    // Animate content out
+    exitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EASE_OUT });
+
+    // Navigate after exit animation
+    setTimeout(() => {
+      router.push('/(onboarding)/howitworks');
+    }, EXIT_DURATION - 80);
   };
 
   const handlePressIn = () => {
@@ -130,21 +173,17 @@ export default function PossibilitiesScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Subtle gradient background */}
-      <LinearGradient
-        colors={['#FFFFFF', '#F8FBFF', '#F0F6FC']}
-        locations={[0, 0.6, 1]}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Logo */}
-      <View style={styles.logoContainer}>
-        <Image
-          source={logoImage}
-          style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
-          resizeMode="contain"
+      {/* Subtle gradient background - fades during exit */}
+      <Animated.View style={[StyleSheet.absoluteFill, gradientStyle]}>
+        <LinearGradient
+          colors={['#F8FBFF', '#F4F9FE', '#F0F6FC']}
+          locations={[0, 0.5, 1]}
+          style={StyleSheet.absoluteFill}
         />
-      </View>
+      </Animated.View>
+
+      {/* Logo spacer - actual logo is in layout */}
+      <View style={styles.logoSpacer} />
 
       {/* Flowing content */}
       <View style={styles.content}>
@@ -193,10 +232,10 @@ const createStyles = (colors: any, insets: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F0F6FC',
     },
-    logoContainer: {
-      alignItems: 'center',
+    logoSpacer: {
+      height: LOGO_SIZE,
       marginTop: 80,
     },
     content: {

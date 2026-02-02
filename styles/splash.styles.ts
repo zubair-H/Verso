@@ -7,7 +7,7 @@ export const createSplashStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.bgPrimary,
+      backgroundColor: 'transparent',
     },
     gradient: {
       ...StyleSheet.absoluteFillObject,

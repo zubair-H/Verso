@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Text, View, Pressable, Image, StyleSheet } from 'react-native';
+import { Text, View, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -15,14 +15,10 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
-import { AttributesCarousel } from '@/components/ui';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 
-const logoImage = require('@/assets/ios-tinted.png');
-
-// Logo sizes - starts same as page 1/2, ends same as page 4
-const LOGO_SIZE_START = 280;
+// Logo size for spacing reference (actual logo is in layout)
 const LOGO_SIZE_END = 220;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -39,9 +35,6 @@ export default function HowItWorksScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Logo animation
-  const logoProgress = useSharedValue(0);
-
   // Content animations
   const titleProgress = useSharedValue(0);
   const step1Progress = useSharedValue(0);
@@ -53,14 +46,12 @@ export default function HowItWorksScreen() {
   const buttonTranslateY = useSharedValue(30);
   const buttonScale = useSharedValue(1);
 
+  // Exit animation
+  const exitProgress = useSharedValue(0);
+  const isExiting = useSharedValue(false);
+
   useEffect(() => {
     const EASE = Easing.out(Easing.cubic);
-
-    // Logo moves up and shrinks
-    logoProgress.value = withDelay(
-      300,
-      withTiming(1, { duration: 700, easing: EASE })
-    );
 
     // Title
     titleProgress.value = withDelay(
@@ -92,43 +83,71 @@ export default function HowItWorksScreen() {
     buttonTranslateY.value = withDelay(buttonDelay, withSpring(0, SMOOTH_SPRING));
   }, []);
 
-  // Logo style - starts at page 1/2 position (80), ends at page 4 position (insets.top - 60)
-  const logoContainerStyle = useAnimatedStyle(() => {
-    const scaleOffset = (LOGO_SIZE_START - LOGO_SIZE_END) / 2;
-    // scaleOffset accounts for the scale transform shrinking the logo from center
-    const top = interpolate(logoProgress.value, [0, 1], [80, insets.top - 60 - scaleOffset]);
-    const scale = interpolate(logoProgress.value, [0, 1], [1, LOGO_SIZE_END / LOGO_SIZE_START]);
-    return { top, transform: [{ scale }] };
+  // Title with exit animation - fades up
+  const titleStyle = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateY = interpolate(exitProgress.value, [0, 1], [0, -30]);
+    return {
+      opacity: titleProgress.value * exitOpacity,
+      transform: [{ translateY: interpolate(titleProgress.value, [0, 1], [20, 0]) + exitTranslateY }],
+    };
   });
 
-  const titleStyle = useAnimatedStyle(() => ({
-    opacity: titleProgress.value,
-    transform: [{ translateY: interpolate(titleProgress.value, [0, 1], [20, 0]) }],
-  }));
+  // Steps with exit animations - slide out in reverse zigzag
+  const step1Style = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 60]); // slides right on exit
+    return {
+      opacity: step1Progress.value * exitOpacity,
+      transform: [{ translateX: interpolate(step1Progress.value, [0, 1], [-40, 0]) + exitTranslateX }],
+    };
+  });
 
-  const step1Style = useAnimatedStyle(() => ({
-    opacity: step1Progress.value,
-    transform: [{ translateX: interpolate(step1Progress.value, [0, 1], [-40, 0]) }],
-  }));
+  const step2Style = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, -60]); // slides left on exit
+    return {
+      opacity: step2Progress.value * exitOpacity,
+      transform: [{ translateX: interpolate(step2Progress.value, [0, 1], [40, 0]) + exitTranslateX }],
+    };
+  });
 
-  const step2Style = useAnimatedStyle(() => ({
-    opacity: step2Progress.value,
-    transform: [{ translateX: interpolate(step2Progress.value, [0, 1], [40, 0]) }],
-  }));
+  const step3Style = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 60]); // slides right on exit
+    return {
+      opacity: step3Progress.value * exitOpacity,
+      transform: [{ translateX: interpolate(step3Progress.value, [0, 1], [-40, 0]) + exitTranslateX }],
+    };
+  });
 
-  const step3Style = useAnimatedStyle(() => ({
-    opacity: step3Progress.value,
-    transform: [{ translateX: interpolate(step3Progress.value, [0, 1], [-40, 0]) }],
-  }));
-
-  const buttonStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-    transform: [{ translateY: buttonTranslateY.value }, { scale: buttonScale.value }],
-  }));
+  // Button with exit animation - fades down
+  const buttonStyle = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateY = interpolate(exitProgress.value, [0, 1], [0, 40]);
+    return {
+      opacity: buttonOpacity.value * exitOpacity,
+      transform: [{ translateY: buttonTranslateY.value + exitTranslateY }, { scale: buttonScale.value }],
+    };
+  });
 
   const handleContinue = () => {
+    // Prevent double taps
+    if (isExiting.value) return;
+    isExiting.value = true;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/(onboarding)/splash');
+
+    const EXIT_DURATION = 400;
+    const EASE_OUT = Easing.bezier(0.33, 1, 0.68, 1);
+
+    // Animate content out
+    exitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EASE_OUT });
+
+    // Navigate after exit animation
+    setTimeout(() => {
+      router.push('/(onboarding)/splash');
+    }, EXIT_DURATION - 80);
   };
 
   const handlePressIn = () => {
@@ -143,19 +162,7 @@ export default function HowItWorksScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Attributes carousel background with blur */}
-      <AttributesCarousel showBlur blurIntensity={100} blurTint="light" />
-
-      {/* Logo - animates from page 1/2 position to page 4 position */}
-      <Animated.View style={[styles.logoContainer, logoContainerStyle]}>
-        <Image
-          source={logoImage}
-          style={{ width: LOGO_SIZE_START, height: LOGO_SIZE_START }}
-          resizeMode="contain"
-        />
-      </Animated.View>
-
-      {/* Content */}
+      {/* Content - carousel is handled in layout */}
       <View style={styles.content}>
         {/* Title */}
         <Animated.View style={[styles.titleContainer, titleStyle]}>
@@ -229,14 +236,7 @@ const createStyles = (colors: any, insets: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#FFFFFF',
-    },
-    logoContainer: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      alignItems: 'center',
-      zIndex: 100,
+      backgroundColor: 'transparent',
     },
     content: {
       flex: 1,

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Text, View, Pressable, Image } from 'react-native';
+import { Text, View, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -11,16 +11,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
-import { AttributesCarousel } from '@/components/ui';
 import { createSplashStyles } from '@/styles/splash.styles';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-// Logo asset - same as page 1 and 2
-const logoImage = require('@/assets/ios-tinted.png');
-
-// Logo size - same as page 4 (already shrunk from page 2)
-const LOGO_SIZE = 220;
 
 const DURATION = 350;
 const EASE = Easing.out(Easing.quad);
@@ -102,24 +95,7 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Attributes Carousel - blur animates out to reveal attributes */}
-      <AttributesCarousel
-        animateBlurOut
-        blurIntensity={100}
-        blurTint="light"
-        blurOutDelay={200}
-        blurOutDuration={1000}
-        topPadding={100 + insets.top}
-      />
-
-      {/* Logo - already in position from page 2 (same as page 4) */}
-      <View style={[styles.logoContainer, { top: insets.top - 60, zIndex: 100 }]}>
-        <Image
-          source={logoImage}
-          style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
-          resizeMode="contain"
-        />
-      </View>
+      {/* Carousel is handled in layout - blur animates out there */}
 
       {/* Bottom Panel - slides up from bottom */}
       <Animated.View style={[styles.bottomPanel, bottomPanelStyle, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>

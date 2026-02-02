@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Text, View, Pressable, Image, StyleSheet, Dimensions } from 'react-native';
+import { Text, View, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -10,6 +10,8 @@ import Animated, {
   withSpring,
   withRepeat,
   Easing,
+  interpolate,
+  SharedValue,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,14 +20,12 @@ import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const logoImage = require('@/assets/ios-tinted.png');
-const LOGO_SIZE = 280;
+const LOGO_SIZE = 280; // Keep for spacing reference
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // Premium easing - smooth deceleration
 const SMOOTH_EASE = Easing.bezier(0.33, 1, 0.68, 1);
-const SOFT_SPRING = { damping: 20, stiffness: 90, mass: 0.8 };
 
 // Bubble configurations
 const BUBBLES = [
@@ -37,11 +37,12 @@ const BUBBLES = [
   { size: 100, x: SCREEN_WIDTH / 2 + 40, y: SCREEN_HEIGHT * 0.7, color: '#A0D0F5', opacity: 0.08, duration: 4800, delay: 500 },
 ];
 
-// Floating bubble component
+// Floating bubble component with exit animation support
 function FloatingBubble({
-  size, x, y, color, opacity, duration, delay
+  size, x, y, color, opacity, duration, delay, exitProgress
 }: {
   size: number; x: number; y: number; color: string; opacity: number; duration: number; delay: number;
+  exitProgress: SharedValue<number>;
 }) {
   const floatY = useSharedValue(0);
   const floatX = useSharedValue(0);
@@ -61,12 +62,20 @@ function FloatingBubble({
     ));
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: floatY.value },
-      { translateX: floatX.value },
-    ],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    // Exit animation: scale down and fade out (multiply with base opacity)
+    const exitScale = interpolate(exitProgress.value, [0, 1], [1, 0.3]);
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [opacity, 0]);
+
+    return {
+      opacity: exitOpacity,
+      transform: [
+        { translateY: floatY.value },
+        { translateX: floatX.value },
+        { scale: exitScale },
+      ],
+    };
+  });
 
   return (
     <Animated.View
@@ -79,7 +88,6 @@ function FloatingBubble({
           height: size,
           borderRadius: size / 2,
           backgroundColor: color,
-          opacity,
         },
         animatedStyle,
       ]}
@@ -91,10 +99,6 @@ export default function WelcomeScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Logo animation values
-  const logoOpacity = useSharedValue(0);
-  const logoScale = useSharedValue(0.85);
-  const logoTranslateY = useSharedValue(20);
 
   // Text animation values
   const tagline1Opacity = useSharedValue(0);
@@ -109,12 +113,12 @@ export default function WelcomeScreen() {
   const buttonTranslateY = useSharedValue(30);
   const buttonScale = useSharedValue(1);
 
-  useEffect(() => {
-    // Logo entrance - smooth and confident
-    logoOpacity.value = withDelay(150, withTiming(1, { duration: 700, easing: SMOOTH_EASE }));
-    logoScale.value = withDelay(150, withSpring(1, SOFT_SPRING));
-    logoTranslateY.value = withDelay(150, withSpring(0, SOFT_SPRING));
+  // Exit animation values
+  const exitProgress = useSharedValue(0);
+  const contentExitProgress = useSharedValue(0);
+  const isExiting = useSharedValue(false);
 
+  useEffect(() => {
     // Tagline line 1 - elegant fade up
     tagline1Opacity.value = withDelay(550, withTiming(1, { duration: 600, easing: SMOOTH_EASE }));
     tagline1TranslateY.value = withDelay(550, withSpring(0, { damping: 22, stiffness: 85 }));
@@ -132,40 +136,71 @@ export default function WelcomeScreen() {
     buttonTranslateY.value = withDelay(1150, withSpring(0, { damping: 20, stiffness: 90 }));
   }, []);
 
-  const logoStyle = useAnimatedStyle(() => ({
-    opacity: logoOpacity.value,
-    transform: [
-      { translateY: logoTranslateY.value },
-      { scale: logoScale.value },
-    ],
-  }));
+  const tagline1Style = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateY = interpolate(contentExitProgress.value, [0, 1], [0, -30]);
+    return {
+      opacity: tagline1Opacity.value * exitOpacity,
+      transform: [{ translateY: tagline1TranslateY.value + exitTranslateY }],
+    };
+  });
 
-  const tagline1Style = useAnimatedStyle(() => ({
-    opacity: tagline1Opacity.value,
-    transform: [{ translateY: tagline1TranslateY.value }],
-  }));
+  const tagline2Style = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateY = interpolate(contentExitProgress.value, [0, 1], [0, -25]);
+    return {
+      opacity: tagline2Opacity.value * exitOpacity,
+      transform: [{ translateY: tagline2TranslateY.value + exitTranslateY }],
+    };
+  });
 
-  const tagline2Style = useAnimatedStyle(() => ({
-    opacity: tagline2Opacity.value,
-    transform: [{ translateY: tagline2TranslateY.value }],
-  }));
+  const subtitleStyle = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateY = interpolate(contentExitProgress.value, [0, 1], [0, -20]);
+    return {
+      opacity: subtitleOpacity.value * exitOpacity,
+      transform: [{ translateY: subtitleTranslateY.value + exitTranslateY }],
+    };
+  });
 
-  const subtitleStyle = useAnimatedStyle(() => ({
-    opacity: subtitleOpacity.value,
-    transform: [{ translateY: subtitleTranslateY.value }],
-  }));
+  const buttonStyle = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
+    const exitTranslateY = interpolate(contentExitProgress.value, [0, 1], [0, 40]);
+    return {
+      opacity: buttonOpacity.value * exitOpacity,
+      transform: [
+        { translateY: buttonTranslateY.value + exitTranslateY },
+        { scale: buttonScale.value },
+      ],
+    };
+  });
 
-  const buttonStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-    transform: [
-      { translateY: buttonTranslateY.value },
-      { scale: buttonScale.value },
-    ],
-  }));
+  // Gradient fade out during exit
+  const gradientStyle = useAnimatedStyle(() => {
+    const exitOpacity = interpolate(contentExitProgress.value, [0, 0.7], [1, 0]);
+    return { opacity: exitOpacity };
+  });
 
   const handleGetStarted = () => {
+    // Prevent double taps
+    if (isExiting.value) return;
+    isExiting.value = true;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/(onboarding)/possibilities');
+
+    const EXIT_DURATION = 450;
+    const EASE_OUT = Easing.bezier(0.33, 1, 0.68, 1);
+
+    // Animate bubbles out (scale down + fade)
+    exitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EASE_OUT });
+
+    // Animate content out (fade up/down)
+    contentExitProgress.value = withTiming(1, { duration: EXIT_DURATION - 50, easing: EASE_OUT });
+
+    // Navigate after exit animation completes
+    setTimeout(() => {
+      router.push('/(onboarding)/possibilities');
+    }, EXIT_DURATION - 100);
   };
 
   const handlePressIn = () => {
@@ -180,32 +215,26 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Subtle gradient background */}
-      <LinearGradient
-        colors={['#FFFFFF', '#F8FBFF', '#F0F6FC']}
-        locations={[0, 0.6, 1]}
-        style={StyleSheet.absoluteFill}
-      />
+      {/* Subtle gradient background - fades during exit */}
+      <Animated.View style={[StyleSheet.absoluteFill, gradientStyle]}>
+        <LinearGradient
+          colors={['#F8FBFF', '#F4F9FE', '#F0F6FC']}
+          locations={[0, 0.5, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
 
       {/* Floating bubbles layer */}
       <View style={styles.bubblesLayer}>
         {BUBBLES.map((bubble, index) => (
-          <FloatingBubble key={index} {...bubble} />
+          <FloatingBubble key={index} {...bubble} exitProgress={exitProgress} />
         ))}
       </View>
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Logo */}
-        <View style={styles.logoWrapper}>
-          <Animated.View style={[styles.logoContainer, logoStyle]}>
-            <Image
-              source={logoImage}
-              style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
-              resizeMode="contain"
-            />
-          </Animated.View>
-        </View>
+        {/* Logo spacer - actual logo is in layout */}
+        <View style={styles.logoSpacer} />
 
         {/* Text content */}
         <View style={styles.textSection}>
@@ -250,7 +279,7 @@ const createStyles = (_colors: any, insets: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F0F6FC',
     },
     bubblesLayer: {
       ...StyleSheet.absoluteFillObject,
@@ -261,14 +290,10 @@ const createStyles = (_colors: any, insets: any) =>
       alignItems: 'center',
       paddingHorizontal: layout.screenPadding,
     },
-    logoWrapper: {
+    logoSpacer: {
       marginTop: 80,
+      height: LOGO_SIZE,
       marginBottom: 48,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    logoContainer: {
-      zIndex: 1,
     },
     textSection: {
       alignItems: 'center',
