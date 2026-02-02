@@ -14,20 +14,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 
-// Neutral monochromatic color palette for cards
+// Muted color palette with variety
 const CARD_COLORS = [
-  { bg: '#2C3E50', iconBg: 'rgba(255,255,255,0.15)', accent: '#94A3B8' },      // Dark Slate
-  { bg: '#34495E', iconBg: 'rgba(255,255,255,0.15)', accent: '#CBD5E1' },      // Charcoal
-  { bg: '#4A5568', iconBg: 'rgba(255,255,255,0.15)', accent: '#E2E8F0' },      // Gray Blue
-  { bg: '#1A202C', iconBg: 'rgba(255,255,255,0.15)', accent: '#A0AEC0' },      // Near Black
-  { bg: '#2D3748', iconBg: 'rgba(255,255,255,0.15)', accent: '#CBD5E1' },      // Dark Gray
-  { bg: '#3D4F5F', iconBg: 'rgba(255,255,255,0.15)', accent: '#E2E8F0' },      // Steel
-  { bg: '#1E293B', iconBg: 'rgba(255,255,255,0.15)', accent: '#94A3B8' },      // Midnight
-  { bg: '#374151', iconBg: 'rgba(255,255,255,0.15)', accent: '#D1D5DB' },      // Graphite
-  { bg: '#4B5563', iconBg: 'rgba(255,255,255,0.15)', accent: '#E5E7EB' },      // Pewter
-  { bg: '#27364B', iconBg: 'rgba(255,255,255,0.15)', accent: '#94A3B8' },      // Navy Gray
-  { bg: '#3F4E5F', iconBg: 'rgba(255,255,255,0.15)', accent: '#CBD5E1' },      // Slate Blue
-  { bg: '#2A3544', iconBg: 'rgba(255,255,255,0.15)', accent: '#A0AEC0' },      // Deep Slate
+  { bg: '#4A6572', iconBg: 'rgba(255,255,255,0.18)', accent: '#B8D4E3' },      // Steel Blue
+  { bg: '#5D4E6D', iconBg: 'rgba(255,255,255,0.18)', accent: '#C9B8D9' },      // Muted Purple
+  { bg: '#3D5A5B', iconBg: 'rgba(255,255,255,0.18)', accent: '#A8C5C6' },      // Teal Gray
+  { bg: '#6B5344', iconBg: 'rgba(255,255,255,0.18)', accent: '#D4C4B5' },      // Warm Brown
+  { bg: '#4A5D4A', iconBg: 'rgba(255,255,255,0.18)', accent: '#B5C9B5' },      // Sage Green
+  { bg: '#5C4A4A', iconBg: 'rgba(255,255,255,0.18)', accent: '#D1BFBF' },      // Dusty Rose
+  { bg: '#3A4F6A', iconBg: 'rgba(255,255,255,0.18)', accent: '#A3B8D1' },      // Navy Blue
+  { bg: '#5A5A5A', iconBg: 'rgba(255,255,255,0.18)', accent: '#C8C8C8' },      // Neutral Gray
+  { bg: '#4D5D53', iconBg: 'rgba(255,255,255,0.18)', accent: '#B3C4BA' },      // Forest
+  { bg: '#6A5A6A', iconBg: 'rgba(255,255,255,0.18)', accent: '#D1C1D1' },      // Mauve
+  { bg: '#4F5D6A', iconBg: 'rgba(255,255,255,0.18)', accent: '#B5C3D1' },      // Slate
+  { bg: '#5A6A5A', iconBg: 'rgba(255,255,255,0.18)', accent: '#C1D1C1' },      // Moss
 ];
 
 // Attribute data with icons - representing transformable features

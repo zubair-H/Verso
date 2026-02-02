@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
   withDelay,
   withSpring,
+  withSequence,
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -21,51 +22,94 @@ const LOGO_SIZE = 280;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// Premium spring configs
+const SMOOTH_SPRING = { damping: 20, stiffness: 90, mass: 1 };
+const BOUNCY_SPRING = { damping: 12, stiffness: 120, mass: 0.8 };
+const GENTLE_SPRING = { damping: 25, stiffness: 70, mass: 1.2 };
+
 export default function WelcomeScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Animation values
+  // Animation values - Logo
   const logoOpacity = useSharedValue(0);
-  const logoScale = useSharedValue(0.8);
-  const taglineOpacity = useSharedValue(0);
+  const logoScale = useSharedValue(0.6);
+  const logoTranslateY = useSharedValue(40);
+  const logoRotate = useSharedValue(-8);
+
+  // Animation values - Text lines (staggered)
+  const tagline1Opacity = useSharedValue(0);
+  const tagline1TranslateY = useSharedValue(30);
+  const tagline2Opacity = useSharedValue(0);
+  const tagline2TranslateY = useSharedValue(30);
   const subtitleOpacity = useSharedValue(0);
+  const subtitleTranslateY = useSharedValue(25);
+
+  // Animation values - Button
   const buttonOpacity = useSharedValue(0);
+  const buttonTranslateY = useSharedValue(50);
   const buttonScale = useSharedValue(1);
 
   useEffect(() => {
-    const EASE = Easing.out(Easing.cubic);
+    const PREMIUM_EASE = Easing.bezier(0.25, 0.1, 0.25, 1);
+    const DECEL_EASE = Easing.out(Easing.exp);
 
-    // Logo fades in and scales up
-    logoOpacity.value = withDelay(200, withTiming(1, { duration: 600, easing: EASE }));
-    logoScale.value = withDelay(200, withSpring(1, { damping: 15, stiffness: 100 }));
+    // Logo: dramatic entrance with rotation settling
+    logoOpacity.value = withDelay(100, withTiming(1, { duration: 800, easing: PREMIUM_EASE }));
+    logoScale.value = withDelay(100, withSpring(1, BOUNCY_SPRING));
+    logoTranslateY.value = withDelay(100, withSpring(0, SMOOTH_SPRING));
+    logoRotate.value = withDelay(100, withSequence(
+      withSpring(2, { damping: 8, stiffness: 150 }),
+      withSpring(0, { damping: 15, stiffness: 100 })
+    ));
 
-    // Tagline appears
-    taglineOpacity.value = withDelay(700, withTiming(1, { duration: 500, easing: EASE }));
+    // Tagline line 1: slide up with fade
+    tagline1Opacity.value = withDelay(500, withTiming(1, { duration: 600, easing: PREMIUM_EASE }));
+    tagline1TranslateY.value = withDelay(500, withSpring(0, GENTLE_SPRING));
 
-    // Subtitle appears
-    subtitleOpacity.value = withDelay(1000, withTiming(1, { duration: 500, easing: EASE }));
+    // Tagline line 2: staggered after line 1
+    tagline2Opacity.value = withDelay(650, withTiming(1, { duration: 600, easing: PREMIUM_EASE }));
+    tagline2TranslateY.value = withDelay(650, withSpring(0, GENTLE_SPRING));
 
-    // Button appears last
-    buttonOpacity.value = withDelay(1400, withTiming(1, { duration: 400, easing: EASE }));
+    // Subtitle: subtle slide up
+    subtitleOpacity.value = withDelay(900, withTiming(1, { duration: 700, easing: DECEL_EASE }));
+    subtitleTranslateY.value = withDelay(900, withSpring(0, GENTLE_SPRING));
+
+    // Button: spring up from bottom
+    buttonOpacity.value = withDelay(1200, withTiming(1, { duration: 500, easing: PREMIUM_EASE }));
+    buttonTranslateY.value = withDelay(1200, withSpring(0, SMOOTH_SPRING));
   }, []);
 
   const logoStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,
-    transform: [{ scale: logoScale.value }],
+    transform: [
+      { translateY: logoTranslateY.value },
+      { scale: logoScale.value },
+      { rotate: `${logoRotate.value}deg` },
+    ],
   }));
 
-  const taglineStyle = useAnimatedStyle(() => ({
-    opacity: taglineOpacity.value,
+  const tagline1Style = useAnimatedStyle(() => ({
+    opacity: tagline1Opacity.value,
+    transform: [{ translateY: tagline1TranslateY.value }],
+  }));
+
+  const tagline2Style = useAnimatedStyle(() => ({
+    opacity: tagline2Opacity.value,
+    transform: [{ translateY: tagline2TranslateY.value }],
   }));
 
   const subtitleStyle = useAnimatedStyle(() => ({
     opacity: subtitleOpacity.value,
+    transform: [{ translateY: subtitleTranslateY.value }],
   }));
 
   const buttonStyle = useAnimatedStyle(() => ({
     opacity: buttonOpacity.value,
-    transform: [{ scale: buttonScale.value }],
+    transform: [
+      { translateY: buttonTranslateY.value },
+      { scale: buttonScale.value },
+    ],
   }));
 
   const handleGetStarted = () => {
@@ -105,10 +149,14 @@ export default function WelcomeScreen() {
 
         {/* Text content */}
         <View style={styles.textSection}>
-          <Animated.View style={taglineStyle}>
-            <Text style={styles.tagline}>Try any look.</Text>
-            <Text style={styles.tagline}>Risk nothing.</Text>
-          </Animated.View>
+          <View style={styles.taglineContainer}>
+            <Animated.View style={tagline1Style}>
+              <Text style={styles.tagline}>Try any look.</Text>
+            </Animated.View>
+            <Animated.View style={tagline2Style}>
+              <Text style={styles.tagline}>Risk nothing.</Text>
+            </Animated.View>
+          </View>
 
           <Animated.View style={[styles.subtitleContainer, subtitleStyle]}>
             <Text style={styles.subtitle}>
@@ -154,6 +202,9 @@ const createStyles = (_colors: any, insets: any) =>
       marginBottom: 48,
     },
     textSection: {
+      alignItems: 'center',
+    },
+    taglineContainer: {
       alignItems: 'center',
     },
     tagline: {

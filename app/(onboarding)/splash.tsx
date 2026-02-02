@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Text, View, Pressable, Image } from 'react-native';
+import { Text, View, Pressable, Image, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -11,17 +11,20 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { AttributesCarousel } from '@/components/ui';
 import { createSplashStyles } from '@/styles/splash.styles';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // Logo asset - same as page 1 and 2
 const logoImage = require('@/assets/ios-tinted.png');
 
-// Logo size - same as page 1 and 2
-const LOGO_SIZE = 280;
+// Logo size - same as page 4 (already shrunk from page 2)
+const LOGO_SIZE = 220;
 
 const DURATION = 350;
 const EASE = Easing.out(Easing.quad);
@@ -30,10 +33,12 @@ export default function SplashScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Logo animation - starts at same position as page 2, moves up
-  const logoProgress = useSharedValue(0);
+  // Logo is already in position from page 2 (no animation needed)
   const buttonOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(1);
+
+  // Lid animation - slides up to reveal content
+  const lidProgress = useSharedValue(0);
 
   // Bottom panel animation - slides up from bottom
   const bottomPanelTranslateY = useSharedValue(300);
@@ -43,31 +48,28 @@ export default function SplashScreen() {
   const subheadlineWidth = useSharedValue(0);
 
   useEffect(() => {
-    // Animation sequence: Logo → Blur unmask → Bottom content
+    // Animation sequence: Lid lifts → Blur unmask → Bottom content
+    // Logo is already in position from page 2, no animation needed
 
-    // 1. Logo moves first (starts at 200ms, finishes at 800ms)
-    const logoDelay = 200;
-    const logoDuration = 600;
-
-    logoProgress.value = withDelay(
-      logoDelay,
-      withTiming(1, { duration: logoDuration, easing: Easing.out(Easing.cubic) })
-    );
-
-    // 2. Blur unmask happens via AttributesCarousel props (starts at 600ms, finishes at 1600ms)
-    const blurUnmaskDelay = 600;
+    // 1. Lid slides up to reveal content (synced with blur)
+    const blurUnmaskDelay = 200;
     const blurUnmaskDuration = 1000;
     const blurUnmaskFinished = blurUnmaskDelay + blurUnmaskDuration;
 
-    // 3. Bottom panel slides up before content appears
-    const panelStartDelay = blurUnmaskFinished - 400; // Panel starts sliding up
+    lidProgress.value = withDelay(
+      blurUnmaskDelay,
+      withTiming(1, { duration: blurUnmaskDuration, easing: Easing.out(Easing.cubic) })
+    );
+
+    // 2. Bottom panel slides up
+    const panelStartDelay = blurUnmaskFinished - 400;
     bottomPanelTranslateY.value = withDelay(
       panelStartDelay,
       withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) })
     );
 
-    // 4. Bottom content appears after panel is in place
-    const contentStartDelay = panelStartDelay + 300; // Content starts as panel is almost done
+    // 3. Bottom content appears after panel is in place
+    const contentStartDelay = panelStartDelay + 300;
 
     // Headline types out
     headlineWidth.value = withDelay(contentStartDelay, withTiming(100, { duration: 800, easing: Easing.out(Easing.quad) }));
@@ -79,16 +81,16 @@ export default function SplashScreen() {
     buttonOpacity.value = withDelay(contentStartDelay + 700, withTiming(1, { duration: DURATION, easing: EASE }));
   }, []);
 
-  // Logo animated style - moves up from page 2 position to top
-  const logoContainerStyle = useAnimatedStyle(() => {
-    const top = interpolate(
-      logoProgress.value,
+  // Lid style - slides up from covering the content area
+  const lidStyle = useAnimatedStyle(() => {
+    const translateY = interpolate(
+      lidProgress.value,
       [0, 1],
-      [80, insets.top - 60] // Start at marginTop: 80 (same as page 1 & 2), move to top
+      [0, -SCREEN_HEIGHT] // Slides up off screen
     );
 
     return {
-      top,
+      transform: [{ translateY }],
     };
   });
 
@@ -126,24 +128,39 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Attributes Carousel - blur animates out after logo moves to reveal attributes */}
+      {/* Attributes Carousel - blur animates out to reveal attributes */}
       <AttributesCarousel
         animateBlurOut
         blurIntensity={100}
         blurTint="light"
-        blurOutDelay={600}
+        blurOutDelay={200}
         blurOutDuration={1000}
         topPadding={100 + insets.top}
       />
 
-      {/* Logo - starts at same position as page 1 & 2, animates up */}
-      <Animated.View style={[styles.logoContainer, logoContainerStyle]}>
+      {/* Lid - white overlay that slides up to reveal content */}
+      <Animated.View style={[{
+        position: 'absolute',
+        top: insets.top + LOGO_SIZE - 60,
+        left: 0,
+        right: 0,
+        height: SCREEN_HEIGHT,
+        zIndex: 50,
+      }, lidStyle]}>
+        <LinearGradient
+          colors={['#FFFFFF', '#FFFFFF']}
+          style={{ flex: 1 }}
+        />
+      </Animated.View>
+
+      {/* Logo - already in position from page 2 (same as page 4) */}
+      <View style={[styles.logoContainer, { top: insets.top - 60, zIndex: 100 }]}>
         <Image
           source={logoImage}
           style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
           resizeMode="contain"
         />
-      </Animated.View>
+      </View>
 
       {/* Bottom Panel - slides up from bottom */}
       <Animated.View style={[styles.bottomPanel, bottomPanelStyle, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
