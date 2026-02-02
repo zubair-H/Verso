@@ -59,7 +59,7 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      <MasonryBackground showBlur blurIntensity={100} blurTint="dark" overlayOpacity={0.35} />
+      <MasonryBackground showBlur blurIntensity={100} blurTint="dark" overlayOpacity={0.55} />
 
       <View style={styles.content}>
         <Animated.View style={[styles.logoContainer, logoStyle]}>

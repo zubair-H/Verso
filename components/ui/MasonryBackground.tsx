@@ -114,6 +114,7 @@ interface MasonryBackgroundProps {
   opacity?: number;
   topPadding?: number;
   overlayOpacity?: number; // Semi-transparent overlay on top of blur
+  animateOverlayOut?: boolean; // Animate overlay with same mask reveal as blur
 }
 
 export const MasonryBackground = ({
@@ -126,12 +127,15 @@ export const MasonryBackground = ({
   opacity = 1,
   topPadding,
   overlayOpacity = 0,
+  animateOverlayOut = false,
 }: MasonryBackgroundProps) => {
   const insets = useSafeAreaInsets();
   const effectiveTopPadding = topPadding ?? 100 + insets.top;
 
   // For mask reveal: animate the top position of the blur layer
   const blurMaskTop = useSharedValue(0);
+  // For overlay mask reveal: same animation for the dark overlay
+  const overlayMaskTop = useSharedValue(0);
 
   useEffect(() => {
     if (animateBlurOut) {
@@ -146,8 +150,25 @@ export const MasonryBackground = ({
     }
   }, [animateBlurOut, blurOutDelay, blurOutDuration]);
 
+  useEffect(() => {
+    if (animateOverlayOut) {
+      // Animate the overlay's top position down to reveal content from top to bottom
+      overlayMaskTop.value = withDelay(
+        blurOutDelay,
+        withTiming(screenHeight, {
+          duration: blurOutDuration,
+          easing: Easing.inOut(Easing.cubic),
+        })
+      );
+    }
+  }, [animateOverlayOut, blurOutDelay, blurOutDuration]);
+
   const blurMaskStyle = useAnimatedStyle(() => ({
     top: blurMaskTop.value,
+  }));
+
+  const overlayMaskStyle = useAnimatedStyle(() => ({
+    top: overlayMaskTop.value,
   }));
 
   const column1Cards = useMemo(() => generateColumn(COLUMN_1_PATTERN, 0), []);
@@ -189,8 +210,13 @@ export const MasonryBackground = ({
           />
         </Animated.View>
       )}
-      {overlayOpacity > 0 && (
+      {overlayOpacity > 0 && !animateOverlayOut && (
         <View style={[styles.overlay, { opacity: overlayOpacity }]} />
+      )}
+      {animateOverlayOut && overlayOpacity > 0 && (
+        <Animated.View style={[styles.blurMask, overlayMaskStyle]}>
+          <View style={[styles.overlayFill, { opacity: overlayOpacity }]} />
+        </Animated.View>
       )}
     </View>
   );
@@ -236,6 +262,14 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  overlayFill: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: screenHeight,
     backgroundColor: '#000',
   },
 });

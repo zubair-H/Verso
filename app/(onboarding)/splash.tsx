@@ -16,9 +16,11 @@ import { MasonryBackground } from '@/components/ui';
 import { createSplashStyles } from '@/styles/splash.styles';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedImage = Animated.createAnimatedComponent(Image);
 
-// Logo asset
-const logoImage = require('@/assets/ios-tinted.png');
+// Logo assets - crossfade from light to tinted as logo moves up
+const logoLight = require('@/assets/ios-light.png');
+const logoTinted = require('@/assets/ios-tinted.png');
 
 // Logo size
 const LOGO_SIZE = 220;
@@ -34,6 +36,9 @@ export default function SplashScreen() {
   const logoProgress = useSharedValue(0);
   const buttonOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(1);
+
+  // Logo color transition - tied to unmask reaching the logo position
+  const logoColorProgress = useSharedValue(0);
 
   // Bottom panel animation - slides up from bottom
   const bottomPanelTranslateY = useSharedValue(300);
@@ -55,7 +60,16 @@ export default function SplashScreen() {
     );
 
     // 2. Blur unmask happens via MasonryBackground props (starts at 600ms, finishes at 1600ms)
-    const blurUnmaskFinished = 600 + 1000; // blurOutDelay + blurOutDuration = 1600ms
+    const blurUnmaskDelay = 600;
+    const blurUnmaskDuration = 1000;
+    const blurUnmaskFinished = blurUnmaskDelay + blurUnmaskDuration;
+
+    // Logo color crossfade - starts when unmask reaches the logo position at the top
+    // The unmask reveals from top, so crossfade happens when unmask passes the logo
+    logoColorProgress.value = withDelay(
+      blurUnmaskDelay + 350, // Start when unmask has progressed enough to reach the logo
+      withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) })
+    );
 
     // 3. Bottom panel slides up before content appears
     const panelStartDelay = blurUnmaskFinished - 400; // Panel starts sliding up
@@ -91,6 +105,15 @@ export default function SplashScreen() {
       top,
     };
   });
+
+  // Crossfade logo from light to tinted when unmask reaches logo position
+  const logoLightStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(logoColorProgress.value, [0, 1], [1, 0]),
+  }));
+
+  const logoTintedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(logoColorProgress.value, [0, 1], [0, 1]),
+  }));
 
   const headlineStyle = useAnimatedStyle(() => ({
     width: `${headlineWidth.value}%`,
@@ -129,20 +152,29 @@ export default function SplashScreen() {
       {/* Masonry Grid - blur animates out after logo moves */}
       <MasonryBackground
         animateBlurOut
-        blurIntensity={60}
+        blurIntensity={100}
         blurTint="dark"
         blurOutDelay={600}
         blurOutDuration={1000}
         topPadding={100 + insets.top}
+        overlayOpacity={0.55}
+        animateOverlayOut
       />
 
-      {/* Logo - starts at same position as page 1 (marginTop: 80), animates up and shrinks */}
+      {/* Logo - starts at same position as page 1 (marginTop: 80), animates up and crossfades */}
       <Animated.View style={[styles.logoContainer, logoContainerStyle]}>
-        <Image
-          source={logoImage}
-          style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
-          resizeMode="contain"
-        />
+        <View style={{ width: LOGO_SIZE, height: LOGO_SIZE }}>
+          <AnimatedImage
+            source={logoLight}
+            style={[{ width: LOGO_SIZE, height: LOGO_SIZE, position: 'absolute' }, logoLightStyle]}
+            resizeMode="contain"
+          />
+          <AnimatedImage
+            source={logoTinted}
+            style={[{ width: LOGO_SIZE, height: LOGO_SIZE, position: 'absolute' }, logoTintedStyle]}
+            resizeMode="contain"
+          />
+        </View>
       </Animated.View>
 
       {/* Bottom Panel - slides up from bottom */}
