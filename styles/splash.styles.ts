@@ -24,7 +24,7 @@ export const createSplashStyles = (colors: Colors) =>
       top: 0,
       left: 0,
       right: 0,
-      bottom: 160,
+      bottom: 0,
       overflow: 'hidden',
     },
     masonry: {
@@ -40,21 +40,6 @@ export const createSplashStyles = (colors: Colors) =>
       borderRadius: 16,
       marginBottom: 10,
     },
-    topMask: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 10,
-    },
-    bottomMask: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: 100,
-      zIndex: 10,
-    },
     bottomSection: {
       position: 'absolute',
       bottom: 0,
@@ -62,13 +47,6 @@ export const createSplashStyles = (colors: Colors) =>
       right: 0,
       paddingHorizontal: layout.screenPadding,
       zIndex: 50,
-    },
-    bottomGradient: {
-      position: 'absolute',
-      top: -80,
-      left: 0,
-      right: 0,
-      height: 120,
     },
     textContent: {
       alignItems: 'center',
@@ -88,11 +66,17 @@ export const createSplashStyles = (colors: Colors) =>
       color: colors.textPrimary,
       letterSpacing: -0.5,
       marginBottom: 8,
+      textShadowColor: 'rgba(0, 0, 0, 0.15)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 3,
     },
     subline: {
       ...typography.bodyMedium,
       fontSize: 16,
-      color: colors.textTertiary,
+      color: colors.textSecondary,
+      textShadowColor: 'rgba(0, 0, 0, 0.15)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 3,
     },
     button: {
       width: '100%',

@@ -25,9 +25,8 @@ const AnimatedImage = Animated.createAnimatedComponent(Image);
 // Logo asset
 const logoImage = require('@/assets/ios-tinted.png');
 
-// Logo sizes - starts at first page size, shrinks to small
-const LOGO_START_SIZE = 220;
-const LOGO_END_SIZE = 90;
+// Logo size
+const LOGO_SIZE = 220;
 
 // Card colors from the HTML design
 const CARD_COLORS = [
@@ -151,33 +150,32 @@ export default function SplashScreen() {
   useEffect(() => {
     // Logo stays in place (same as page 1) for 700ms, then animates up and shrinks
     const logoDelay = 700;
+    const logoDuration = 600;
+    const logoFinished = logoDelay + logoDuration; // 1300ms
+
     logoProgress.value = withDelay(
       logoDelay,
-      withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) })
+      withTiming(1, { duration: logoDuration, easing: Easing.out(Easing.cubic) })
     );
 
-    // Rest of the page content appears immediately (no delay)
-    // Fade in masonry content
+    // Masonry content fades in immediately
     contentOpacity.value = withTiming(1, { duration: 400, easing: EASE });
 
-    // Headline types out
-    headlineWidth.value = withDelay(300, withTiming(100, { duration: 800, easing: Easing.out(Easing.quad) }));
+    // Bottom section waits for logo to finish
+    // Headline types out after logo finishes
+    headlineWidth.value = withDelay(logoFinished, withTiming(100, { duration: 800, easing: Easing.out(Easing.quad) }));
 
     // Subheadline types out after headline
-    subheadlineWidth.value = withDelay(800, withTiming(100, { duration: 600, easing: Easing.out(Easing.quad) }));
+    subheadlineWidth.value = withDelay(logoFinished + 500, withTiming(100, { duration: 600, easing: Easing.out(Easing.quad) }));
 
     // Button appears last
-    buttonOpacity.value = withDelay(1100, withTiming(1, { duration: DURATION, easing: EASE }));
+    buttonOpacity.value = withDelay(logoFinished + 800, withTiming(1, { duration: DURATION, easing: EASE }));
   }, []);
 
   // Logo animated style - shrinks from large to small and moves up
   // Logo starts at page 1 position (marginTop: 80) and moves to very top
   // Since scale transforms from center, we need to compensate by moving top much higher
   const logoContainerStyle = useAnimatedStyle(() => {
-    const scale = interpolate(logoProgress.value, [0, 1], [1, LOGO_END_SIZE / LOGO_START_SIZE]);
-    // Start position: 80 (marginTop from page 1)
-    // End position: compensate for scale transform (which scales from center)
-    // To get visual top near screen top, we need to move the container up significantly
     const top = interpolate(
       logoProgress.value,
       [0, 1],
@@ -186,7 +184,6 @@ export default function SplashScreen() {
 
     return {
       top,
-      transform: [{ scale }],
     };
   });
 
@@ -238,20 +235,13 @@ export default function SplashScreen() {
       <Animated.View style={[styles.logoContainer, logoContainerStyle]}>
         <Image
           source={logoImage}
-          style={{ width: LOGO_START_SIZE, height: LOGO_START_SIZE }}
+          style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
           resizeMode="contain"
         />
       </Animated.View>
 
       {/* Masonry Grid */}
       <Animated.View style={[styles.masonryContainer, contentStyle]}>
-        {/* Top fade mask */}
-        <LinearGradient
-          colors={[colors.bgPrimary, colors.bgPrimary, 'transparent']}
-          locations={[0, 0.4, 1]}
-          style={[styles.topMask, { height: 140 + insets.top }]}
-          pointerEvents="none"
-        />
         <View style={[styles.masonry, { paddingTop: 100 + insets.top }]}>
           <MasonryColumn
             cards={column1Cards}
@@ -275,22 +265,10 @@ export default function SplashScreen() {
             styles={styles}
           />
         </View>
-        {/* Bottom fade mask */}
-        <LinearGradient
-          colors={['transparent', colors.bgPrimary, colors.bgPrimary]}
-          locations={[0, 0.5, 1]}
-          style={styles.bottomMask}
-          pointerEvents="none"
-        />
       </Animated.View>
 
       {/* Bottom Section */}
       <View style={[styles.bottomSection, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
-        <LinearGradient
-          colors={['transparent', colors.bgPrimary, colors.bgPrimary]}
-          locations={[0, 0.25, 1]}
-          style={styles.bottomGradient}
-        />
         <View style={styles.textContent}>
           <View style={styles.typingContainer}>
             <Animated.View style={[styles.typingClip, headlineStyle]}>
