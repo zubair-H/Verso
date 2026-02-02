@@ -129,8 +129,8 @@ export default function SplashScreen() {
       {/* Masonry Grid - blur animates out after logo moves */}
       <MasonryBackground
         animateBlurOut
-        blurIntensity={80}
-        blurTint="light"
+        blurIntensity={60}
+        blurTint="dark"
         blurOutDelay={600}
         blurOutDuration={1000}
         topPadding={100 + insets.top}

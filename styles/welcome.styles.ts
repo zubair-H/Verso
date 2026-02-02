@@ -26,11 +26,38 @@ export const createStyles = (colors: Colors) =>
       alignItems: 'center',
       paddingBottom: 80,
     },
+    centerSection: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
+    textBlock: {
+      alignItems: 'flex-start',
+    },
     cardsWrapper: {
       width: 280,
       height: 340,
       justifyContent: 'center',
       alignItems: 'center',
+    },
+    ringsContainer: {
+      width: 240,
+      height: 240,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    centerIcon: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: colors.bgPrimary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 4,
     },
     backCardLeft: {
       position: 'absolute',
@@ -38,8 +65,7 @@ export const createStyles = (colors: Colors) =>
       height: 240,
       backgroundColor: colors.bgTertiary,
       borderRadius: 24,
-      borderWidth: 1,
-      borderColor: colors.border,
+      overflow: 'hidden',
     },
     backCardRight: {
       position: 'absolute',
@@ -47,31 +73,31 @@ export const createStyles = (colors: Colors) =>
       height: 240,
       backgroundColor: colors.bgTertiary,
       borderRadius: 24,
-      borderWidth: 1,
-      borderColor: colors.border,
+      overflow: 'hidden',
     },
     mainCard: {
       width: 180,
       height: 240,
-      backgroundColor: colors.textPrimary,
+      backgroundColor: colors.bgTertiary,
       borderRadius: 24,
-      justifyContent: 'center',
-      alignItems: 'center',
+      overflow: 'hidden',
       zIndex: 10,
     },
-    cardIconContainer: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    cardImage: {
+      width: '100%',
+      height: '100%',
+      resizeMode: 'cover',
+    },
+    cardOverlay: {
+      position: 'absolute',
+      bottom: 12,
+      right: 12,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(0, 0, 0, 0.4)',
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: 20,
-    },
-    cardText: {
-      ...typography.headlineMedium,
-      color: colors.bgPrimary,
-      letterSpacing: -0.3,
     },
     statementContainer: {
       alignItems: 'center',
@@ -85,15 +111,20 @@ export const createStyles = (colors: Colors) =>
       lineHeight: 24,
     },
     headline: {
-      ...typography.headlineMedium,
-      color: colors.textPrimary,
-      textAlign: 'center',
-      marginBottom: 8,
+      ...typography.displayLarge,
+      color: '#E0EAF5', // Light blue-tinged white for blurred background
+      lineHeight: 44,
+      textShadowColor: 'rgba(0, 0, 0, 0.4)',
+      textShadowOffset: { width: 0, height: 2 },
+      textShadowRadius: 10,
     },
     subheadline: {
-      ...typography.bodyMedium,
-      color: colors.textTertiary,
-      textAlign: 'center',
+      ...typography.bodyLarge,
+      color: '#B8CCDF', // Softer blue-tinged gray
+      marginTop: 16,
+      textShadowColor: 'rgba(0, 0, 0, 0.35)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 8,
     },
     typingContainer: {
       alignItems: 'center',
@@ -130,13 +161,13 @@ export const createStyles = (colors: Colors) =>
     button: {
       width: '100%',
       height: 56,
-      backgroundColor: colors.textPrimary,
+      backgroundColor: '#E0EAF5', // Light blue-tinged white to match headline
       borderRadius: borderRadius.lg,
       alignItems: 'center',
       justifyContent: 'center',
     },
     buttonText: {
       ...typography.labelLarge,
-      color: colors.bgPrimary,
+      color: '#1A1F26', // Dark text for contrast on light button
     },
   });
