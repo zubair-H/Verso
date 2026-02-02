@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Text, View, Pressable, Dimensions, Image } from 'react-native';
+import { Text, View, Pressable, Image } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,18 +9,14 @@ import Animated, {
   withTiming,
   withDelay,
   withRepeat,
-  withSpring,
   Easing,
   interpolate,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { createSplashStyles } from '@/styles/splash.styles';
-import { springs } from '@/constants/spacing';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const AnimatedImage = Animated.createAnimatedComponent(Image);
 
 // Logo asset
 const logoImage = require('@/assets/ios-tinted.png');
@@ -28,61 +24,59 @@ const logoImage = require('@/assets/ios-tinted.png');
 // Logo size
 const LOGO_SIZE = 220;
 
-// Card colors from the HTML design
-const CARD_COLORS = [
-  '#E8C4C0', // Dusty rose
-  '#7EB8DA', // Sky blue
-  '#F4D06F', // Golden yellow
-  '#1A1F2E', // Deep navy
-  '#D4A5A5', // Muted pink
-  '#9ED8C2', // Mint green
-  '#C3B1E1', // Lavender
-  '#F2A154', // Orange
-  '#A8D5BA', // Sage green
-  '#FFB5B5', // Coral pink
-  '#87CEEB', // Light blue
-  '#DDA0DD', // Plum
+// Placeholder images for AI-generated looks (replace with your actual images)
+const LOOK_IMAGES = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+  'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&q=80',
+  'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80',
+  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&q=80',
+  'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=400&q=80',
+  'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&q=80',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80',
+  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=80',
+  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80',
+  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&q=80',
+  'https://images.unsplash.com/photo-1463453091185-61582044d556?w=400&q=80',
 ];
 
 // Card height variants
 const CARD_HEIGHTS = {
-  sm: 100,
-  md: 130,
-  lg: 160,
-  xl: 190,
+  sm: 120,
+  md: 150,
+  lg: 180,
+  xl: 210,
 };
 
 type CardHeight = keyof typeof CARD_HEIGHTS;
 
 interface CardData {
   height: CardHeight;
-  colorIndex: number;
+  imageIndex: number;
 }
 
 // Generate card patterns for each column (doubled for seamless loop)
-const generateColumn = (pattern: CardHeight[]): CardData[] => {
+const generateColumn = (pattern: CardHeight[], offset: number): CardData[] => {
   const cards = pattern.map((height, index) => ({
     height,
-    colorIndex: index % CARD_COLORS.length,
+    imageIndex: (index + offset) % LOOK_IMAGES.length,
   }));
   // Double the cards for seamless infinite scroll
   return [...cards, ...cards];
 };
 
-const COLUMN_1_PATTERN: CardHeight[] = ['lg', 'md', 'xl', 'sm', 'lg', 'md', 'xl', 'sm', 'lg', 'md', 'xl', 'sm'];
-const COLUMN_2_PATTERN: CardHeight[] = ['md', 'xl', 'sm', 'lg', 'md', 'xl', 'sm', 'lg', 'md', 'xl', 'sm', 'lg'];
-const COLUMN_3_PATTERN: CardHeight[] = ['sm', 'lg', 'md', 'xl', 'sm', 'lg', 'md', 'xl', 'sm', 'lg', 'md', 'xl'];
+const COLUMN_1_PATTERN: CardHeight[] = ['lg', 'md', 'xl', 'sm', 'lg', 'md', 'xl', 'sm'];
+const COLUMN_2_PATTERN: CardHeight[] = ['md', 'xl', 'sm', 'lg', 'md', 'xl', 'sm', 'lg'];
+const COLUMN_3_PATTERN: CardHeight[] = ['xl', 'sm', 'lg', 'md', 'xl', 'sm', 'lg', 'md'];
 
 const MasonryColumn = ({
   cards,
   paddingTop,
-  colorOffset,
   animationDuration,
   styles,
 }: {
   cards: CardData[];
   paddingTop: number;
-  colorOffset: number;
   animationDuration: number;
   styles: ReturnType<typeof createSplashStyles>;
 }) => {
@@ -113,15 +107,14 @@ const MasonryColumn = ({
     <View style={styles.masonryColumn}>
       <Animated.View style={[{ paddingTop }, animatedStyle]}>
         {cards.map((card, index) => (
-          <View
+          <Image
             key={index}
+            source={{ uri: LOOK_IMAGES[card.imageIndex] }}
             style={[
               styles.imageCard,
-              {
-                height: CARD_HEIGHTS[card.height],
-                backgroundColor: CARD_COLORS[(card.colorIndex + colorOffset) % CARD_COLORS.length],
-              },
+              { height: CARD_HEIGHTS[card.height] },
             ]}
+            resizeMode="cover"
           />
         ))}
       </Animated.View>
@@ -217,9 +210,9 @@ export default function SplashScreen() {
 
   const styles = useMemo(() => createSplashStyles(colors), [colors]);
 
-  const column1Cards = useMemo(() => generateColumn(COLUMN_1_PATTERN), []);
-  const column2Cards = useMemo(() => generateColumn(COLUMN_2_PATTERN), []);
-  const column3Cards = useMemo(() => generateColumn(COLUMN_3_PATTERN), []);
+  const column1Cards = useMemo(() => generateColumn(COLUMN_1_PATTERN, 0), []);
+  const column2Cards = useMemo(() => generateColumn(COLUMN_2_PATTERN, 4), []);
+  const column3Cards = useMemo(() => generateColumn(COLUMN_3_PATTERN, 8), []);
 
   return (
     <View style={styles.container}>
@@ -246,21 +239,18 @@ export default function SplashScreen() {
           <MasonryColumn
             cards={column1Cards}
             paddingTop={30}
-            colorOffset={0}
             animationDuration={25000}
             styles={styles}
           />
           <MasonryColumn
             cards={column2Cards}
             paddingTop={0}
-            colorOffset={4}
             animationDuration={28000}
             styles={styles}
           />
           <MasonryColumn
             cards={column3Cards}
             paddingTop={50}
-            colorOffset={8}
             animationDuration={23000}
             styles={styles}
           />

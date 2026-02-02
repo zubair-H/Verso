@@ -39,6 +39,8 @@ export const createSplashStyles = (colors: Colors) =>
     imageCard: {
       borderRadius: 16,
       marginBottom: 10,
+      overflow: 'hidden',
+      backgroundColor: '#E5E5E5',
     },
     bottomSection: {
       position: 'absolute',
