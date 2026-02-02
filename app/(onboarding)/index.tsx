@@ -92,28 +92,34 @@ export default function WelcomeScreen() {
   const mainCardOpacity = useSharedValue(0);
 
   useEffect(() => {
-    logoOpacity.value = withTiming(1, { duration: DURATION, easing: EASE });
-    cardsOpacity.value = withDelay(150, withTiming(1, { duration: DURATION, easing: EASE }));
+    // Logo reveal takes 1800ms - start next elements slightly before it finishes for smooth transition
+    const startNext = 1500;
 
-    // Staggered card shuffle animations
+    logoOpacity.value = withTiming(1, { duration: DURATION, easing: EASE });
+    cardsOpacity.value = withDelay(startNext, withTiming(1, { duration: DURATION, easing: EASE }));
+
+    // Sequence: Stars first, then cards, then message, then button
     const cardDuration = 500;
     const cardEase = Easing.out(Easing.back(1.2));
 
-    // Left card shuffles up first
-    leftCardOpacity.value = withDelay(150, withTiming(1, { duration: cardDuration, easing: EASE }));
-    leftCardTranslateY.value = withDelay(150, withTiming(0, { duration: cardDuration, easing: cardEase }));
+    // 1. Stars appear first (slightly before logo finishes for seamless transition)
+    starsOpacity.value = withDelay(startNext, withTiming(1, { duration: DURATION, easing: EASE }));
 
-    // Right card shuffles up second
-    rightCardOpacity.value = withDelay(350, withTiming(1, { duration: cardDuration, easing: EASE }));
-    rightCardTranslateY.value = withDelay(350, withTiming(0, { duration: cardDuration, easing: cardEase }));
+    // 2. Cards shuffle up after stars
+    leftCardOpacity.value = withDelay(startNext + 100, withTiming(1, { duration: cardDuration, easing: EASE }));
+    leftCardTranslateY.value = withDelay(startNext + 100, withTiming(0, { duration: cardDuration, easing: cardEase }));
 
-    // Main card shuffles up last
-    mainCardOpacity.value = withDelay(550, withTiming(1, { duration: cardDuration, easing: EASE }));
-    mainCardTranslateY.value = withDelay(550, withTiming(0, { duration: cardDuration, easing: cardEase }));
+    rightCardOpacity.value = withDelay(startNext + 180, withTiming(1, { duration: cardDuration, easing: EASE }));
+    rightCardTranslateY.value = withDelay(startNext + 180, withTiming(0, { duration: cardDuration, easing: cardEase }));
 
-    starsOpacity.value = withDelay(550, withTiming(1, { duration: DURATION, easing: EASE }));
-    statementOpacity.value = withDelay(650, withTiming(1, { duration: DURATION, easing: EASE }));
-    buttonOpacity.value = withDelay(700, withTiming(1, { duration: DURATION, easing: EASE }));
+    mainCardOpacity.value = withDelay(startNext + 260, withTiming(1, { duration: cardDuration, easing: EASE }));
+    mainCardTranslateY.value = withDelay(startNext + 260, withTiming(0, { duration: cardDuration, easing: cardEase }));
+
+    // 3. Statement appears after cards
+    statementOpacity.value = withDelay(startNext + 400, withTiming(1, { duration: DURATION, easing: EASE }));
+
+    // 4. Button appears last
+    buttonOpacity.value = withDelay(startNext + 500, withTiming(1, { duration: DURATION, easing: EASE }));
   }, []);
 
   const logoStyle = useAnimatedStyle(() => ({ opacity: logoOpacity.value }));
@@ -175,7 +181,7 @@ export default function WelcomeScreen() {
 
       <View style={styles.content}>
         <Animated.View style={[styles.logoContainer, logoStyle]}>
-          <AnimatedLogo size="large" animate={false} />
+          <AnimatedLogo size="large" animate={false} revealFromBottom revealDelay={0} />
         </Animated.View>
 
         <View style={styles.cardsSection}>
