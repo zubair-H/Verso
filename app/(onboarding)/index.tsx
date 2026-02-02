@@ -105,8 +105,8 @@ export default function WelcomeScreen() {
     const cardDuration = 500;
     const cardEase = Easing.out(Easing.back(1.2));
 
-    // 1. Stars appear first (slightly before logo finishes for seamless transition)
-    starsOpacity.value = withDelay(startNext, withTiming(1, { duration: DURATION, easing: EASE }));
+    // 1. Stars appear immediately with the logo
+    starsOpacity.value = withTiming(1, { duration: DURATION, easing: EASE });
 
     // 2. Cards shuffle up after stars
     leftCardOpacity.value = withDelay(startNext + 100, withTiming(1, { duration: cardDuration, easing: EASE }));
