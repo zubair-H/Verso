@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Text, View, Pressable, StyleSheet } from 'react-native';
+import { Text, View, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -8,18 +8,106 @@ import Animated, {
   withTiming,
   withDelay,
   withSpring,
+  withRepeat,
   Easing,
   interpolate,
+  SharedValue,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const LOGO_SIZE = 280; // Keep for spacing reference
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// Floating icons configuration - same positions as bubbles on first page
+const FLOATING_ICONS = [
+  { icon: 'cut-outline', size: 36, x: -30, y: 80, color: '#4A90D9', opacity: 0.35, duration: 4000, delay: 0 },
+  { icon: 'color-palette-outline', size: 28, x: SCREEN_WIDTH - 80, y: 150, color: '#7BB3E0', opacity: 0.3, duration: 5000, delay: 200 },
+  { icon: 'glasses-outline', size: 40, x: SCREEN_WIDTH / 2 - 60, y: SCREEN_HEIGHT * 0.35, color: '#5A9FE0', opacity: 0.28, duration: 6000, delay: 400 },
+  { icon: 'shirt-outline', size: 22, x: 30, y: SCREEN_HEIGHT * 0.5, color: '#8EC5F0', opacity: 0.32, duration: 4500, delay: 100 },
+  { icon: 'watch-outline', size: 32, x: SCREEN_WIDTH - 100, y: SCREEN_HEIGHT * 0.55, color: '#6AADE8', opacity: 0.3, duration: 5500, delay: 300 },
+  { icon: 'diamond-outline', size: 26, x: SCREEN_WIDTH / 2 + 40, y: SCREEN_HEIGHT * 0.7, color: '#A0D0F5', opacity: 0.28, duration: 4800, delay: 500 },
+];
+
+// Floating icon component with elegant transitions
+function FloatingIcon({
+  icon, size, x, y, color, opacity, duration, delay, entryProgress, exitProgress
+}: {
+  icon: string; size: number; x: number; y: number; color: string; opacity: number; duration: number; delay: number;
+  entryProgress: SharedValue<number>; exitProgress: SharedValue<number>;
+}) {
+  const floatY = useSharedValue(0);
+  const floatX = useSharedValue(0);
+  const rotation = useSharedValue(0);
+
+  useEffect(() => {
+    // Vertical float
+    floatY.value = withDelay(delay + 300, withRepeat(
+      withTiming(15, { duration, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    ));
+    // Horizontal drift
+    floatX.value = withDelay(delay + 500, withRepeat(
+      withTiming(10, { duration: duration * 1.2, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    ));
+    // Subtle rotation
+    rotation.value = withDelay(delay + 200, withRepeat(
+      withTiming(8, { duration: duration * 0.8, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    ));
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    // Entry: scale up + fade in with spring-like feel
+    const entryScale = interpolate(entryProgress.value, [0, 1], [0.3, 1]);
+    const entryOpacity = interpolate(entryProgress.value, [0, 1], [0, opacity]);
+
+    // Exit: scale down + fade out
+    const exitScale = interpolate(exitProgress.value, [0, 1], [1, 0.2]);
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+
+    return {
+      opacity: entryOpacity * exitOpacity,
+      transform: [
+        { translateY: floatY.value },
+        { translateX: floatX.value },
+        { scale: entryScale * exitScale },
+        { rotate: `${rotation.value}deg` },
+      ],
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: x,
+          top: y,
+          width: size * 2.5,
+          height: size * 2.5,
+          borderRadius: size * 1.25,
+          backgroundColor: color,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        animatedStyle,
+      ]}
+    >
+      <Ionicons name={icon as any} size={size} color="rgba(255,255,255,0.9)" />
+    </Animated.View>
+  );
+}
 
 // Smooth spring for elegant motion
 const SMOOTH_SPRING = { damping: 22, stiffness: 85, mass: 1 };
@@ -52,12 +140,22 @@ export default function PossibilitiesScreen() {
   const buttonTranslateY = useSharedValue(30);
   const buttonScale = useSharedValue(1);
 
+  // Floating icons animation
+  const iconsEntryProgress = useSharedValue(0);
+
   // Exit animation
   const exitProgress = useSharedValue(0);
   const isExiting = useSharedValue(false);
 
   useEffect(() => {
     const EASE = Easing.out(Easing.cubic);
+    const SMOOTH_EASE = Easing.bezier(0.33, 1, 0.68, 1);
+
+    // Floating icons fade in elegantly first
+    iconsEntryProgress.value = withDelay(
+      100,
+      withTiming(1, { duration: 800, easing: SMOOTH_EASE })
+    );
 
     // Row 1: slides from left
     row1Progress.value = withDelay(
@@ -182,6 +280,18 @@ export default function PossibilitiesScreen() {
         />
       </Animated.View>
 
+      {/* Floating icons layer - same positions as bubbles on first page */}
+      <View style={styles.iconsLayer}>
+        {FLOATING_ICONS.map((iconConfig, index) => (
+          <FloatingIcon
+            key={index}
+            {...iconConfig}
+            entryProgress={iconsEntryProgress}
+            exitProgress={exitProgress}
+          />
+        ))}
+      </View>
+
       {/* Logo spacer - actual logo is in layout */}
       <View style={styles.logoSpacer} />
 
@@ -228,11 +338,15 @@ export default function PossibilitiesScreen() {
   );
 }
 
-const createStyles = (colors: any, insets: any) =>
+const createStyles = (_colors: any, insets: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: '#F0F6FC',
+    },
+    iconsLayer: {
+      ...StyleSheet.absoluteFillObject,
+      overflow: 'hidden',
     },
     logoSpacer: {
       height: LOGO_SIZE,
