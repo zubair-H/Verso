@@ -14,6 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import { ImageUploadCard, PrimaryButton } from '@/components/ui';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
@@ -193,6 +194,14 @@ export default function HomeScreen() {
       flexDirection: 'row',
       justifyContent: 'space-between',
       marginBottom: 28,
+      position: 'relative',
+    },
+    arrowOverlay: {
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: [{ translateX: -40 }, { translateY: -30 }],
+      zIndex: 10,
     },
     generateSection: {
       marginBottom: 36,
@@ -354,6 +363,25 @@ export default function HomeScreen() {
             onSelect={() => pickImage('look')}
             onRemove={() => setLookImage(null)}
           />
+         <View style={styles.arrowOverlay} pointerEvents="none">
+  <Svg viewBox="0 0 80 60" width={80} height={60}>
+    <Path
+      d="M 10 48 C 5 25, 25 5, 45 15 C 58 22, 50 35, 40 32 C 32 30, 38 20, 50 22 C 60 24, 68 28, 70 35"
+      stroke="#BEBEBE"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      fill="none"
+    />
+    <Path
+  d="M 67 24 L 72 35 L 63 36"
+  stroke="#BEBEBE"
+  strokeWidth={1.75}
+  strokeLinecap="round"
+  strokeLinejoin="round"
+  fill="none"
+/>
+  </Svg>
+</View>
         </Animated.View>
 
         {/* Generate Button */}
