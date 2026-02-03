@@ -89,7 +89,7 @@ export function PrimaryButton({
       shadowColor: colors.success,
     },
     buttonDisabled: {
-      backgroundColor: colors.bgCard,
+      backgroundColor: colors.bgSecondary,
       shadowOpacity: 0,
       elevation: 0,
     },

@@ -451,7 +451,6 @@ export default function HomeScreen() {
             label="See Your Look"
             onPress={handleGenerate}
             disabled={!canGenerate}
-            icon={canGenerate ? 'sparkles' : undefined}
             style={styles.generateButton}
           />
         </Animated.View>
