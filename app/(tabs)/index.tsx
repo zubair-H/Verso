@@ -338,20 +338,6 @@ export default function HomeScreen() {
           <Text style={styles.title}>Explore a Look</Text>
         </Animated.View>
 
-        {/* Progress indicator */}
-        <Animated.View entering={FadeInDown.delay(150)} style={styles.progressCard}>
-          <View style={styles.progressIcon}>
-            <Ionicons name="flame" size={20} color={colors.accentSecondary} />
-          </View>
-          <View style={styles.progressContent}>
-            <Text style={styles.progressTitle}>You're on a roll!</Text>
-            <Text style={styles.progressSubtitle}>3 looks explored this week</Text>
-          </View>
-          <View style={styles.streakBadge}>
-            <Text style={styles.streakText}>3</Text>
-          </View>
-        </Animated.View>
-
         {/* Upload Cards */}
         <Animated.View entering={FadeInDown.delay(200)} style={styles.uploadSection}>
           <ImageUploadCard

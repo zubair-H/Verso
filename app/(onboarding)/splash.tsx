@@ -162,11 +162,12 @@ export default function SplashScreen() {
             onPressOut={handlePressOut}
           >
             <LinearGradient
-              colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
-              locations={[0.68, 1]}
+              colors={isDark ? ['#FAFAFA', '#E4E4E7'] : ['#1A1F2E', '#0D1017']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
               style={styles.button}
             >
-              <Text style={styles.buttonText}>Continue</Text>
+              <Text style={[styles.buttonText, isDark && { color: '#09090B' }]}>Continue</Text>
             </LinearGradient>
           </AnimatedPressable>
         </Animated.View>

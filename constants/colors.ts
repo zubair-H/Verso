@@ -63,67 +63,68 @@ export const lightColors = {
 };
 
 export const darkColors = {
-  // Backgrounds - Dark mode with deep navy
-  bgPrimary: '#0D1017',
-  bgSecondary: '#141922',
-  bgTertiary: '#1A1F2E',
-  bgCard: '#1A1F2E',
-  bgCardHover: '#242A3A',
+  // Backgrounds - Premium dark with subtle warmth
+  bgPrimary: '#09090B',      // Rich near-black
+  bgSecondary: '#131316',    // Elevated surface
+  bgTertiary: '#1C1C21',     // Tertiary surface
+  bgCard: '#141417',         // Card background
+  bgCardHover: '#1A1A1F',    // Card hover state
 
   // Gradient backgrounds
-  bgGradientCenter: '#1A1F2E',
-  bgGradientEdge: '#0D1017',
+  bgGradientCenter: '#141417',
+  bgGradientEdge: '#09090B',
 
-  // Borders
-  border: 'rgba(255, 255, 255, 0.10)',
+  // Borders - Subtle and refined
+  border: 'rgba(255, 255, 255, 0.08)',
   borderLight: 'rgba(255, 255, 255, 0.05)',
-  borderAccent: 'rgba(36, 42, 58, 0.5)',
+  borderAccent: 'rgba(255, 255, 255, 0.15)',
 
-  // Primary Accent - Deep Navy
-  accent: '#242A3A',
-  accentMuted: 'rgba(36, 42, 58, 0.25)',
-  accentGlow: 'rgba(36, 42, 58, 0.4)',
-  accentLight: '#2E3647',
+  // Primary Accent - Soft white/silver
+  accent: '#E4E4E7',         // Zinc-200
+  accentMuted: 'rgba(228, 228, 231, 0.12)',
+  accentGlow: 'rgba(255, 255, 255, 0.2)',
+  accentLight: '#F4F4F5',    // Zinc-100
 
-  // Secondary Accent - Slate
-  accentSecondary: '#3A4255',
-  accentSecondaryMuted: 'rgba(58, 66, 85, 0.25)',
-  accentSecondaryGlow: 'rgba(58, 66, 85, 0.4)',
+  // Secondary Accent - Muted silver
+  accentSecondary: '#A1A1AA', // Zinc-400
+  accentSecondaryMuted: 'rgba(161, 161, 170, 0.15)',
+  accentSecondaryGlow: 'rgba(161, 161, 170, 0.25)',
 
-  // Tertiary Accent - Cool Gray
-  accentTertiary: '#4ECDC4',
-  accentTertiaryMuted: 'rgba(78, 205, 196, 0.15)',
+  // Tertiary Accent - Subtle teal for highlights
+  accentTertiary: '#5EEAD4', // Teal-300
+  accentTertiaryMuted: 'rgba(94, 234, 212, 0.12)',
 
-  // Semantic
-  success: '#2ECC71',
-  successMuted: 'rgba(46, 204, 113, 0.15)',
-  error: '#E74C3C',
-  errorMuted: 'rgba(231, 76, 60, 0.15)',
-  warning: '#F39C12',
-  warningMuted: 'rgba(243, 156, 18, 0.15)',
+  // Semantic - Refined status colors
+  success: '#34D399',        // Emerald-400
+  successMuted: 'rgba(52, 211, 153, 0.15)',
+  error: '#F87171',          // Red-400
+  errorMuted: 'rgba(248, 113, 113, 0.15)',
+  warning: '#FBBF24',        // Amber-400
+  warningMuted: 'rgba(251, 191, 36, 0.15)',
 
-  // Text hierarchy
-  textPrimary: '#FDFCFA',
-  textSecondary: '#B8B4AC',
-  textTertiary: '#7A756D',
-  textOnAccent: '#FFFFFF',
+  // Text hierarchy - High contrast for readability
+  textPrimary: '#FAFAFA',    // Zinc-50
+  textSecondary: '#A1A1AA',  // Zinc-400
+  textTertiary: '#71717A',   // Zinc-500
+  textOnAccent: '#09090B',   // Dark text on light accent
+  textDisabled: '#3F3F46',   // Zinc-700
 
   // Overlay
-  overlay: 'rgba(13, 16, 23, 0.85)',
-  overlayLight: 'rgba(13, 16, 23, 0.6)',
+  overlay: 'rgba(0, 0, 0, 0.8)',
+  overlayLight: 'rgba(0, 0, 0, 0.6)',
 
-  // Glass effects
-  glassBg: 'rgba(255, 255, 255, 0.04)',
-  glassBorder: 'rgba(255, 255, 255, 0.08)',
+  // Glass effects - Refined translucency
+  glassBg: 'rgba(255, 255, 255, 0.03)',
+  glassBorder: 'rgba(255, 255, 255, 0.06)',
 
   // Progress/Achievement
-  progressTrack: 'rgba(255, 255, 255, 0.08)',
-  progressFill: '#242A3A',
-  streakGold: '#FFD700',
+  progressTrack: 'rgba(255, 255, 255, 0.06)',
+  progressFill: '#E4E4E7',   // Matches accent
+  streakGold: '#FCD34D',     // Amber-300
 
-  // Gradient colors for accents
-  gradientStart: '#1A1F2E',
-  gradientEnd: '#0D1017',
+  // Gradient colors for buttons
+  gradientStart: '#27272A',  // Zinc-800
+  gradientEnd: '#18181B',    // Zinc-900
 };
 
 // Default export for backward compatibility (light mode)
