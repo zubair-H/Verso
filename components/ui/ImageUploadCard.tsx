@@ -95,9 +95,6 @@ export function ImageUploadCard({
       borderStyle: 'dashed',
     },
     cardFilled: {
-      borderWidth: 2,
-      borderColor: colors.accent,
-      borderStyle: 'solid',
       shadowColor: colors.accent,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,

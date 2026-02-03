@@ -13,8 +13,21 @@ import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  useAnimatedProps,
+  withRepeat,
+  withTiming,
+  withDelay,
+  withSequence,
+  Easing,
+} from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 import { ImageUploadCard, PrimaryButton } from '@/components/ui';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
@@ -30,12 +43,58 @@ function getGreeting(): string {
 }
 
 export default function HomeScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
   const [lookImage, setLookImage] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [greeting, setGreeting] = useState(getGreeting());
+
+  // Arrow stroke drawing animation
+  const PATH_LENGTH = 180;
+  const ARROW_LENGTH = 35;
+  const strokeProgress = useSharedValue(PATH_LENGTH);
+  const arrowStrokeProgress = useSharedValue(ARROW_LENGTH);
+  const arrowOpacity = useSharedValue(1);
+
+  useEffect(() => {
+    // Draw the main path first
+    strokeProgress.value = withDelay(
+      300,
+      withTiming(0, { duration: 1200, easing: Easing.out(Easing.cubic) })
+    );
+    // Draw the arrowhead after the main path
+    arrowStrokeProgress.value = withDelay(
+      1200,
+      withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) })
+    );
+    // Subtle pulsing after drawing completes
+    arrowOpacity.value = withDelay(
+      1800,
+      withRepeat(
+        withSequence(
+          withTiming(0.92, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        false
+      )
+    );
+  }, []);
+
+  const pathAnimatedProps = useAnimatedProps(() => ({
+    strokeDasharray: [PATH_LENGTH, PATH_LENGTH],
+    strokeDashoffset: strokeProgress.value,
+  }));
+
+  const arrowAnimatedProps = useAnimatedProps(() => ({
+    strokeDasharray: [ARROW_LENGTH, ARROW_LENGTH],
+    strokeDashoffset: arrowStrokeProgress.value,
+  }));
+
+  const arrowAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: arrowOpacity.value,
+  }));
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -363,25 +422,27 @@ export default function HomeScreen() {
             onSelect={() => pickImage('look')}
             onRemove={() => setLookImage(null)}
           />
-         <View style={styles.arrowOverlay} pointerEvents="none">
-  <Svg viewBox="0 0 80 60" width={80} height={60}>
-    <Path
-      d="M 10 48 C 5 25, 25 5, 45 15 C 58 22, 50 35, 40 32 C 32 30, 38 20, 50 22 C 60 24, 68 28, 70 35"
-      stroke="#BEBEBE"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      fill="none"
-    />
-    <Path
-  d="M 67 24 L 72 35 L 63 36"
-  stroke="#BEBEBE"
-  strokeWidth={1.75}
-  strokeLinecap="round"
-  strokeLinejoin="round"
-  fill="none"
-/>
-  </Svg>
-</View>
+          <Animated.View style={[styles.arrowOverlay, arrowAnimatedStyle]} pointerEvents="none">
+            <Svg viewBox="0 0 80 60" width={80} height={60}>
+              <AnimatedPath
+                d="M 10 48 C 5 25, 25 5, 45 15 C 58 22, 50 35, 40 32 C 32 30, 38 20, 50 22 C 60 24, 68 28, 70 35"
+                stroke={!isDark && (selfieImage || lookImage) ? '#2A2A2A' : '#BEBEBE'}
+                strokeWidth={!isDark && (selfieImage || lookImage) ? 2.25 : 1.75}
+                strokeLinecap="round"
+                fill="none"
+                animatedProps={pathAnimatedProps}
+              />
+              <AnimatedPath
+                d="M 69 24 L 73 39 L 63 32"
+                stroke={!isDark && (selfieImage || lookImage) ? '#2A2A2A' : '#BEBEBE'}
+                strokeWidth={!isDark && (selfieImage || lookImage) ? 2.25 : 1.75}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                animatedProps={arrowAnimatedProps}
+              />
+            </Svg>
+          </Animated.View>
         </Animated.View>
 
         {/* Generate Button */}
