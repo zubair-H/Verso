@@ -13,6 +13,7 @@ import Animated, {
 import { BlurView } from 'expo-blur';
 import { AttributesCarousel } from '@/components/ui';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // Logo layer images
 const lineImage = require('@/assets/line.png');
@@ -28,6 +29,7 @@ function OnboardingLayoutContent() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const { logoExitProgress } = useOnboarding();
+  const { colors, isDark } = useTheme();
 
   // Get current screen from segments
   const currentScreen = segments[segments.length - 1] || 'index';
@@ -124,28 +126,29 @@ function OnboardingLayoutContent() {
   });
 
   // Animated styles for logo layers (clip-path reveal effect via width)
-  // Exit animation: reverse of intro (name masks first, then swoosh, then line)
+  // Exit animation: sequential collapse matching HTML style
+  // Order: name → swoosh → line (each completes before next starts)
   const lineLayerStyle = useAnimatedStyle(() => {
     // Reveal from left to right
     const revealWidth = interpolate(lineReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
-    // During exit, line masks LAST - multiplier goes 1→0
-    const exitMultiplier = interpolate(logoExitProgress.value, [0.6, 1], [1, 0], 'clamp');
+    // During exit, line masks LAST (70%-100% of progress)
+    const exitMultiplier = interpolate(logoExitProgress.value, [0.7, 1.0], [1, 0], 'clamp');
     return { width: revealWidth * exitMultiplier };
   });
 
   const swooshLayerStyle = useAnimatedStyle(() => {
     // Reveal from right to left
     const revealWidth = interpolate(swooshReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
-    // During exit, swoosh masks SECOND - multiplier goes 1→0
-    const exitMultiplier = interpolate(logoExitProgress.value, [0.35, 0.75], [1, 0], 'clamp');
+    // During exit, swoosh masks SECOND (35%-70% of progress)
+    const exitMultiplier = interpolate(logoExitProgress.value, [0.35, 0.7], [1, 0], 'clamp');
     return { width: revealWidth * exitMultiplier };
   });
 
   const nameLayerStyle = useAnimatedStyle(() => {
     // Reveal from left to right
     const revealWidth = interpolate(nameReveal.value, [0, 1], [0, LOGO_SIZE_LARGE]);
-    // During exit, name masks FIRST - starts at 10% to give pause after checkmark
-    const exitMultiplier = interpolate(logoExitProgress.value, [0.1, 0.5], [1, 0], 'clamp');
+    // During exit, name masks FIRST (0%-35% of progress)
+    const exitMultiplier = interpolate(logoExitProgress.value, [0, 0.35], [1, 0], 'clamp');
     return { width: revealWidth * exitMultiplier };
   });
 
@@ -166,21 +169,21 @@ function OnboardingLayoutContent() {
   const showLogo = !currentScreen || currentScreen === '(onboarding)' || ['index', 'possibilities', 'howitworks', 'splash', 'permissions'].includes(currentScreen);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgTertiary }]}>
       {/* Shared carousel background - persists across howitworks and splash */}
       {showCarousel && (
         <Animated.View style={[styles.carouselContainer, carouselStyle]}>
           {/* Single carousel instance that persists */}
           <AttributesCarousel
             blurIntensity={100}
-            blurTint="light"
+            blurTint={isDark ? 'dark' : 'light'}
             topPadding={100 + insets.top}
           />
           {/* Blur overlay that animates down on splash to reveal carousel */}
           <Animated.View style={[styles.blurMask, blurMaskStyle]}>
             <BlurView
               intensity={100}
-              tint="light"
+              tint={isDark ? 'dark' : 'light'}
               style={styles.blurFill}
             />
           </Animated.View>
@@ -250,7 +253,6 @@ export default function OnboardingLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F6FC',
   },
   carouselContainer: {
     position: 'absolute',

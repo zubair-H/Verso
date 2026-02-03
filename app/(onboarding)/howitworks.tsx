@@ -32,7 +32,7 @@ const STEP_STAGGER = 400;
 const SLIDE_DURATION = 500;
 
 export default function HowItWorksScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
   // Content animations
@@ -174,7 +174,7 @@ export default function HowItWorksScreen() {
           {/* Step 1 */}
           <Animated.View style={[styles.stepRow, step1Style]}>
             <View style={styles.stepIcon}>
-              <Ionicons name="camera-outline" size={28} color="#4A90D9" />
+              <Ionicons name="camera-outline" size={28} color={colors.accentTertiary} />
             </View>
             <View style={styles.stepTextContainer}>
               <Text style={styles.stepTitle}>Upload your photo</Text>
@@ -187,7 +187,7 @@ export default function HowItWorksScreen() {
           {/* Step 2 */}
           <Animated.View style={[styles.stepRow, step2Style]}>
             <View style={styles.stepIcon}>
-              <Ionicons name="sparkles-outline" size={28} color="#4A90D9" />
+              <Ionicons name="sparkles-outline" size={28} color={colors.accentTertiary} />
             </View>
             <View style={styles.stepTextContainer}>
               <Text style={styles.stepTitle}>Generate your attributes</Text>
@@ -200,7 +200,7 @@ export default function HowItWorksScreen() {
           {/* Step 3 */}
           <Animated.View style={[styles.stepRow, step3Style]}>
             <View style={styles.stepIcon}>
-              <Ionicons name="color-wand-outline" size={28} color="#4A90D9" />
+              <Ionicons name="color-wand-outline" size={28} color={colors.accentTertiary} />
             </View>
             <View style={styles.stepTextContainer}>
               <Text style={styles.stepTitle}>Discover new looks</Text>
@@ -220,7 +220,7 @@ export default function HowItWorksScreen() {
           onPressOut={handlePressOut}
         >
           <LinearGradient
-            colors={['#1A1F2E', '#0D1017']}
+            colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
             locations={[0.68, 1]}
             style={styles.button}
           >
@@ -251,7 +251,7 @@ const createStyles = (colors: any, insets: any) =>
       ...typography.displayLarge,
       fontSize: 32,
       fontWeight: '700',
-      color: '#1A2B42',
+      color: colors.textPrimary,
       textAlign: 'center',
       letterSpacing: -0.5,
     },
@@ -267,7 +267,7 @@ const createStyles = (colors: any, insets: any) =>
       width: 56,
       height: 56,
       borderRadius: 16,
-      backgroundColor: '#F0F6FC',
+      backgroundColor: colors.bgTertiary,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -279,13 +279,13 @@ const createStyles = (colors: any, insets: any) =>
       ...typography.labelLarge,
       fontSize: 18,
       fontWeight: '600',
-      color: '#1A2B42',
+      color: colors.textPrimary,
       marginBottom: 4,
     },
     stepDescription: {
       ...typography.bodyMedium,
       fontSize: 15,
-      color: '#6B7C8E',
+      color: colors.textSecondary,
       lineHeight: 21,
     },
     bottomSection: {
@@ -304,6 +304,6 @@ const createStyles = (colors: any, insets: any) =>
       ...typography.labelLarge,
       fontSize: 17,
       fontWeight: '600',
-      color: '#FFFFFF',
+      color: colors.textOnAccent,
     },
   });

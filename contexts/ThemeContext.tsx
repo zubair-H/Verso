@@ -1,5 +1,6 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import { lightColors, Colors } from '@/constants/colors';
+import { useColorScheme } from 'react-native';
+import { lightColors, darkColors, Colors } from '@/constants/colors';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -16,9 +17,9 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  // Force light mode
-  const theme: ThemeMode = 'light';
-  const colors = lightColors;
+  const systemColorScheme = useColorScheme();
+  const theme: ThemeMode = systemColorScheme === 'dark' ? 'dark' : 'light';
+  const colors = theme === 'dark' ? darkColors : lightColors;
 
   return (
     <ThemeContext.Provider value={{ theme, colors, isDark: theme === 'dark' }}>

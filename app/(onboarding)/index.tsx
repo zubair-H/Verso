@@ -96,7 +96,7 @@ function FloatingBubble({
 }
 
 export default function WelcomeScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
 
@@ -221,7 +221,7 @@ export default function WelcomeScreen() {
       {/* Subtle gradient background - fades during exit */}
       <Animated.View style={[StyleSheet.absoluteFill, gradientStyle]}>
         <LinearGradient
-          colors={['#F8FBFF', '#F4F9FE', '#F0F6FC']}
+          colors={isDark ? [colors.bgSecondary, colors.bgTertiary, colors.bgPrimary] : ['#F8FBFF', '#F4F9FE', '#F0F6FC']}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -266,7 +266,7 @@ export default function WelcomeScreen() {
           onPressOut={handlePressOut}
         >
           <LinearGradient
-            colors={['#1A1F2E', '#0D1017']}
+            colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
             locations={[0.68, 1]}
             style={styles.button}
           >
@@ -278,11 +278,11 @@ export default function WelcomeScreen() {
   );
 }
 
-const createStyles = (_colors: any, insets: any) =>
+const createStyles = (colors: any, insets: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#F0F6FC',
+      backgroundColor: colors.bgTertiary,
     },
     bubblesLayer: {
       ...StyleSheet.absoluteFillObject,
@@ -308,7 +308,7 @@ const createStyles = (_colors: any, insets: any) =>
       ...typography.displayLarge,
       fontSize: 36,
       fontWeight: '700',
-      color: '#1A2B42',
+      color: colors.textPrimary,
       textAlign: 'center',
       lineHeight: 44,
       letterSpacing: -0.8,
@@ -320,7 +320,7 @@ const createStyles = (_colors: any, insets: any) =>
     subtitle: {
       ...typography.bodyLarge,
       fontSize: 17,
-      color: '#6B7C8E',
+      color: colors.textSecondary,
       textAlign: 'center',
       lineHeight: 24,
     },
@@ -340,6 +340,6 @@ const createStyles = (_colors: any, insets: any) =>
       ...typography.labelLarge,
       fontSize: 17,
       fontWeight: '600',
-      color: '#FFFFFF',
+      color: colors.textOnAccent,
     },
   });

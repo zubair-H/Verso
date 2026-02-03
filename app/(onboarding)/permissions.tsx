@@ -37,7 +37,7 @@ const LOCK_SIZE = 140;
 const LOCK_STROKE = 2.5;
 
 export default function PermissionsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { logoExitProgress } = useOnboarding();
   const insets = useSafeAreaInsets();
   const [isCompleting, setIsCompleting] = useState(false);
@@ -185,8 +185,8 @@ export default function PermissionsScreen() {
 
     // STEP 2: After lock animation completes, start logo collapse
     setTimeout(() => {
-      // Logo layers collapse (name → swoosh → line)
-      logoExitProgress.value = withTiming(1, { duration: 600, easing: SMOOTH_EASE });
+      // Logo layers collapse sequentially (name → swoosh → line)
+      logoExitProgress.value = withTiming(1, { duration: 1000, easing: SMOOTH_EASE });
     }, 800);
 
     // STEP 3: After logo collapses, fade content and navigate
@@ -197,7 +197,7 @@ export default function PermissionsScreen() {
       setTimeout(() => {
         completeOnboarding();
       }, 300);
-    }, 1400);
+    }, 1850);
   };
 
   const handleAllowAccess = async () => {
@@ -207,8 +207,21 @@ export default function PermissionsScreen() {
   };
 
   const handleSkip = () => {
+    if (isExiting.value) return;
+    isExiting.value = true;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    triggerCompletion(false);
+
+    // Simple fade out without lock animation
+    exitProgress.value = withTiming(1, { duration: 350, easing: SMOOTH_EASE });
+
+    // Logo collapses sequentially (name → swoosh → line)
+    logoExitProgress.value = withDelay(100, withTiming(1, { duration: 1000, easing: SMOOTH_EASE }));
+
+    // Navigate after logo animation completes
+    setTimeout(() => {
+      completeOnboarding();
+    }, 1150);
   };
 
   const handlePressIn = () => {
@@ -232,7 +245,7 @@ export default function PermissionsScreen() {
             {/* Lock body - rounded rectangle */}
             <AnimatedPath
               d="M25 45 L25 85 Q25 90 30 90 L70 90 Q75 90 75 85 L75 45 Q75 40 70 40 L30 40 Q25 40 25 45 Z"
-              stroke="#1A1A1A"
+              stroke={colors.textPrimary}
               strokeWidth={LOCK_STROKE}
               fill="none"
               strokeLinecap="round"
@@ -243,7 +256,7 @@ export default function PermissionsScreen() {
             {/* Shackle - the U-shaped top */}
             <AnimatedPath
               d="M35 40 L35 30 Q35 15 50 15 Q65 15 65 30 L65 40"
-              stroke="#1A1A1A"
+              stroke={colors.textPrimary}
               strokeWidth={LOCK_STROKE}
               fill="none"
               strokeLinecap="round"
@@ -255,7 +268,7 @@ export default function PermissionsScreen() {
               cx="50"
               cy="62"
               r="4"
-              fill="#1A1A1A"
+              fill={colors.textPrimary}
               opacity={lockBodyProgress}
             />
           </Svg>
@@ -269,7 +282,7 @@ export default function PermissionsScreen() {
               <Svg width={60} height={60} viewBox="0 0 50 50">
                 <AnimatedPath
                   d="M12 26 L22 36 L38 16"
-                  stroke="#1A1A1A"
+                  stroke={colors.textPrimary}
                   strokeWidth={3.5}
                   fill="none"
                   strokeLinecap="round"
@@ -315,7 +328,7 @@ const createStyles = (colors: any, insets: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#F0F6FC',
+      backgroundColor: colors.bgTertiary,
     },
     logoSpacer: {
       height: LOGO_SIZE_SMALL,
@@ -338,7 +351,7 @@ const createStyles = (colors: any, insets: any) =>
       height: LOCK_SIZE - 20,
       borderRadius: (LOCK_SIZE - 20) / 2,
       borderWidth: 2,
-      borderColor: '#1A1A1A',
+      borderColor: colors.textPrimary,
     },
     checkOverlay: {
       position: 'absolute',
@@ -349,21 +362,21 @@ const createStyles = (colors: any, insets: any) =>
       ...typography.displayLarge,
       fontSize: 32,
       fontWeight: '700',
-      color: '#1A1A1A',
+      color: colors.textPrimary,
       letterSpacing: -0.5,
       marginBottom: 16,
     },
     description: {
       ...typography.bodyLarge,
       fontSize: 18,
-      color: '#1A1A1A',
+      color: colors.textPrimary,
       lineHeight: 28,
       marginBottom: 8,
     },
     note: {
       ...typography.bodyMedium,
       fontSize: 16,
-      color: '#666',
+      color: colors.textSecondary,
     },
     bottomSection: {
       paddingHorizontal: layout.screenPadding,
@@ -375,13 +388,13 @@ const createStyles = (colors: any, insets: any) =>
       borderRadius: borderRadius.lg,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#1A1A1A',
+      backgroundColor: colors.textPrimary,
     },
     buttonText: {
       ...typography.labelLarge,
       fontSize: 17,
       fontWeight: '600',
-      color: '#FFFFFF',
+      color: colors.textOnAccent,
     },
     skipContainer: {
       paddingHorizontal: layout.screenPadding,
@@ -394,6 +407,6 @@ const createStyles = (colors: any, insets: any) =>
     skipText: {
       ...typography.bodyMedium,
       fontSize: 15,
-      color: '#999',
+      color: colors.textTertiary,
     },
   });

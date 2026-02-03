@@ -40,7 +40,7 @@ export const createSplashStyles = (colors: Colors) =>
       borderRadius: 16,
       marginBottom: 10,
       overflow: 'hidden',
-      backgroundColor: '#E5E5E5',
+      backgroundColor: colors.bgTertiary,
     },
     bottomSection: {
       position: 'absolute',

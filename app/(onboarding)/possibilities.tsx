@@ -126,7 +126,7 @@ const ROW_STAGGER = 400;
 const SLIDE_DURATION = 500;
 
 export default function PossibilitiesScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
   // Flow content animations - one for each row
@@ -274,7 +274,7 @@ export default function PossibilitiesScreen() {
       {/* Subtle gradient background - fades during exit */}
       <Animated.View style={[StyleSheet.absoluteFill, gradientStyle]}>
         <LinearGradient
-          colors={['#F8FBFF', '#F4F9FE', '#F0F6FC']}
+          colors={isDark ? [colors.bgSecondary, colors.bgTertiary, colors.bgPrimary] : ['#F8FBFF', '#F4F9FE', '#F0F6FC']}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -326,7 +326,7 @@ export default function PossibilitiesScreen() {
           onPressOut={handlePressOut}
         >
           <LinearGradient
-            colors={['#1A1F2E', '#0D1017']}
+            colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
             locations={[0.68, 1]}
             style={styles.button}
           >
@@ -338,11 +338,11 @@ export default function PossibilitiesScreen() {
   );
 }
 
-const createStyles = (_colors: any, insets: any) =>
+const createStyles = (colors: any, insets: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#F0F6FC',
+      backgroundColor: colors.bgTertiary,
     },
     iconsLayer: {
       ...StyleSheet.absoluteFillObject,
@@ -371,21 +371,21 @@ const createStyles = (_colors: any, insets: any) =>
       ...typography.displayLarge,
       fontSize: 34,
       fontWeight: '700',
-      color: '#1A2B42',
+      color: colors.textPrimary,
       letterSpacing: -0.8,
     },
     flowText: {
       ...typography.displayLarge,
       fontSize: 28,
       fontWeight: '600',
-      color: '#4A5D70',
+      color: colors.textSecondary,
       letterSpacing: -0.5,
     },
     flowTextSmall: {
       ...typography.bodyLarge,
       fontSize: 18,
       fontWeight: '600',
-      color: '#3A4D5F',
+      color: colors.textSecondary,
       letterSpacing: 0.5,
     },
     bottomSection: {
@@ -404,6 +404,6 @@ const createStyles = (_colors: any, insets: any) =>
       ...typography.labelLarge,
       fontSize: 17,
       fontWeight: '600',
-      color: '#FFFFFF',
+      color: colors.textOnAccent,
     },
   });
