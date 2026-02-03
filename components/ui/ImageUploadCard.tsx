@@ -180,11 +180,8 @@ export function ImageUploadCard({
               style={[styles.image, imageAnimatedStyle]}
             />
             <Pressable onPress={handleRemove} style={styles.removeButton}>
-              <Ionicons name="close" size={14} color={colors.textPrimary} />
+              <Ionicons name="close" size={14} color="#FFFFFF" />
             </Pressable>
-            <View style={styles.checkBadge}>
-              <Ionicons name="checkmark" size={14} color={colors.textOnAccent} />
-            </View>
           </Animated.View>
         ) : (
           <View style={styles.placeholder}>

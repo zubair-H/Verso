@@ -410,14 +410,14 @@ export default function HomeScreen() {
         <Animated.View entering={FadeInDown.delay(200)} style={styles.uploadSection}>
           <ImageUploadCard
             label="Your Photo"
-            sublabel="Selfie or portrait"
+            sublabel=""
             image={selfieImage}
             onSelect={() => pickImage('selfie')}
             onRemove={() => setSelfieImage(null)}
           />
           <ImageUploadCard
             label="The Look"
-            sublabel="Style inspiration"
+            sublabel=""
             image={lookImage}
             onSelect={() => pickImage('look')}
             onRemove={() => setLookImage(null)}
