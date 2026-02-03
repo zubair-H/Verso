@@ -28,7 +28,7 @@ const LOGO_SIZE_SMALL = 220;
 function OnboardingLayoutContent() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
-  const { logoExitProgress } = useOnboarding();
+  const { logoExitProgress, carouselExitProgress } = useOnboarding();
   const { colors, isDark } = useTheme();
 
   // Get current screen from segments
@@ -93,9 +93,7 @@ function OnboardingLayoutContent() {
           })
         );
       } else if (currentScreen === 'permissions') {
-        // Slide carousel up and out when entering permissions
-        carouselTranslateY.value = withTiming(-screenHeight, { duration: 600, easing: SMOOTH_EASE });
-        carouselOpacity.value = withDelay(400, withTiming(0, { duration: 200, easing: SMOOTH_EASE }));
+        // Carousel exit is now triggered from splash via carouselExitProgress
         // On permissions, keep logo in small position
         logoProgress.value = withTiming(1, { duration: 300, easing: EASE });
       }
@@ -153,10 +151,16 @@ function OnboardingLayoutContent() {
   });
 
   // Carousel animated styles
-  const carouselStyle = useAnimatedStyle(() => ({
-    opacity: carouselOpacity.value,
-    transform: [{ translateY: carouselTranslateY.value }],
-  }));
+  const carouselStyle = useAnimatedStyle(() => {
+    // Use carouselExitProgress for smooth exit triggered from splash
+    const exitTranslateY = interpolate(carouselExitProgress.value, [0, 1], [0, -screenHeight]);
+    const exitOpacity = interpolate(carouselExitProgress.value, [0.6, 1], [1, 0], 'clamp');
+
+    return {
+      opacity: carouselOpacity.value * exitOpacity,
+      transform: [{ translateY: carouselTranslateY.value + exitTranslateY }],
+    };
+  });
 
   const blurMaskStyle = useAnimatedStyle(() => ({
     top: blurMaskTop.value,

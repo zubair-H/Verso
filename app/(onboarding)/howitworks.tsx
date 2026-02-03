@@ -13,7 +13,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
@@ -39,7 +38,6 @@ export default function HowItWorksScreen() {
   const titleProgress = useSharedValue(0);
   const step1Progress = useSharedValue(0);
   const step2Progress = useSharedValue(0);
-  const step3Progress = useSharedValue(0);
 
   // Button animation
   const buttonOpacity = useSharedValue(0);
@@ -71,53 +69,39 @@ export default function HowItWorksScreen() {
       withTiming(1, { duration: SLIDE_DURATION, easing: EASE })
     );
 
-    // Step 3
-    step3Progress.value = withDelay(
-      BASE_DELAY + STEP_STAGGER * 3,
-      withTiming(1, { duration: SLIDE_DURATION, easing: EASE })
-    );
-
     // Button appears after all content
-    const buttonDelay = BASE_DELAY + STEP_STAGGER * 3 + 300;
+    const buttonDelay = BASE_DELAY + STEP_STAGGER * 2 + 300;
     buttonOpacity.value = withDelay(buttonDelay, withTiming(1, { duration: 400, easing: EASE }));
     buttonTranslateY.value = withDelay(buttonDelay, withSpring(0, SMOOTH_SPRING));
   }, []);
 
-  // Title with exit animation - fades up
-  const titleStyle = useAnimatedStyle(() => {
+  // Unmask animation - text slides in from left (transform-based for smoothness)
+  const unmask1Style = useAnimatedStyle(() => {
     const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateY = interpolate(exitProgress.value, [0, 1], [0, -30]);
+    const translateX = interpolate(titleProgress.value, [0, 1], [-300, 0]);
     return {
-      opacity: titleProgress.value * exitOpacity,
-      transform: [{ translateY: interpolate(titleProgress.value, [0, 1], [20, 0]) + exitTranslateY }],
+      opacity: exitOpacity,
+      transform: [{ translateX }],
     };
   });
 
-  // Steps with exit animations - slide out in reverse zigzag
-  const step1Style = useAnimatedStyle(() => {
+  // Unmask animation - text slides in from right
+  const unmask2Style = useAnimatedStyle(() => {
     const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 60]); // slides right on exit
+    const translateX = interpolate(step1Progress.value, [0, 1], [300, 0]);
     return {
-      opacity: step1Progress.value * exitOpacity,
-      transform: [{ translateX: interpolate(step1Progress.value, [0, 1], [-40, 0]) + exitTranslateX }],
+      opacity: exitOpacity,
+      transform: [{ translateX }],
     };
   });
 
-  const step2Style = useAnimatedStyle(() => {
+  // Unmask animation - text slides in from left
+  const unmask3Style = useAnimatedStyle(() => {
     const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, -60]); // slides left on exit
+    const translateX = interpolate(step2Progress.value, [0, 1], [-300, 0]);
     return {
-      opacity: step2Progress.value * exitOpacity,
-      transform: [{ translateX: interpolate(step2Progress.value, [0, 1], [40, 0]) + exitTranslateX }],
-    };
-  });
-
-  const step3Style = useAnimatedStyle(() => {
-    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 60]); // slides right on exit
-    return {
-      opacity: step3Progress.value * exitOpacity,
-      transform: [{ translateX: interpolate(step3Progress.value, [0, 1], [-40, 0]) + exitTranslateX }],
+      opacity: exitOpacity,
+      transform: [{ translateX }],
     };
   });
 
@@ -164,51 +148,28 @@ export default function HowItWorksScreen() {
     <View style={styles.container}>
       {/* Content - carousel is handled in layout */}
       <View style={styles.content}>
-        {/* Title */}
-        <Animated.View style={[styles.titleContainer, titleStyle]}>
-          <Text style={styles.title}>Here's how it works</Text>
-        </Animated.View>
+        {/* Bold statements with unmask reveal */}
+        <View style={styles.statementsContainer}>
+          {/* Unmask left to right */}
+          <View style={[styles.clipContainer, styles.alignLeft]}>
+            <Animated.View style={unmask1Style}>
+              <Text style={styles.statement}>Snap a photo</Text>
+            </Animated.View>
+          </View>
 
-        {/* Steps */}
-        <View style={styles.stepsContainer}>
-          {/* Step 1 */}
-          <Animated.View style={[styles.stepRow, step1Style]}>
-            <View style={styles.stepIcon}>
-              <Ionicons name="camera-outline" size={28} color={colors.accentTertiary} />
-            </View>
-            <View style={styles.stepTextContainer}>
-              <Text style={styles.stepTitle}>Upload your photo</Text>
-              <Text style={styles.stepDescription}>
-                Choose a clear photo of yourself to get started
-              </Text>
-            </View>
-          </Animated.View>
+          {/* Unmask right to left */}
+          <View style={[styles.clipContainer, styles.alignRight]}>
+            <Animated.View style={unmask2Style}>
+              <Text style={styles.statement}>Get styled</Text>
+            </Animated.View>
+          </View>
 
-          {/* Step 2 */}
-          <Animated.View style={[styles.stepRow, step2Style]}>
-            <View style={styles.stepIcon}>
-              <Ionicons name="sparkles-outline" size={28} color={colors.accentTertiary} />
-            </View>
-            <View style={styles.stepTextContainer}>
-              <Text style={styles.stepTitle}>Generate your attributes</Text>
-              <Text style={styles.stepDescription}>
-                We'll analyze your features and create a personalized profile
-              </Text>
-            </View>
-          </Animated.View>
-
-          {/* Step 3 */}
-          <Animated.View style={[styles.stepRow, step3Style]}>
-            <View style={styles.stepIcon}>
-              <Ionicons name="color-wand-outline" size={28} color={colors.accentTertiary} />
-            </View>
-            <View style={styles.stepTextContainer}>
-              <Text style={styles.stepTitle}>Discover new looks</Text>
-              <Text style={styles.stepDescription}>
-                Try on celebrity styles and find what suits you best
-              </Text>
-            </View>
-          </Animated.View>
+          {/* Unmask left to right */}
+          <View style={[styles.clipContainer, styles.alignLeft]}>
+            <Animated.View style={unmask3Style}>
+              <Text style={styles.statement}>Try endless looks</Text>
+            </Animated.View>
+          </View>
         </View>
       </View>
 
@@ -244,49 +205,26 @@ const createStyles = (colors: any, insets: any) =>
       paddingTop: insets.top + LOGO_SIZE_END - 40,
       justifyContent: 'center',
     },
-    titleContainer: {
-      marginBottom: 40,
+    statementsContainer: {
+      gap: 28,
+      width: '100%',
     },
-    title: {
+    clipContainer: {
+      overflow: 'hidden',
+      width: '100%',
+    },
+    alignLeft: {
+      alignItems: 'flex-start',
+    },
+    alignRight: {
+      alignItems: 'flex-end',
+    },
+    statement: {
       ...typography.displayLarge,
-      fontSize: 32,
+      fontSize: 36,
       fontWeight: '700',
       color: colors.textPrimary,
-      textAlign: 'center',
-      letterSpacing: -0.5,
-    },
-    stepsContainer: {
-      gap: 32,
-    },
-    stepRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 16,
-    },
-    stepIcon: {
-      width: 56,
-      height: 56,
-      borderRadius: 16,
-      backgroundColor: colors.bgTertiary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    stepTextContainer: {
-      flex: 1,
-      paddingTop: 4,
-    },
-    stepTitle: {
-      ...typography.labelLarge,
-      fontSize: 18,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      marginBottom: 4,
-    },
-    stepDescription: {
-      ...typography.bodyMedium,
-      fontSize: 15,
-      color: colors.textSecondary,
-      lineHeight: 21,
+      letterSpacing: -1,
     },
     bottomSection: {
       paddingHorizontal: layout.screenPadding,

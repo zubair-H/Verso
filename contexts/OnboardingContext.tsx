@@ -1,23 +1,34 @@
 import React, { createContext, useContext, useCallback } from 'react';
-import { useSharedValue, SharedValue } from 'react-native-reanimated';
+import { useSharedValue, SharedValue, withTiming, Easing } from 'react-native-reanimated';
 
 interface OnboardingContextType {
   logoExitProgress: SharedValue<number>;
   triggerLogoExit: () => void;
+  carouselExitProgress: SharedValue<number>;
+  triggerCarouselExit: () => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | null>(null);
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
   const logoExitProgress = useSharedValue(0);
+  const carouselExitProgress = useSharedValue(0);
 
   const triggerLogoExit = useCallback(() => {
     // This will be animated by the layout
     logoExitProgress.value = 1;
   }, []);
 
+  const triggerCarouselExit = useCallback(() => {
+    // Animate carousel exit smoothly
+    carouselExitProgress.value = withTiming(1, {
+      duration: 600,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+    });
+  }, []);
+
   return (
-    <OnboardingContext.Provider value={{ logoExitProgress, triggerLogoExit }}>
+    <OnboardingContext.Provider value={{ logoExitProgress, triggerLogoExit, carouselExitProgress, triggerCarouselExit }}>
       {children}
     </OnboardingContext.Provider>
   );

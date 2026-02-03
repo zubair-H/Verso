@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View, Pressable, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,9 +12,7 @@ import Animated, {
   withTiming,
   withDelay,
   withSpring,
-  withSequence,
   Easing,
-  runOnJS,
   interpolate,
 } from 'react-native-reanimated';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -40,7 +38,6 @@ export default function PermissionsScreen() {
   const { colors, isDark } = useTheme();
   const { logoExitProgress } = useOnboarding();
   const insets = useSafeAreaInsets();
-  const [isCompleting, setIsCompleting] = useState(false);
 
   const contentOpacity = useSharedValue(0);
   const contentTranslateY = useSharedValue(16);
@@ -53,12 +50,11 @@ export default function PermissionsScreen() {
   const lockScale = useSharedValue(0.9);
   const lockBodyProgress = useSharedValue(0);
   const lockShackleProgress = useSharedValue(0);
+  const lockCloseProgress = useSharedValue(0); // Animates shackle from open to closed
 
   // Completion animation
   const completionProgress = useSharedValue(0);
   const checkProgress = useSharedValue(0);
-  const ringScale = useSharedValue(1);
-  const ringOpacity = useSharedValue(0);
 
   // Exit animation
   const exitProgress = useSharedValue(0);
@@ -74,7 +70,10 @@ export default function PermissionsScreen() {
     lockOpacity.value = withDelay(200, withTiming(1, { duration: 300 }));
     lockScale.value = withDelay(200, withSpring(1, { damping: 15, stiffness: 100 }));
     lockBodyProgress.value = withDelay(300, withTiming(1, { duration: 600, easing: SMOOTH_EASE }));
+    // Shackle draws in open position first
     lockShackleProgress.value = withDelay(500, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
+    // Then the lock closes smoothly
+    lockCloseProgress.value = withDelay(1100, withTiming(1, { duration: 300, easing: SMOOTH_EASE }));
   }, []);
 
   const contentStyle = useAnimatedStyle(() => {
@@ -93,9 +92,22 @@ export default function PermissionsScreen() {
   const lockContainerStyle = useAnimatedStyle(() => {
     const exitScale = interpolate(exitProgress.value, [0, 1], [1, 0.8]);
     const exitOpacity = 1 - exitProgress.value;
+    // Fade out lock when completion starts
+    const completionFade = interpolate(completionProgress.value, [0, 0.5], [1, 0], 'clamp');
     return {
-      opacity: lockOpacity.value * exitOpacity,
+      opacity: lockOpacity.value * exitOpacity * completionFade,
       transform: [{ scale: lockScale.value * exitScale }],
+    };
+  });
+
+  // Success checkmark that replaces the lock
+  const successCheckStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(completionProgress.value, [0.2, 0.6], [0, 1], 'clamp');
+    const scale = interpolate(completionProgress.value, [0.2, 0.6], [0.8, 1], 'clamp');
+    const exitOpacity = 1 - exitProgress.value;
+    return {
+      opacity: opacity * exitOpacity,
+      transform: [{ scale }],
     };
   });
 
@@ -109,12 +121,25 @@ export default function PermissionsScreen() {
     };
   });
 
-  // Animated props for shackle (the U-shaped top)
+  // Animated props for keyhole
+  const keyholeProps = useAnimatedProps(() => ({
+    opacity: lockBodyProgress.value,
+  }));
+
+  // Animated props for shackle (draws in while raised)
   const shackleProps = useAnimatedProps(() => {
     const progress = lockShackleProgress.value;
     const pathLength = 100;
     return {
       strokeDashoffset: pathLength * (1 - progress),
+    };
+  });
+
+  // Shackle transform - starts raised, drops down smoothly to lock
+  const shackleStyle = useAnimatedStyle(() => {
+    const translateY = interpolate(lockCloseProgress.value, [0, 1], [-14, 0]);
+    return {
+      transform: [{ translateY }],
     };
   });
 
@@ -125,12 +150,6 @@ export default function PermissionsScreen() {
       strokeDashoffset: pathLength * (1 - checkProgress.value),
     };
   });
-
-  // Success ring animation
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: ringOpacity.value,
-    transform: [{ scale: ringScale.value }],
-  }));
 
   const buttonStyle = useAnimatedStyle(() => {
     const exitY = exitProgress.value * 80;
@@ -159,45 +178,32 @@ export default function PermissionsScreen() {
   const triggerCompletion = (withPermission: boolean) => {
     if (isExiting.value) return;
     isExiting.value = true;
-    setIsCompleting(true);
 
-    // First haptic - acknowledgment
+    // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // STEP 1: Lock checkmark animation
-    completionProgress.value = withTiming(1, { duration: 400, easing: SMOOTH_EASE });
-
-    // Ring pulses out
-    ringOpacity.value = withTiming(0.6, { duration: 150 });
-    ringScale.value = withSequence(
-      withTiming(1.3, { duration: 300, easing: SMOOTH_EASE }),
-      withTiming(1.5, { duration: 200 })
-    );
-    ringOpacity.value = withDelay(300, withTiming(0, { duration: 200 }));
-
-    // Checkmark draws in
-    checkProgress.value = withDelay(150, withSpring(1, { damping: 12, stiffness: 100 }));
+    // Checkmark draws in smoothly
+    completionProgress.value = withTiming(1, { duration: 300, easing: SMOOTH_EASE });
+    checkProgress.value = withDelay(100, withTiming(1, { duration: 400, easing: SMOOTH_EASE }));
 
     // Success haptic when checkmark completes
     setTimeout(() => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }, 400);
+    }, 350);
 
-    // STEP 2: After lock animation completes, start logo collapse
+    // Start logo collapse after checkmark
     setTimeout(() => {
-      // Logo layers collapse sequentially (name → swoosh → line)
-      logoExitProgress.value = withTiming(1, { duration: 1000, easing: SMOOTH_EASE });
-    }, 800);
+      logoExitProgress.value = withTiming(1, { duration: 800, easing: SMOOTH_EASE });
+    }, 500);
 
-    // STEP 3: After logo collapses, fade content and navigate
+    // Fade content and navigate
     setTimeout(() => {
-      exitProgress.value = withTiming(1, { duration: 350, easing: SMOOTH_EASE });
+      exitProgress.value = withTiming(1, { duration: 300, easing: SMOOTH_EASE });
 
-      // Navigate after content fades
       setTimeout(() => {
         completeOnboarding();
-      }, 300);
-    }, 1850);
+      }, 250);
+    }, 1300);
   };
 
   const handleAllowAccess = async () => {
@@ -239,51 +245,54 @@ export default function PermissionsScreen() {
       <View style={styles.logoSpacer} />
 
       <Animated.View style={[styles.content, contentStyle]}>
-        {/* Lock icon that draws in */}
-        <Animated.View style={[styles.lockContainer, lockContainerStyle]}>
-          <Svg width={LOCK_SIZE} height={LOCK_SIZE} viewBox="0 0 100 100">
-            {/* Lock body - rounded rectangle */}
-            <AnimatedPath
-              d="M25 45 L25 85 Q25 90 30 90 L70 90 Q75 90 75 85 L75 45 Q75 40 70 40 L30 40 Q25 40 25 45 Z"
-              stroke={colors.textPrimary}
-              strokeWidth={LOCK_STROKE}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray={200}
-              animatedProps={lockBodyProps}
-            />
-            {/* Shackle - the U-shaped top */}
-            <AnimatedPath
-              d="M35 40 L35 30 Q35 15 50 15 Q65 15 65 30 L65 40"
-              stroke={colors.textPrimary}
-              strokeWidth={LOCK_STROKE}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={100}
-              animatedProps={shackleProps}
-            />
-            {/* Keyhole dot */}
-            <AnimatedCircle
-              cx="50"
-              cy="62"
-              r="4"
-              fill={colors.textPrimary}
-              opacity={lockBodyProgress}
-            />
-          </Svg>
-
-          {/* Success ring that pulses out */}
-          <Animated.View style={[styles.successRing, ringStyle]} />
-
-          {/* Checkmark overlay */}
-          {isCompleting && (
-            <View style={styles.checkOverlay}>
-              <Svg width={60} height={60} viewBox="0 0 50 50">
+        {/* Lock/Success icon container */}
+        <View style={styles.iconWrapper}>
+          {/* Lock icon that fades out on completion */}
+          <Animated.View style={[styles.lockContainer, lockContainerStyle]}>
+            {/* Shackle - animates from raised to locked position */}
+            <Animated.View style={[styles.shackleContainer, shackleStyle]}>
+              <Svg width={LOCK_SIZE} height={LOCK_SIZE} viewBox="0 0 100 100">
                 <AnimatedPath
-                  d="M12 26 L22 36 L38 16"
+                  d="M35 40 L35 30 Q35 15 50 15 Q65 15 65 30 L65 40"
                   stroke={colors.textPrimary}
-                  strokeWidth={3.5}
+                  strokeWidth={LOCK_STROKE}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={100}
+                  animatedProps={shackleProps}
+                />
+              </Svg>
+            </Animated.View>
+            {/* Lock body and keyhole */}
+            <Svg width={LOCK_SIZE} height={LOCK_SIZE} viewBox="0 0 100 100" style={styles.lockBodySvg}>
+              <AnimatedPath
+                d="M25 45 L25 85 Q25 90 30 90 L70 90 Q75 90 75 85 L75 45 Q75 40 70 40 L30 40 Q25 40 25 45 Z"
+                stroke={colors.textPrimary}
+                strokeWidth={LOCK_STROKE}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray={200}
+                animatedProps={lockBodyProps}
+              />
+              <AnimatedCircle
+                cx="50"
+                cy="62"
+                r="4"
+                fill={colors.textPrimary}
+                animatedProps={keyholeProps}
+              />
+            </Svg>
+          </Animated.View>
+
+          {/* Success checkmark that replaces lock */}
+          <Animated.View style={[styles.successCheck, successCheckStyle]}>
+            <View style={styles.successCircle}>
+              <Svg width={50} height={50} viewBox="0 0 50 50">
+                <AnimatedPath
+                  d="M14 26 L22 34 L36 18"
+                  stroke={colors.textPrimary}
+                  strokeWidth={3}
                   fill="none"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -292,8 +301,8 @@ export default function PermissionsScreen() {
                 />
               </Svg>
             </View>
-          )}
-        </Animated.View>
+          </Animated.View>
+        </View>
 
         <Text style={styles.title}>One last thing</Text>
         <Text style={styles.description}>
@@ -338,23 +347,39 @@ const createStyles = (colors: any, insets: any) =>
       flex: 1,
       paddingHorizontal: layout.screenPadding,
     },
-    lockContainer: {
+    iconWrapper: {
       width: LOCK_SIZE,
       height: LOCK_SIZE,
       marginBottom: 32,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    successRing: {
+    lockContainer: {
       position: 'absolute',
-      width: LOCK_SIZE - 20,
-      height: LOCK_SIZE - 20,
-      borderRadius: (LOCK_SIZE - 20) / 2,
-      borderWidth: 2,
-      borderColor: colors.textPrimary,
+      width: LOCK_SIZE,
+      height: LOCK_SIZE,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    checkOverlay: {
+    shackleContainer: {
       position: 'absolute',
+      width: LOCK_SIZE,
+      height: LOCK_SIZE,
+    },
+    lockBodySvg: {
+      position: 'absolute',
+    },
+    successCheck: {
+      position: 'absolute',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    successCircle: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      borderWidth: 2.5,
+      borderColor: colors.textPrimary,
       alignItems: 'center',
       justifyContent: 'center',
     },

@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 import { createSplashStyles } from '@/styles/splash.styles';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -23,6 +24,7 @@ const EXIT_EASE = Easing.bezier(0.33, 1, 0.68, 1);
 
 export default function SplashScreen() {
   const { colors } = useTheme();
+  const { triggerCarouselExit } = useOnboarding();
   const insets = useSafeAreaInsets();
 
   // Logo is already in position from page 2 (no animation needed)
@@ -113,6 +115,9 @@ export default function SplashScreen() {
 
     // Animate content out elegantly
     exitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EXIT_EASE });
+
+    // Trigger carousel exit in sync with content exit
+    triggerCarouselExit();
 
     // Navigate after exit animation
     setTimeout(() => {
