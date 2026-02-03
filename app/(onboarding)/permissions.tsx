@@ -16,6 +16,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { typography } from '@/constants/typography';
@@ -318,9 +319,14 @@ export default function PermissionsScreen() {
           onPress={handleAllowAccess}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
-          style={styles.button}
         >
-          <Text style={styles.buttonText}>Allow photo access</Text>
+          <LinearGradient
+            colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
+            locations={[0.68, 1]}
+            style={styles.button}
+          >
+            <Text style={styles.buttonText}>Allow photo access</Text>
+          </LinearGradient>
         </AnimatedPressable>
       </Animated.View>
 
@@ -413,7 +419,7 @@ const createStyles = (colors: any, insets: any) =>
       borderRadius: borderRadius.lg,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.textPrimary,
+      overflow: 'hidden',
     },
     buttonText: {
       ...typography.labelLarge,

@@ -11,6 +11,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { createSplashStyles } from '@/styles/splash.styles';
@@ -23,7 +24,7 @@ const EXIT_DURATION = 400;
 const EXIT_EASE = Easing.bezier(0.33, 1, 0.68, 1);
 
 export default function SplashScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { triggerCarouselExit } = useOnboarding();
   const insets = useSafeAreaInsets();
 
@@ -160,9 +161,13 @@ export default function SplashScreen() {
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
           >
-            <View style={styles.button}>
+            <LinearGradient
+              colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
+              locations={[0.68, 1]}
+              style={styles.button}
+            >
               <Text style={styles.buttonText}>Continue</Text>
-            </View>
+            </LinearGradient>
           </AnimatedPressable>
         </Animated.View>
       </Animated.View>

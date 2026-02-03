@@ -15,10 +15,13 @@ import { AttributesCarousel } from '@/components/ui';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
-// Logo layer images
-const lineImage = require('@/assets/line.png');
-const swooshImage = require('@/assets/swoosh.png');
-const nameImage = require('@/assets/name.png');
+// Logo layer images - dark versions for light mode, light versions for dark mode
+const lineImageDark = require('@/assets/line.png');
+const swooshImageDark = require('@/assets/swoosh.png');
+const nameImageDark = require('@/assets/name.png');
+const lineImageLight = require('@/assets/line-light.png');
+const swooshImageLight = require('@/assets/swoosh-light.png');
+const nameImageLight = require('@/assets/name-light.png');
 const { height: screenHeight } = Dimensions.get('window');
 
 // Logo sizes
@@ -201,7 +204,7 @@ function OnboardingLayoutContent() {
             {/* Line layer - reveals from left to right */}
             <Animated.View style={[styles.logoLayerClip, lineLayerStyle]}>
               <Image
-                source={lineImage}
+                source={isDark ? lineImageLight : lineImageDark}
                 style={styles.logoLayerImage}
                 resizeMode="contain"
               />
@@ -210,7 +213,7 @@ function OnboardingLayoutContent() {
             {/* Swoosh layer - reveals from right to left */}
             <Animated.View style={[styles.logoLayerClipRight, swooshLayerStyle]}>
               <Image
-                source={swooshImage}
+                source={isDark ? swooshImageLight : swooshImageDark}
                 style={styles.logoLayerImageRight}
                 resizeMode="contain"
               />
@@ -219,7 +222,7 @@ function OnboardingLayoutContent() {
             {/* Name layer - reveals from left to right */}
             <Animated.View style={[styles.logoLayerClip, nameLayerStyle]}>
               <Image
-                source={nameImage}
+                source={isDark ? nameImageLight : nameImageDark}
                 style={styles.logoLayerImage}
                 resizeMode="contain"
               />

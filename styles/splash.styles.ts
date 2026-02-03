@@ -95,13 +95,15 @@ export const createSplashStyles = (colors: Colors) =>
     button: {
       width: '100%',
       height: 56,
-      backgroundColor: colors.textPrimary,
       borderRadius: borderRadius.lg,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
     },
     buttonText: {
       ...typography.labelLarge,
-      color: colors.bgPrimary,
+      fontSize: 17,
+      fontWeight: '600',
+      color: colors.textOnAccent,
     },
   });
