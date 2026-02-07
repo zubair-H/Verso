@@ -15,154 +15,196 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const LOGO_SIZE = 280; // Keep for spacing reference
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const LOGO_SIZE = 280;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// Premium easing - smooth deceleration
 const SMOOTH_EASE = Easing.bezier(0.33, 1, 0.68, 1);
 
-// Bubble configurations
-const BUBBLES = [
-  { size: 180, x: -60, y: 80, color: '#4A90D9', opacity: 0.12, duration: 4000, delay: 0 },
-  { size: 120, x: SCREEN_WIDTH - 80, y: 150, color: '#7BB3E0', opacity: 0.1, duration: 5000, delay: 200 },
-  { size: 200, x: SCREEN_WIDTH / 2 - 100, y: SCREEN_HEIGHT * 0.35, color: '#5A9FE0', opacity: 0.08, duration: 6000, delay: 400 },
-  { size: 90, x: 30, y: SCREEN_HEIGHT * 0.5, color: '#8EC5F0', opacity: 0.1, duration: 4500, delay: 100 },
-  { size: 140, x: SCREEN_WIDTH - 120, y: SCREEN_HEIGHT * 0.55, color: '#6AADE8', opacity: 0.09, duration: 5500, delay: 300 },
-  { size: 100, x: SCREEN_WIDTH / 2 + 40, y: SCREEN_HEIGHT * 0.7, color: '#A0D0F5', opacity: 0.08, duration: 4800, delay: 500 },
-];
+// Card dimensions
+const CARD_WIDTH = 152;
+const CARD_HEIGHT = 200;
+const CARDS_CONTAINER_WIDTH = 270;
+const CARDS_CONTAINER_HEIGHT = 300;
 
-// Floating bubble component with exit animation support
-function FloatingBubble({
-  size, x, y, color, opacity, duration, delay, exitProgress
+// Particle configuration - 8 particles flowing between cards
+const NUM_PARTICLES = 8;
+
+// Bezier curve for particle path (from left card center to right card center)
+const FROM_X = 76;
+const FROM_Y = 116;
+const TO_X = 194;
+const TO_Y = 136;
+const MID_X = (FROM_X + TO_X) / 2;
+const MID_Y = (FROM_Y + TO_Y) / 2 - 20;
+
+function getPointOnCurve(t: number) {
+  'worklet';
+  return {
+    x: (1 - t) * (1 - t) * FROM_X + 2 * (1 - t) * t * MID_X + t * t * TO_X,
+    y: (1 - t) * (1 - t) * FROM_Y + 2 * (1 - t) * t * MID_Y + t * t * TO_Y,
+  };
+}
+
+// Single animated particle
+function Particle({
+  index,
+  exitProgress,
+  entryProgress,
 }: {
-  size: number; x: number; y: number; color: string; opacity: number; duration: number; delay: number;
+  index: number;
   exitProgress: SharedValue<number>;
+  entryProgress: SharedValue<number>;
 }) {
-  const floatY = useSharedValue(0);
-  const floatX = useSharedValue(0);
+  const progress = useSharedValue(index / NUM_PARTICLES);
+  const offsetY = ((index % 3) - 1) * 5;
+  const size = 2 + (index % 3) * 0.4;
 
   useEffect(() => {
-    // Vertical float
-    floatY.value = withDelay(delay, withRepeat(
-      withTiming(20, { duration, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    ));
-    // Horizontal drift (slower, smaller movement)
-    floatX.value = withDelay(delay + 500, withRepeat(
-      withTiming(12, { duration: duration * 1.3, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    ));
+    // Animate particle along the path continuously (delayed to start after logo animation)
+    progress.value = withDelay(
+      2200 + index * 80,
+      withRepeat(
+        withTiming(1, { duration: 3000, easing: Easing.linear }),
+        -1,
+        false
+      )
+    );
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => {
-    // Exit animation: scale down and fade out (multiply with base opacity)
-    const exitScale = interpolate(exitProgress.value, [0, 1], [1, 0.3]);
-    const exitOpacity = interpolate(exitProgress.value, [0, 1], [opacity, 0]);
+    const t = progress.value;
+    const pt = getPointOnCurve(t);
+    const edgeFade = Math.sin(t * Math.PI);
+    const entryOpacity = interpolate(entryProgress.value, [0, 1], [0, 0.25]);
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
 
     return {
-      opacity: exitOpacity,
-      transform: [
-        { translateY: floatY.value },
-        { translateX: floatX.value },
-        { scale: exitScale },
-      ],
+      position: 'absolute',
+      left: pt.x - size,
+      top: pt.y + offsetY - size,
+      width: size * 2,
+      height: size * 2,
+      borderRadius: size,
+      backgroundColor: 'rgba(26,29,43,0.18)',
+      opacity: edgeFade * entryOpacity * exitOpacity,
     };
   });
 
-  return (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute',
-          left: x,
-          top: y,
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: color,
-        },
-        animatedStyle,
-      ]}
-    />
-  );
+  return <Animated.View style={animatedStyle} />;
 }
 
-export default function WelcomeScreen() {
+export default function IntroScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
+  // Wait for logo animation to complete (~1800ms) before showing content
+  const LOGO_ANIMATION_DELAY = 1900;
 
-  // Text animation values
-  const tagline1Opacity = useSharedValue(0);
-  const tagline1TranslateY = useSharedValue(24);
-  const tagline2Opacity = useSharedValue(0);
-  const tagline2TranslateY = useSharedValue(24);
-  const subtitleOpacity = useSharedValue(0);
-  const subtitleTranslateY = useSharedValue(20);
-
-  // Button animation values
-  const buttonOpacity = useSharedValue(0);
+  // Entry animations
+  const cardLeftEntry = useSharedValue(0);
+  const cardRightEntry = useSharedValue(0);
+  const headlineEntry = useSharedValue(0);
+  const headlineTranslateY = useSharedValue(14);
+  const buttonEntry = useSharedValue(0);
   const buttonTranslateY = useSharedValue(30);
   const buttonScale = useSharedValue(1);
+  const particleEntry = useSharedValue(0);
 
-  // Exit animation values
+  // Exit animation
   const exitProgress = useSharedValue(0);
   const contentExitProgress = useSharedValue(0);
   const isExiting = useSharedValue(false);
 
   useEffect(() => {
-    // Wait for logo animation to complete (~1800ms) before showing content
-    const LOGO_ANIMATION_DELAY = 1900;
+    const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 
-    // Tagline line 1 - elegant fade up
-    tagline1Opacity.value = withDelay(LOGO_ANIMATION_DELAY, withTiming(1, { duration: 600, easing: SMOOTH_EASE }));
-    tagline1TranslateY.value = withDelay(LOGO_ANIMATION_DELAY, withSpring(0, { damping: 22, stiffness: 85 }));
+    // Left card slides in from left (after logo animation)
+    cardLeftEntry.value = withDelay(
+      LOGO_ANIMATION_DELAY,
+      withTiming(1, { duration: 900, easing: EASE })
+    );
 
-    // Tagline line 2 - slight stagger
-    tagline2Opacity.value = withDelay(LOGO_ANIMATION_DELAY + 150, withTiming(1, { duration: 600, easing: SMOOTH_EASE }));
-    tagline2TranslateY.value = withDelay(LOGO_ANIMATION_DELAY + 150, withSpring(0, { damping: 22, stiffness: 85 }));
+    // Right card slides in from right (slightly staggered)
+    cardRightEntry.value = withDelay(
+      LOGO_ANIMATION_DELAY + 150,
+      withTiming(1, { duration: 900, easing: EASE })
+    );
 
-    // Subtitle - subtle appearance
-    subtitleOpacity.value = withDelay(LOGO_ANIMATION_DELAY + 400, withTiming(1, { duration: 650, easing: SMOOTH_EASE }));
-    subtitleTranslateY.value = withDelay(LOGO_ANIMATION_DELAY + 400, withSpring(0, { damping: 24, stiffness: 80 }));
+    // Particles fade in
+    particleEntry.value = withDelay(
+      LOGO_ANIMATION_DELAY + 300,
+      withTiming(1, { duration: 800, easing: SMOOTH_EASE })
+    );
 
-    // Button - confident entrance
-    buttonOpacity.value = withDelay(LOGO_ANIMATION_DELAY + 600, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
-    buttonTranslateY.value = withDelay(LOGO_ANIMATION_DELAY + 600, withSpring(0, { damping: 20, stiffness: 90 }));
+    // Headline fades up
+    headlineEntry.value = withDelay(
+      LOGO_ANIMATION_DELAY + 550,
+      withTiming(1, { duration: 800, easing: EASE })
+    );
+    headlineTranslateY.value = withDelay(
+      LOGO_ANIMATION_DELAY + 550,
+      withSpring(0, { damping: 22, stiffness: 85 })
+    );
+
+    // Button appears
+    buttonEntry.value = withDelay(
+      LOGO_ANIMATION_DELAY + 700,
+      withTiming(1, { duration: 500, easing: SMOOTH_EASE })
+    );
+    buttonTranslateY.value = withDelay(
+      LOGO_ANIMATION_DELAY + 700,
+      withSpring(0, { damping: 20, stiffness: 90 })
+    );
   }, []);
 
-  const tagline1Style = useAnimatedStyle(() => {
+  // Card styles
+  const cardLeftStyle = useAnimatedStyle(() => {
+    const entryOpacity = interpolate(cardLeftEntry.value, [0, 1], [0, 1]);
+    const entryTranslateX = interpolate(cardLeftEntry.value, [0, 1], [-25, 0]);
+    const entryScale = interpolate(cardLeftEntry.value, [0, 1], [0.92, 1]);
     const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateY = interpolate(contentExitProgress.value, [0, 1], [0, -30]);
+    const exitTranslateX = interpolate(contentExitProgress.value, [0, 1], [0, -40]);
+
     return {
-      opacity: tagline1Opacity.value * exitOpacity,
-      transform: [{ translateY: tagline1TranslateY.value + exitTranslateY }],
+      opacity: entryOpacity * exitOpacity,
+      transform: [
+        { translateX: entryTranslateX + exitTranslateX },
+        { rotate: '-6deg' },
+        { scale: entryScale },
+      ],
     };
   });
 
-  const tagline2Style = useAnimatedStyle(() => {
+  const cardRightStyle = useAnimatedStyle(() => {
+    const entryOpacity = interpolate(cardRightEntry.value, [0, 1], [0, 1]);
+    const entryTranslateX = interpolate(cardRightEntry.value, [0, 1], [25, 0]);
+    const entryScale = interpolate(cardRightEntry.value, [0, 1], [0.92, 1]);
     const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateY = interpolate(contentExitProgress.value, [0, 1], [0, -25]);
+    const exitTranslateX = interpolate(contentExitProgress.value, [0, 1], [0, 40]);
+
     return {
-      opacity: tagline2Opacity.value * exitOpacity,
-      transform: [{ translateY: tagline2TranslateY.value + exitTranslateY }],
+      opacity: entryOpacity * exitOpacity,
+      transform: [
+        { translateX: entryTranslateX + exitTranslateX },
+        { rotate: '4deg' },
+        { scale: entryScale },
+      ],
     };
   });
 
-  const subtitleStyle = useAnimatedStyle(() => {
+  const headlineStyle = useAnimatedStyle(() => {
     const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
     const exitTranslateY = interpolate(contentExitProgress.value, [0, 1], [0, -20]);
     return {
-      opacity: subtitleOpacity.value * exitOpacity,
-      transform: [{ translateY: subtitleTranslateY.value + exitTranslateY }],
+      opacity: headlineEntry.value * exitOpacity,
+      transform: [{ translateY: headlineTranslateY.value + exitTranslateY }],
     };
   });
 
@@ -170,7 +212,7 @@ export default function WelcomeScreen() {
     const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
     const exitTranslateY = interpolate(contentExitProgress.value, [0, 1], [0, 40]);
     return {
-      opacity: buttonOpacity.value * exitOpacity,
+      opacity: buttonEntry.value * exitOpacity,
       transform: [
         { translateY: buttonTranslateY.value + exitTranslateY },
         { scale: buttonScale.value },
@@ -178,14 +220,12 @@ export default function WelcomeScreen() {
     };
   });
 
-  // Gradient fade out during exit
   const gradientStyle = useAnimatedStyle(() => {
     const exitOpacity = interpolate(contentExitProgress.value, [0, 0.7], [1, 0]);
     return { opacity: exitOpacity };
   });
 
   const handleGetStarted = () => {
-    // Prevent double taps
     if (isExiting.value) return;
     isExiting.value = true;
 
@@ -194,15 +234,13 @@ export default function WelcomeScreen() {
     const EXIT_DURATION = 450;
     const EASE_OUT = Easing.bezier(0.33, 1, 0.68, 1);
 
-    // Animate bubbles out (scale down + fade)
+    // Animate content out
+    contentExitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EASE_OUT });
     exitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EASE_OUT });
-
-    // Animate content out (fade up/down)
-    contentExitProgress.value = withTiming(1, { duration: EXIT_DURATION - 50, easing: EASE_OUT });
 
     // Navigate after exit animation completes
     setTimeout(() => {
-      router.push('/(onboarding)/possibilities');
+      router.push('/(onboarding)/welcome');
     }, EXIT_DURATION - 100);
   };
 
@@ -214,48 +252,80 @@ export default function WelcomeScreen() {
     buttonScale.value = withTiming(1, { duration: 100 });
   };
 
-  const styles = useMemo(() => createStyles(colors, insets), [colors, insets]);
+  const styles = useMemo(() => createStyles(colors, insets, isDark), [colors, insets, isDark]);
 
   return (
     <View style={styles.container}>
-      {/* Subtle gradient background - fades during exit */}
+      {/* Gradient background */}
       <Animated.View style={[StyleSheet.absoluteFill, gradientStyle]}>
         <LinearGradient
-          colors={isDark ? [colors.bgSecondary, colors.bgTertiary, colors.bgPrimary] : ['#F8FBFF', '#F4F9FE', '#F0F6FC']}
+          colors={isDark ? [colors.bgSecondary, colors.bgTertiary, colors.bgPrimary] : ['#F3F4F6', '#F5F6F8', '#F8F9FB']}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
-
-      {/* Floating bubbles layer */}
-      <View style={styles.bubblesLayer}>
-        {BUBBLES.map((bubble, index) => (
-          <FloatingBubble key={index} {...bubble} exitProgress={exitProgress} />
-        ))}
-      </View>
 
       {/* Content */}
       <View style={styles.content}>
         {/* Logo spacer - actual logo is in layout */}
         <View style={styles.logoSpacer} />
 
-        {/* Text content */}
-        <View style={styles.textSection}>
-          <View style={styles.taglineContainer}>
-            <Animated.View style={tagline1Style}>
-              <Text style={styles.tagline}>Try any look.</Text>
+        {/* Hero section with cards */}
+        <View style={styles.hero}>
+          <View style={styles.cardsContainer}>
+            {/* Left card - "Pick a style" */}
+            <Animated.View style={[styles.card, styles.cardLeft, cardLeftStyle]}>
+              <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
+                <Ionicons
+                  name="image-outline"
+                  size={22}
+                  color={isDark ? colors.textSecondary : '#1a1d2b'}
+                />
+              </View>
+              <Text style={[styles.cardTitle, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>
+                Pick a style
+              </Text>
+              <Text style={[styles.cardDesc, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.3)' }]}>
+                Choose any celebrity look
+              </Text>
             </Animated.View>
-            <Animated.View style={tagline2Style}>
-              <Text style={styles.tagline}>Risk nothing.</Text>
-            </Animated.View>
-          </View>
 
-          <Animated.View style={[styles.subtitleContainer, subtitleStyle]}>
-            <Text style={styles.subtitle}>
-              See yourself in celebrity styles before you commit.
-            </Text>
-          </Animated.View>
+            {/* Right card - "See it on you" */}
+            <Animated.View style={[styles.card, styles.cardRight, cardRightStyle]}>
+              <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
+                <Ionicons
+                  name="person-outline"
+                  size={22}
+                  color={isDark ? colors.textSecondary : '#1a1d2b'}
+                />
+              </View>
+              <Text style={[styles.cardTitle, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>
+                See it on you
+              </Text>
+              <Text style={[styles.cardDesc, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.3)' }]}>
+                Try before you commit
+              </Text>
+            </Animated.View>
+
+            {/* Animated particles flowing between cards */}
+            <View style={styles.particleLayer}>
+              {Array.from({ length: NUM_PARTICLES }).map((_, i) => (
+                <Particle
+                  key={i}
+                  index={i}
+                  exitProgress={exitProgress}
+                  entryProgress={particleEntry}
+                />
+              ))}
+            </View>
+          </View>
         </View>
+
+        {/* Headline */}
+        <Animated.View style={[styles.headlineContainer, headlineStyle]}>
+          <Text style={styles.headline}>Try any look.</Text>
+          <Text style={[styles.headline, styles.headlineDim]}>Risk nothing.</Text>
+        </Animated.View>
       </View>
 
       {/* Bottom button */}
@@ -278,15 +348,11 @@ export default function WelcomeScreen() {
   );
 }
 
-const createStyles = (colors: any, insets: any) =>
+const createStyles = (colors: any, insets: any, isDark: boolean) =>
   StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.bgTertiary,
-    },
-    bubblesLayer: {
-      ...StyleSheet.absoluteFillObject,
-      overflow: 'hidden',
     },
     content: {
       flex: 1,
@@ -296,33 +362,89 @@ const createStyles = (colors: any, insets: any) =>
     logoSpacer: {
       marginTop: 80,
       height: LOGO_SIZE,
-      marginBottom: 48,
+      marginBottom: 10,
     },
-    textSection: {
+    hero: {
+      flex: 1,
+      width: '100%',
       alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 10,
     },
-    taglineContainer: {
+    cardsContainer: {
+      width: CARDS_CONTAINER_WIDTH,
+      height: CARDS_CONTAINER_HEIGHT,
+      position: 'relative',
+    },
+    card: {
+      position: 'absolute',
+      width: CARD_WIDTH,
+      height: CARD_HEIGHT,
+      borderRadius: 16,
       alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? colors.bgSecondary : '#fff',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: isDark ? 0.2 : 0.06,
+      shadowRadius: 40,
+      elevation: 8,
     },
-    tagline: {
+    cardLeft: {
+      left: 0,
+      top: 16,
+      zIndex: 2,
+    },
+    cardRight: {
+      right: 0,
+      top: 36,
+      zIndex: 3,
+    },
+    cardAvatar: {
+      width: 52,
+      height: 52,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 14,
+    },
+    cardTitle: {
+      fontSize: 12,
+      fontWeight: '600',
+      marginBottom: 2,
+    },
+    cardDesc: {
+      fontSize: 9,
+      fontWeight: '400',
+      textAlign: 'center',
+      paddingHorizontal: 14,
+      lineHeight: 13,
+    },
+    particleLayer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: CARDS_CONTAINER_WIDTH,
+      height: CARDS_CONTAINER_HEIGHT,
+      zIndex: 4,
+    },
+    headlineContainer: {
+      alignItems: 'center',
+      marginBottom: 38,
+    },
+    headline: {
       ...typography.displayLarge,
-      fontSize: 36,
-      fontWeight: '700',
-      color: colors.textPrimary,
+      fontSize: 38,
+      fontWeight: '400',
+      color: isDark ? colors.textPrimary : '#1a1d2b',
       textAlign: 'center',
       lineHeight: 44,
-      letterSpacing: -0.8,
+      letterSpacing: -0.5,
     },
-    subtitleContainer: {
-      marginTop: 20,
-      paddingHorizontal: 24,
-    },
-    subtitle: {
-      ...typography.bodyLarge,
-      fontSize: 17,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      lineHeight: 24,
+    headlineDim: {
+      color: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(26,29,43,0.2)',
     },
     bottomSection: {
       paddingHorizontal: layout.screenPadding,
