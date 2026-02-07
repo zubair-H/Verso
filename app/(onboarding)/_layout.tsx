@@ -173,7 +173,7 @@ function OnboardingLayoutContent() {
   const showCarousel = currentScreen === 'howitworks' || currentScreen === 'splash' || currentScreen === 'permissions';
 
   // Only show logo on onboarding screens
-  const showLogo = !currentScreen || currentScreen === '(onboarding)' || ['index', 'welcome', 'possibilities', 'howitworks', 'splash', 'permissions'].includes(currentScreen);
+  const showLogo = !currentScreen || currentScreen === '(onboarding)' || ['index', 'possibilities', 'howitworks', 'splash', 'permissions'].includes(currentScreen);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bgTertiary }]}>
@@ -241,7 +241,6 @@ function OnboardingLayoutContent() {
       >
         {/* No animation between pages for seamless logo continuity */}
         <Stack.Screen name="index" options={{ animation: 'none' }} />
-        <Stack.Screen name="welcome" options={{ animation: 'none' }} />
         <Stack.Screen name="possibilities" options={{ animation: 'none' }} />
         <Stack.Screen name="howitworks" options={{ animation: 'none' }} />
         <Stack.Screen name="splash" options={{ animation: 'none' }} />

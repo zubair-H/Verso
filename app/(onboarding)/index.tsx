@@ -240,7 +240,7 @@ export default function IntroScreen() {
 
     // Navigate after exit animation completes
     setTimeout(() => {
-      router.push('/(onboarding)/welcome');
+      router.push('/(onboarding)/possibilities');
     }, EXIT_DURATION - 100);
   };
 
