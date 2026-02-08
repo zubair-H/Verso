@@ -5,14 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
   withDelay,
   withSpring,
-  withRepeat,
   Easing,
   interpolate,
-  SharedValue,
 } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,301 +20,369 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const LOGO_SIZE = 280; // Keep for spacing reference
-
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const SMOOTH_EASE = Easing.bezier(0.33, 1, 0.68, 1);
 
-// Floating icons configuration - same positions as bubbles on first page
-const FLOATING_ICONS = [
-  { icon: 'cut-outline', size: 36, x: -30, y: 80, color: '#4A90D9', opacity: 0.35, duration: 4000, delay: 0 },
-  { icon: 'color-palette-outline', size: 28, x: SCREEN_WIDTH - 80, y: 150, color: '#7BB3E0', opacity: 0.3, duration: 5000, delay: 200 },
-  { icon: 'glasses-outline', size: 40, x: SCREEN_WIDTH / 2 - 60, y: SCREEN_HEIGHT * 0.35, color: '#5A9FE0', opacity: 0.28, duration: 6000, delay: 400 },
-  { icon: 'shirt-outline', size: 22, x: 30, y: SCREEN_HEIGHT * 0.5, color: '#8EC5F0', opacity: 0.32, duration: 4500, delay: 100 },
-  { icon: 'watch-outline', size: 32, x: SCREEN_WIDTH - 100, y: SCREEN_HEIGHT * 0.55, color: '#6AADE8', opacity: 0.3, duration: 5500, delay: 300 },
-  { icon: 'diamond-outline', size: 26, x: SCREEN_WIDTH / 2 + 40, y: SCREEN_HEIGHT * 0.7, color: '#A0D0F5', opacity: 0.28, duration: 4800, delay: 500 },
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const LOGO_SIZE = 280;
+
+// Card dimensions — smaller than index to fit 4 cards
+const CARD_W = 130;
+const CARD_H = 150;
+const CARD_BR = 16;
+const H_GAP = 50; // horizontal gap for arrow
+const V_GAP = 36; // vertical gap for arrow
+const CONTAINER_W = CARD_W * 2 + H_GAP;
+const CONTAINER_H = CARD_H * 2 + V_GAP;
+
+// Avatar icon size (same as index page)
+const AVATAR_SIZE = 48;
+const AVATAR_BR = 12;
+
+// Steps data
+const STEPS = [
+  { icon: 'camera-outline' as const, title: 'Upload Selfie', desc: 'Snap or pick your photo' },
+  { icon: 'people-outline' as const, title: 'Find Inspo', desc: 'Browse looks or upload a celeb pic' },
+  { icon: 'cut-outline' as const, title: 'Pick Attributes', desc: 'Hair, style, features & more' },
+  { icon: 'sparkles-outline' as const, title: 'See Yourself', desc: 'AI applies the look to you' },
 ];
 
-// Floating icon component with elegant transitions
-function FloatingIcon({
-  icon, size, x, y, color, opacity, duration, delay, entryProgress, exitProgress
+// --- Animated arrow that draws with stroke-dash ---
+function DrawArrow({
+  d,
+  pathLength,
+  arrowD,
+  arrowLength,
+  delay,
+  color,
+  sw,
+  width: w,
+  height: h,
+  style,
 }: {
-  icon: string; size: number; x: number; y: number; color: string; opacity: number; duration: number; delay: number;
-  entryProgress: SharedValue<number>; exitProgress: SharedValue<number>;
+  d: string;
+  pathLength: number;
+  arrowD: string;
+  arrowLength: number;
+  delay: number;
+  color: string;
+  sw: number;
+  width: number;
+  height: number;
+  style?: any;
 }) {
-  const floatY = useSharedValue(0);
-  const floatX = useSharedValue(0);
-  const rotation = useSharedValue(0);
+  const progress = useSharedValue(pathLength);
+  const arrowProgress = useSharedValue(arrowLength);
 
   useEffect(() => {
-    // Vertical float
-    floatY.value = withDelay(delay + 300, withRepeat(
-      withTiming(15, { duration, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    ));
-    // Horizontal drift
-    floatX.value = withDelay(delay + 500, withRepeat(
-      withTiming(10, { duration: duration * 1.2, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    ));
-    // Subtle rotation
-    rotation.value = withDelay(delay + 200, withRepeat(
-      withTiming(8, { duration: duration * 0.8, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    ));
+    progress.value = withDelay(
+      delay,
+      withTiming(0, { duration: 700, easing: Easing.out(Easing.cubic) })
+    );
+    arrowProgress.value = withDelay(
+      delay + 500,
+      withTiming(0, { duration: 250, easing: Easing.out(Easing.cubic) })
+    );
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    // Entry: scale up + fade in with spring-like feel
-    const entryScale = interpolate(entryProgress.value, [0, 1], [0.3, 1]);
-    const entryOpacity = interpolate(entryProgress.value, [0, 1], [0, opacity]);
+  const pathProps = useAnimatedProps(() => ({
+    strokeDasharray: [pathLength, pathLength],
+    strokeDashoffset: progress.value,
+  }));
 
-    // Exit: scale down + fade out
-    const exitScale = interpolate(exitProgress.value, [0, 1], [1, 0.2]);
-    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-
-    return {
-      opacity: entryOpacity * exitOpacity,
-      transform: [
-        { translateY: floatY.value },
-        { translateX: floatX.value },
-        { scale: entryScale * exitScale },
-        { rotate: `${rotation.value}deg` },
-      ],
-    };
-  });
+  const arrowProps = useAnimatedProps(() => ({
+    strokeDasharray: [arrowLength, arrowLength],
+    strokeDashoffset: arrowProgress.value,
+  }));
 
   return (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute',
-          left: x,
-          top: y,
-          width: size * 2.5,
-          height: size * 2.5,
-          borderRadius: size * 1.25,
-          backgroundColor: color,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        animatedStyle,
-      ]}
-    >
-      <Ionicons name={icon as any} size={size} color="rgba(255,255,255,0.9)" />
-    </Animated.View>
+    <View style={style} pointerEvents="none">
+      <Svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        <AnimatedPath
+          d={d}
+          stroke={color}
+          strokeWidth={sw}
+          strokeLinecap="round"
+          fill="none"
+          animatedProps={pathProps}
+        />
+        <AnimatedPath
+          d={arrowD}
+          stroke={color}
+          strokeWidth={sw}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          animatedProps={arrowProps}
+        />
+      </Svg>
+    </View>
   );
 }
-
-// Smooth spring for elegant motion
-const SMOOTH_SPRING = { damping: 22, stiffness: 85, mass: 1 };
-
-// Flowing content - reveals in zigzag pattern
-const FLOW_CONTENT = [
-  { text: 'One photo', direction: 'left', emphasis: true },
-  { text: 'Endless possibilities', direction: 'right', emphasis: false },
-  { text: 'Hair. Color. Style. Accessories.', direction: 'left', emphasis: false },
-  { text: 'All yours to try', direction: 'right', emphasis: true },
-];
-
-// Timing configuration
-const BASE_DELAY = 400;
-const ROW_STAGGER = 400;
-const SLIDE_DURATION = 500;
 
 export default function PossibilitiesScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Flow content animations - one for each row
-  const row1Progress = useSharedValue(0);
-  const row2Progress = useSharedValue(0);
-  const row3Progress = useSharedValue(0);
-  const row4Progress = useSharedValue(0);
+  // Base delay — logo has already animated on index, so we start faster
+  const BASE = 300;
 
-  // Button animation
-  const buttonOpacity = useSharedValue(0);
+  // Card entry animations
+  const card1Entry = useSharedValue(0);
+  const card2Entry = useSharedValue(0);
+  const card3Entry = useSharedValue(0);
+  const card4Entry = useSharedValue(0);
+
+  // Headline + button
+  const headlineEntry = useSharedValue(0);
+  const headlineTranslateY = useSharedValue(14);
+  const buttonEntry = useSharedValue(0);
   const buttonTranslateY = useSharedValue(30);
   const buttonScale = useSharedValue(1);
 
-  // Floating icons animation
-  const iconsEntryProgress = useSharedValue(0);
-
-  // Exit animation
+  // Exit
   const exitProgress = useSharedValue(0);
+  const contentExitProgress = useSharedValue(0);
   const isExiting = useSharedValue(false);
 
+  const arrowColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(26,29,43,0.22)';
+  const arrowSW = 1.75;
+
   useEffect(() => {
-    const EASE = Easing.out(Easing.cubic);
-    const SMOOTH_EASE = Easing.bezier(0.33, 1, 0.68, 1);
+    const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 
-    // Floating icons fade in elegantly first
-    iconsEntryProgress.value = withDelay(
-      100,
-      withTiming(1, { duration: 800, easing: SMOOTH_EASE })
-    );
+    // Card 1 appears first (starting point)
+    card1Entry.value = withDelay(BASE, withSpring(1, { damping: 14, stiffness: 60, mass: 1 }));
+    // Arrow right draws → then Card 2 appears
+    card2Entry.value = withDelay(BASE + 700, withSpring(1, { damping: 14, stiffness: 60, mass: 1 }));
+    // Arrow down draws → then Card 3 appears
+    card3Entry.value = withDelay(BASE + 1400, withSpring(1, { damping: 14, stiffness: 60, mass: 1 }));
+    // Arrow left draws → then Card 4 appears
+    card4Entry.value = withDelay(BASE + 2100, withSpring(1, { damping: 14, stiffness: 60, mass: 1 }));
 
-    // Row 1: slides from left
-    row1Progress.value = withDelay(
-      BASE_DELAY,
-      withTiming(1, { duration: SLIDE_DURATION, easing: EASE })
-    );
+    // Headline
+    headlineEntry.value = withDelay(BASE + 2300, withTiming(1, { duration: 700, easing: EASE }));
+    headlineTranslateY.value = withDelay(BASE + 2300, withSpring(0, { damping: 22, stiffness: 85 }));
 
-    // Row 2: slides from right
-    row2Progress.value = withDelay(
-      BASE_DELAY + ROW_STAGGER,
-      withTiming(1, { duration: SLIDE_DURATION, easing: EASE })
-    );
-
-    // Row 3: slides from left
-    row3Progress.value = withDelay(
-      BASE_DELAY + ROW_STAGGER * 2,
-      withTiming(1, { duration: SLIDE_DURATION, easing: EASE })
-    );
-
-    // Row 4: slides from right
-    row4Progress.value = withDelay(
-      BASE_DELAY + ROW_STAGGER * 3,
-      withTiming(1, { duration: SLIDE_DURATION, easing: EASE })
-    );
-
-    // Button appears after all content
-    const buttonDelay = BASE_DELAY + ROW_STAGGER * 3 + 300;
-    buttonOpacity.value = withDelay(buttonDelay, withTiming(1, { duration: 400, easing: EASE }));
-    buttonTranslateY.value = withDelay(buttonDelay, withSpring(0, SMOOTH_SPRING));
+    // Button
+    buttonEntry.value = withDelay(BASE + 2500, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
+    buttonTranslateY.value = withDelay(BASE + 2500, withSpring(0, { damping: 20, stiffness: 90 }));
   }, []);
 
-  // Row styles - alternating slide directions with exit animations
-  // Exit: rows slide back to where they came from (left→left, right→right)
-  const row1Style = useAnimatedStyle(() => {
-    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, -80]); // slides back left on exit
+  // --- Card animated styles ---
+  const card1Style = useAnimatedStyle(() => {
+    const opacity = interpolate(card1Entry.value, [0, 0.3], [0, 1], 'clamp');
+    const tx = interpolate(card1Entry.value, [0, 1], [-140, 0]);
+    const ty = interpolate(card1Entry.value, [0, 1], [50, 0]);
+    const scale = interpolate(card1Entry.value, [0, 1], [0.5, 1]);
+    const rotate = interpolate(card1Entry.value, [0, 1], [-12, 0]);
+    const exitOp = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
+    const exitTx = interpolate(contentExitProgress.value, [0, 1], [0, -50]);
     return {
-      opacity: row1Progress.value * exitOpacity,
-      transform: [{ translateX: interpolate(row1Progress.value, [0, 1], [-60, 0]) + exitTranslateX }],
+      opacity: opacity * exitOp,
+      transform: [{ translateX: tx + exitTx }, { translateY: ty }, { rotate: `${rotate}deg` }, { scale }],
     };
   });
 
-  const row2Style = useAnimatedStyle(() => {
-    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 80]); // slides back right on exit
+  const card2Style = useAnimatedStyle(() => {
+    const opacity = interpolate(card2Entry.value, [0, 0.3], [0, 1], 'clamp');
+    const tx = interpolate(card2Entry.value, [0, 1], [140, 0]);
+    const ty = interpolate(card2Entry.value, [0, 1], [50, 0]);
+    const scale = interpolate(card2Entry.value, [0, 1], [0.5, 1]);
+    const rotate = interpolate(card2Entry.value, [0, 1], [12, 0]);
+    const exitOp = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
+    const exitTx = interpolate(contentExitProgress.value, [0, 1], [0, 50]);
     return {
-      opacity: row2Progress.value * exitOpacity,
-      transform: [{ translateX: interpolate(row2Progress.value, [0, 1], [60, 0]) + exitTranslateX }],
+      opacity: opacity * exitOp,
+      transform: [{ translateX: tx + exitTx }, { translateY: ty }, { rotate: `${rotate}deg` }, { scale }],
     };
   });
 
-  const row3Style = useAnimatedStyle(() => {
-    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, -80]); // slides back left on exit
+  const card3Style = useAnimatedStyle(() => {
+    const opacity = interpolate(card3Entry.value, [0, 0.3], [0, 1], 'clamp');
+    const tx = interpolate(card3Entry.value, [0, 1], [140, 0]);
+    const ty = interpolate(card3Entry.value, [0, 1], [50, 0]);
+    const scale = interpolate(card3Entry.value, [0, 1], [0.5, 1]);
+    const rotate = interpolate(card3Entry.value, [0, 1], [12, 0]);
+    const exitOp = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
+    const exitTx = interpolate(contentExitProgress.value, [0, 1], [0, 50]);
     return {
-      opacity: row3Progress.value * exitOpacity,
-      transform: [{ translateX: interpolate(row3Progress.value, [0, 1], [-60, 0]) + exitTranslateX }],
+      opacity: opacity * exitOp,
+      transform: [{ translateX: tx + exitTx }, { translateY: ty }, { rotate: `${rotate}deg` }, { scale }],
     };
   });
 
-  const row4Style = useAnimatedStyle(() => {
-    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(exitProgress.value, [0, 1], [0, 80]); // slides back right on exit
+  const card4Style = useAnimatedStyle(() => {
+    const opacity = interpolate(card4Entry.value, [0, 0.3], [0, 1], 'clamp');
+    const tx = interpolate(card4Entry.value, [0, 1], [-140, 0]);
+    const ty = interpolate(card4Entry.value, [0, 1], [50, 0]);
+    const scale = interpolate(card4Entry.value, [0, 1], [0.5, 1]);
+    const rotate = interpolate(card4Entry.value, [0, 1], [-12, 0]);
+    const exitOp = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
+    const exitTx = interpolate(contentExitProgress.value, [0, 1], [0, -50]);
     return {
-      opacity: row4Progress.value * exitOpacity,
-      transform: [{ translateX: interpolate(row4Progress.value, [0, 1], [60, 0]) + exitTranslateX }],
+      opacity: opacity * exitOp,
+      transform: [{ translateX: tx + exitTx }, { translateY: ty }, { rotate: `${rotate}deg` }, { scale }],
+    };
+  });
+
+  const headlineStyle = useAnimatedStyle(() => {
+    const exitOp = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
+    const exitTy = interpolate(contentExitProgress.value, [0, 1], [0, -20]);
+    return {
+      opacity: headlineEntry.value * exitOp,
+      transform: [{ translateY: headlineTranslateY.value + exitTy }],
     };
   });
 
   const buttonStyle = useAnimatedStyle(() => {
-    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateY = interpolate(exitProgress.value, [0, 1], [0, 40]);
+    const exitOp = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
+    const exitTy = interpolate(contentExitProgress.value, [0, 1], [0, 40]);
     return {
-      opacity: buttonOpacity.value * exitOpacity,
-      transform: [{ translateY: buttonTranslateY.value + exitTranslateY }, { scale: buttonScale.value }],
+      opacity: buttonEntry.value * exitOp,
+      transform: [{ translateY: buttonTranslateY.value + exitTy }, { scale: buttonScale.value }],
     };
   });
 
-  // Gradient fades out during exit
   const gradientStyle = useAnimatedStyle(() => {
-    const exitOpacity = interpolate(exitProgress.value, [0, 0.8], [1, 0]);
-    return { opacity: exitOpacity };
+    const exitOp = interpolate(contentExitProgress.value, [0, 0.7], [1, 0]);
+    return { opacity: exitOp };
   });
 
   const handleContinue = () => {
-    // Prevent double taps
     if (isExiting.value) return;
     isExiting.value = true;
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    const EXIT_DURATION = 400;
+    const EXIT_DURATION = 450;
     const EASE_OUT = Easing.bezier(0.33, 1, 0.68, 1);
 
-    // Animate content out
+    contentExitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EASE_OUT });
     exitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EASE_OUT });
 
-    // Navigate after exit animation
     setTimeout(() => {
       router.push('/(onboarding)/howitworks');
-    }, EXIT_DURATION - 80);
+    }, EXIT_DURATION - 100);
   };
 
   const handlePressIn = () => {
     buttonScale.value = withTiming(0.97, { duration: 100 });
   };
-
   const handlePressOut = () => {
     buttonScale.value = withTiming(1, { duration: 100 });
   };
 
-  const styles = useMemo(() => createStyles(colors, insets), [colors, insets]);
+  // --- Arrow geometry ---
+  const hAW = H_GAP;
+  const hAH = 20;
+  const vAW = 20;
+  const vAH = V_GAP;
+
+  const styles = useMemo(() => createStyles(colors, insets, isDark), [colors, insets, isDark]);
 
   return (
     <View style={styles.container}>
-      {/* Subtle gradient background - fades during exit */}
+      {/* Gradient background */}
       <Animated.View style={[StyleSheet.absoluteFill, gradientStyle]}>
         <LinearGradient
-          colors={isDark ? [colors.bgSecondary, colors.bgTertiary, colors.bgPrimary] : ['#F8FBFF', '#F4F9FE', '#F0F6FC']}
+          colors={isDark ? [colors.bgSecondary, colors.bgTertiary, colors.bgPrimary] : ['#F3F4F6', '#F5F6F8', '#F8F9FB']}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
 
-      {/* Floating icons layer - same positions as bubbles on first page */}
-      <View style={styles.iconsLayer}>
-        {FLOATING_ICONS.map((iconConfig, index) => (
-          <FloatingIcon
-            key={index}
-            {...iconConfig}
-            entryProgress={iconsEntryProgress}
-            exitProgress={exitProgress}
-          />
-        ))}
-      </View>
-
-      {/* Logo spacer - actual logo is in layout */}
-      <View style={styles.logoSpacer} />
-
-      {/* Flowing content */}
       <View style={styles.content}>
-        {/* Row 1 - Left aligned, slides from left */}
-        <Animated.View style={[styles.flowRow, styles.rowLeft, row1Style]}>
-          <Text style={styles.flowTextEmphasis}>{FLOW_CONTENT[0].text}</Text>
-        </Animated.View>
+        {/* Logo spacer */}
+        <View style={styles.logoSpacer} />
 
-        {/* Row 2 - Right aligned, slides from right */}
-        <Animated.View style={[styles.flowRow, styles.rowRight, row2Style]}>
-          <Text style={styles.flowText}>{FLOW_CONTENT[1].text}</Text>
-        </Animated.View>
+        {/* Cards grid */}
+        <View style={styles.hero}>
+          <View style={styles.cardsContainer}>
+            {/* Card 1 — top left */}
+            <Animated.View style={[styles.card, styles.card1, card1Style]}>
+              <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
+                <Ionicons name={STEPS[0].icon} size={22} color={isDark ? colors.textSecondary : '#1a1d2b'} />
+              </View>
+              <Text style={[styles.cardTitle, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>{STEPS[0].title}</Text>
+              <Text style={[styles.cardDesc, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.3)' }]}>{STEPS[0].desc}</Text>
+            </Animated.View>
 
-        {/* Row 3 - Left aligned, slides from left */}
-        <Animated.View style={[styles.flowRow, styles.rowLeft, row3Style]}>
-          <Text style={styles.flowTextSmall}>{FLOW_CONTENT[2].text}</Text>
-        </Animated.View>
+            {/* Card 2 — top right */}
+            <Animated.View style={[styles.card, styles.card2, card2Style]}>
+              <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
+                <Ionicons name={STEPS[1].icon} size={22} color={isDark ? colors.textSecondary : '#1a1d2b'} />
+              </View>
+              <Text style={[styles.cardTitle, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>{STEPS[1].title}</Text>
+              <Text style={[styles.cardDesc, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.3)' }]}>{STEPS[1].desc}</Text>
+            </Animated.View>
 
-        {/* Row 4 - Right aligned, slides from right */}
-        <Animated.View style={[styles.flowRow, styles.rowRight, row4Style]}>
-          <Text style={styles.flowTextEmphasis}>{FLOW_CONTENT[3].text}</Text>
+            {/* Card 3 — bottom right */}
+            <Animated.View style={[styles.card, styles.card3, card3Style]}>
+              <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
+                <Ionicons name={STEPS[2].icon} size={22} color={isDark ? colors.textSecondary : '#1a1d2b'} />
+              </View>
+              <Text style={[styles.cardTitle, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>{STEPS[2].title}</Text>
+              <Text style={[styles.cardDesc, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.3)' }]}>{STEPS[2].desc}</Text>
+            </Animated.View>
+
+            {/* Card 4 — bottom left */}
+            <Animated.View style={[styles.card, styles.card4, card4Style]}>
+              <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
+                <Ionicons name={STEPS[3].icon} size={22} color={isDark ? colors.textSecondary : '#1a1d2b'} />
+              </View>
+              <Text style={[styles.cardTitle, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>{STEPS[3].title}</Text>
+              <Text style={[styles.cardDesc, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.3)' }]}>{STEPS[3].desc}</Text>
+            </Animated.View>
+
+            {/* Arrow: left → right (Step 1 → Step 2) — draws before Card 2 */}
+            <DrawArrow
+              d={`M 6 ${hAH / 2} C ${hAW * 0.4} ${hAH / 2 - 4}, ${hAW * 0.6} ${hAH / 2 + 4}, ${hAW - 12} ${hAH / 2}`}
+              pathLength={70}
+              arrowD={`M ${hAW - 19} ${hAH / 2 - 5} L ${hAW - 10} ${hAH / 2} L ${hAW - 19} ${hAH / 2 + 5}`}
+              arrowLength={25}
+              delay={BASE + 200}
+              color={arrowColor}
+              sw={arrowSW}
+              width={hAW}
+              height={hAH}
+              style={styles.arrowRight}
+            />
+
+            {/* Arrow: top → bottom (Step 2 → Step 3) — draws before Card 3 */}
+            <DrawArrow
+              d={`M ${vAW / 2} 5 C ${vAW / 2 + 3} ${vAH * 0.4}, ${vAW / 2 - 3} ${vAH * 0.6}, ${vAW / 2} ${vAH - 10}`}
+              pathLength={50}
+              arrowD={`M ${vAW / 2 - 5} ${vAH - 17} L ${vAW / 2} ${vAH - 8} L ${vAW / 2 + 5} ${vAH - 17}`}
+              arrowLength={25}
+              delay={BASE + 900}
+              color={arrowColor}
+              sw={arrowSW}
+              width={vAW}
+              height={vAH}
+              style={styles.arrowDown}
+            />
+
+            {/* Arrow: right → left (Step 3 → Step 4) — draws before Card 4 */}
+            <DrawArrow
+              d={`M ${hAW - 6} ${hAH / 2} C ${hAW * 0.6} ${hAH / 2 + 4}, ${hAW * 0.4} ${hAH / 2 - 4}, 12 ${hAH / 2}`}
+              pathLength={70}
+              arrowD={`M 19 ${hAH / 2 - 5} L 10 ${hAH / 2} L 19 ${hAH / 2 + 5}`}
+              arrowLength={25}
+              delay={BASE + 1600}
+              color={arrowColor}
+              sw={arrowSW}
+              width={hAW}
+              height={hAH}
+              style={styles.arrowLeft}
+            />
+          </View>
+        </View>
+
+        {/* Headline */}
+        <Animated.View style={[styles.headlineContainer, headlineStyle]}>
+          <Text style={styles.headline}>How it works.</Text>
+          <Text style={[styles.headline, styles.headlineDim]}>Simple as that.</Text>
         </Animated.View>
       </View>
 
@@ -338,56 +406,115 @@ export default function PossibilitiesScreen() {
   );
 }
 
-const createStyles = (colors: any, insets: any) =>
+const createStyles = (colors: any, insets: any, isDark: boolean) =>
   StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.bgTertiary,
     },
-    iconsLayer: {
-      ...StyleSheet.absoluteFillObject,
-      overflow: 'hidden',
-    },
-    logoSpacer: {
-      height: LOGO_SIZE,
-      marginTop: 80,
-    },
     content: {
       flex: 1,
+      alignItems: 'center',
       paddingHorizontal: layout.screenPadding,
+    },
+    logoSpacer: {
+      marginTop: 80,
+      height: LOGO_SIZE,
+      marginBottom: 10,
+    },
+    hero: {
+      flex: 1,
+      width: '100%',
+      alignItems: 'center',
       justifyContent: 'center',
-      gap: 28,
+      marginBottom: 10,
     },
-    flowRow: {
-      paddingVertical: 4,
+    cardsContainer: {
+      width: CONTAINER_W,
+      height: CONTAINER_H,
+      position: 'relative',
     },
-    rowLeft: {
-      alignSelf: 'flex-start',
+
+    // --- Cards (same visual style as index page) ---
+    card: {
+      position: 'absolute',
+      width: CARD_W,
+      height: CARD_H,
+      borderRadius: CARD_BR,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? colors.bgSecondary : '#fff',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: isDark ? 0.3 : 0.15,
+      shadowRadius: 24,
+      elevation: 10,
     },
-    rowRight: {
-      alignSelf: 'flex-end',
+    card1: { left: 0, top: 0 },
+    card2: { right: 0, top: 0 },
+    card3: { right: 0, bottom: 0 },
+    card4: { left: 0, bottom: 0 },
+
+    cardAvatar: {
+      width: AVATAR_SIZE,
+      height: AVATAR_SIZE,
+      borderRadius: AVATAR_BR,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 12,
     },
-    flowTextEmphasis: {
-      ...typography.displayLarge,
-      fontSize: 34,
-      fontWeight: '700',
-      color: colors.textPrimary,
-      letterSpacing: -0.8,
-    },
-    flowText: {
-      ...typography.displayLarge,
-      fontSize: 28,
+    cardTitle: {
+      fontSize: 12,
       fontWeight: '600',
-      color: colors.textSecondary,
+      marginBottom: 3,
+    },
+    cardDesc: {
+      fontSize: 9,
+      fontWeight: '400',
+      textAlign: 'center',
+      paddingHorizontal: 14,
+      lineHeight: 13,
+    },
+
+    // --- Arrows ---
+    arrowRight: {
+      position: 'absolute',
+      left: CARD_W,
+      top: CARD_H / 2 - 10,
+      zIndex: 10,
+    },
+    arrowDown: {
+      position: 'absolute',
+      right: CARD_W / 2 - 10,
+      top: CARD_H,
+      zIndex: 10,
+    },
+    arrowLeft: {
+      position: 'absolute',
+      left: CARD_W,
+      bottom: CARD_H / 2 - 10,
+      zIndex: 10,
+    },
+
+    // --- Headline ---
+    headlineContainer: {
+      alignItems: 'center',
+      marginBottom: 38,
+    },
+    headline: {
+      ...typography.displayLarge,
+      fontSize: 38,
+      fontWeight: '400',
+      color: isDark ? colors.textPrimary : '#1a1d2b',
+      textAlign: 'center',
+      lineHeight: 44,
       letterSpacing: -0.5,
     },
-    flowTextSmall: {
-      ...typography.bodyLarge,
-      fontSize: 18,
-      fontWeight: '600',
-      color: colors.textSecondary,
-      letterSpacing: 0.5,
+    headlineDim: {
+      color: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(26,29,43,0.2)',
     },
+
+    // --- Button ---
     bottomSection: {
       paddingHorizontal: layout.screenPadding,
       paddingBottom: Math.max(insets.bottom, 16) + 24,
