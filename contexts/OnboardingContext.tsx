@@ -8,6 +8,7 @@ interface OnboardingContextType {
   triggerCarouselExit: () => void;
   indicatorCount: number;
   setIndicatorCount: (count: number) => void;
+  logoVisible: SharedValue<number>;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | null>(null);
@@ -16,6 +17,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const logoExitProgress = useSharedValue(0);
   const carouselExitProgress = useSharedValue(0);
   const [indicatorCount, setIndicatorCount] = useState(0);
+  const logoVisible = useSharedValue(1);
 
   const triggerLogoExit = useCallback(() => {
     // This will be animated by the layout
@@ -31,7 +33,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   return (
-    <OnboardingContext.Provider value={{ logoExitProgress, triggerLogoExit, carouselExitProgress, triggerCarouselExit, indicatorCount, setIndicatorCount }}>
+    <OnboardingContext.Provider value={{ logoExitProgress, triggerLogoExit, carouselExitProgress, triggerCarouselExit, indicatorCount, setIndicatorCount, logoVisible }}>
       {children}
     </OnboardingContext.Provider>
   );

@@ -37,7 +37,7 @@ function getStepIndex(screen: string): number {
 function OnboardingLayoutContent() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
-  const { logoExitProgress, indicatorCount } = useOnboarding();
+  const { logoExitProgress, indicatorCount, logoVisible } = useOnboarding();
   const { colors, isDark } = useTheme();
 
   // Get current screen from segments
@@ -80,8 +80,8 @@ function OnboardingLayoutContent() {
       logoProgress.value = withTiming(0, { duration: 500, easing: EASE });
     }
 
-    // Step indicator: visible on step screens, and on howitworks once cards start flying up
-    if (isStepScreen || (currentScreen === 'howitworks' && indicatorCount > 0)) {
+    // Step indicator: only visible on step screens (hidden on howitworks — progress is built into cards)
+    if (isStepScreen) {
       indicatorOpacity.value = withTiming(1, { duration: 300, easing: EASE });
     } else {
       indicatorOpacity.value = withTiming(0, { duration: 300, easing: EASE });
@@ -98,6 +98,7 @@ function OnboardingLayoutContent() {
 
     return {
       top,
+      opacity: logoVisible.value,
       transform: [{ scale }],
     };
   });
