@@ -159,6 +159,7 @@ export default function HowItWorksScreen() {
   const buttonEntry = useSharedValue(0);
   const buttonTranslateY = useSharedValue(30);
   const activePulse = useSharedValue(0);
+  const activeReveal = useSharedValue(0); // 0 = hidden, 1 = active card selected
 
   // Layout
   const containerWidth = SCREEN_WIDTH - layout.screenPadding * 2;
@@ -191,7 +192,7 @@ export default function HowItWorksScreen() {
 
     cardEntries.forEach((entry, i) => {
       const delay = BASE + i * (CARD_APPEAR + ARROW_DRAW);
-      entry.value = withDelay(delay, withSpring(1, { damping: 16, stiffness: 80 }));
+      entry.value = withDelay(delay, withSpring(1, { damping: 22, stiffness: 90 }));
     });
 
     arrowEntries.forEach((entry, i) => {
@@ -204,13 +205,16 @@ export default function HowItWorksScreen() {
     buttonEntry.value = withDelay(totalSequence + 200, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
     buttonTranslateY.value = withDelay(totalSequence + 200, withSpring(0, { damping: 20, stiffness: 90 }));
 
-    // Pulse loop for active card
-    startPulse();
+    // Reveal active card selection after everything has settled
+    activeReveal.value = withDelay(totalSequence + 400, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
+
+    // Pulse loop for active card (starts after reveal)
+    startPulse(totalSequence + 900);
   }, []);
 
-  const startPulse = useCallback(() => {
+  const startPulse = useCallback((delay: number = 3500) => {
     activePulse.value = withDelay(
-      3500,
+      delay,
       withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) }, () => {
         activePulse.value = withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.sin) });
       })
@@ -411,6 +415,7 @@ export default function HowItWorksScreen() {
               zoomProgress={zoomProgress}
               activeIdx={activeIdx}
               activePulse={activePulse}
+              activeReveal={activeReveal}
               colors={colors}
               isDark={isDark}
             />
@@ -505,6 +510,7 @@ interface OverviewTileProps {
   zoomProgress: SharedValue<number>;
   activeIdx: SharedValue<number>;
   activePulse: SharedValue<number>;
+  activeReveal: SharedValue<number>;
   colors: any;
   isDark: boolean;
 }
@@ -519,6 +525,7 @@ function OverviewTile({
   zoomProgress,
   activeIdx,
   activePulse,
+  activeReveal,
   colors,
   isDark,
 }: OverviewTileProps) {
@@ -553,9 +560,12 @@ function OverviewTile({
     };
   });
 
+  const isActive = !isCompleted && !isFuture;
+
   const borderStyle = useAnimatedStyle(() => {
     if (index !== activeIdx.value) return { opacity: 0 };
-    return { opacity: interpolate(activePulse.value, [0, 1], [0.2, 0.5]) };
+    const pulse = interpolate(activePulse.value, [0, 1], [0.5, 0.9]);
+    return { opacity: activeReveal.value * pulse };
   });
 
   const checkBadgeStyle = useAnimatedStyle(() => ({
@@ -563,7 +573,9 @@ function OverviewTile({
     opacity: checkScale.value,
   }));
 
-  const iconBgColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)';
+  const iconBgColor = isActive
+    ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(26,29,43,0.1)')
+    : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)');
   const iconColor = isDark ? colors.textPrimary : '#1a1d2b';
   const accentColor = isDark ? colors.accent : '#1A1F2E';
 
@@ -574,8 +586,12 @@ function OverviewTile({
         {
           left: position.x,
           top: position.y,
-          backgroundColor: isDark ? colors.bgSecondary : '#fff',
-          shadowOpacity: isDark ? 0.25 : 0.08,
+          backgroundColor: isDark
+            ? (isActive ? colors.bgTertiary : colors.bgSecondary)
+            : (isActive ? '#fff' : '#fff'),
+          shadowOpacity: isActive
+            ? (isDark ? 0.4 : 0.14)
+            : (isDark ? 0.25 : 0.08),
         },
         tileStyle,
       ]}
@@ -609,7 +625,7 @@ function OverviewTile({
             tileStyles.title,
             {
               color: isDark ? colors.textPrimary : '#1a1d2b',
-              opacity: isCompleted ? 0.5 : isFuture ? 0.4 : 1,
+              opacity: isCompleted ? 0.5 : isFuture ? 0.55 : 1,
             },
           ]}
           numberOfLines={1}
@@ -620,8 +636,8 @@ function OverviewTile({
           style={[
             tileStyles.desc,
             {
-              color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.45)',
-              opacity: isCompleted ? 0.4 : isFuture ? 0.3 : 0.7,
+              color: isDark ? colors.textSecondary : 'rgba(26,29,43,0.45)',
+              opacity: isCompleted ? 0.5 : isFuture ? 0.55 : 0.85,
             },
           ]}
           numberOfLines={1}
@@ -768,12 +784,12 @@ const tileStyles = StyleSheet.create({
   },
   activeBorder: {
     position: 'absolute',
-    top: -1,
-    left: -1,
-    right: -1,
-    bottom: -1,
-    borderWidth: 1.5,
-    borderRadius: CARD_RADIUS + 1,
+    top: -1.5,
+    left: -1.5,
+    right: -1.5,
+    bottom: -1.5,
+    borderWidth: 2,
+    borderRadius: CARD_RADIUS + 1.5,
   },
   iconWrap: {
     width: 44,
