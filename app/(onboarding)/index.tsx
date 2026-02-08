@@ -81,10 +81,12 @@ function Particle({
   index,
   exitProgress,
   entryProgress,
+  particleColor,
 }: {
   index: number;
   exitProgress: SharedValue<number>;
   entryProgress: SharedValue<number>;
+  particleColor: string;
 }) {
   const progress = useSharedValue(0);
   const offset = index / NUM_PARTICLES;
@@ -137,7 +139,7 @@ function Particle({
       width: haloSize * 2,
       height: haloSize * 2,
       borderRadius: haloSize,
-      backgroundColor: '#1A1D2B',
+      backgroundColor: particleColor,
       opacity: 0.18 * 0.08 * edgeFade * entryOpacity * exitOpacity,
     };
   });
@@ -159,7 +161,7 @@ function Particle({
       width: trailSize * 2,
       height: trailSize * 2,
       borderRadius: trailSize,
-      backgroundColor: '#1A1D2B',
+      backgroundColor: particleColor,
       opacity: 0.18 * 0.35 * edgeFade * entryOpacity * exitOpacity,
     };
   });
@@ -170,7 +172,7 @@ function Particle({
       <Animated.View style={trailStyle} />
       <Animated.View style={mainStyle}>
         <Svg width={dotSize * 2} height={dotSize * 2} viewBox="0 0 10 10">
-          <Path d={shape} fill="#1A1D2B" />
+          <Path d={shape} fill={particleColor} />
         </Svg>
       </Animated.View>
     </>
@@ -525,6 +527,7 @@ export default function IntroScreen() {
                   index={i}
                   exitProgress={exitProgress}
                   entryProgress={particleEntry}
+                  particleColor={isDark ? '#FFFFFF' : '#1A1D2B'}
                 />
               ))}
             </View>

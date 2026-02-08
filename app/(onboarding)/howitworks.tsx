@@ -144,6 +144,7 @@ export default function HowItWorksScreen() {
   const detailOpacity = useSharedValue(0);
   const detailTranslateY = useSharedValue(16);
   const buttonScale = useSharedValue(1);
+  const exitProgress = useSharedValue(0); // 0 = visible, 1 = exited
 
   // Entry animations
   const headlineEntry = useSharedValue(0);
@@ -183,18 +184,25 @@ export default function HowItWorksScreen() {
     headlineTranslateY.value = withDelay(300, withSpring(0, { damping: 22, stiffness: 85 }));
     subtitleEntry.value = withDelay(450, withTiming(1, { duration: 500, easing: EASE }));
 
-    // Cards stagger in
+    // Sequential: card0 → arrow0 → card1 → arrow1 → card2 → arrow2 → card3
+    const CARD_APPEAR = 350;   // time for a card to spring in
+    const ARROW_DRAW = 450;    // time for an arrow to draw
+    const BASE = 500;          // initial delay
+
     cardEntries.forEach((entry, i) => {
-      entry.value = withDelay(500 + i * 140, withSpring(1, { damping: 16, stiffness: 80 }));
+      const delay = BASE + i * (CARD_APPEAR + ARROW_DRAW);
+      entry.value = withDelay(delay, withSpring(1, { damping: 16, stiffness: 80 }));
     });
 
-    // Arrows draw in after their source card appears
     arrowEntries.forEach((entry, i) => {
-      entry.value = withDelay(700 + i * 140, withTiming(1, { duration: 600, easing: STANDARD_EASE }));
+      // Arrow i draws after card i has appeared
+      const delay = BASE + i * (CARD_APPEAR + ARROW_DRAW) + CARD_APPEAR;
+      entry.value = withDelay(delay, withTiming(1, { duration: ARROW_DRAW, easing: STANDARD_EASE }));
     });
 
-    buttonEntry.value = withDelay(1200, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
-    buttonTranslateY.value = withDelay(1200, withSpring(0, { damping: 20, stiffness: 90 }));
+    const totalSequence = BASE + 3 * (CARD_APPEAR + ARROW_DRAW) + CARD_APPEAR;
+    buttonEntry.value = withDelay(totalSequence + 200, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
+    buttonTranslateY.value = withDelay(totalSequence + 200, withSpring(0, { damping: 20, stiffness: 90 }));
 
     // Pulse loop for active card
     startPulse();
@@ -202,7 +210,7 @@ export default function HowItWorksScreen() {
 
   const startPulse = useCallback(() => {
     activePulse.value = withDelay(
-      1400,
+      3500,
       withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) }, () => {
         activePulse.value = withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.sin) });
       })
@@ -261,17 +269,51 @@ export default function HowItWorksScreen() {
     }, ZOOM_DURATION + 50);
   }, [activeCardIndex]);
 
+  const handleExit = useCallback(() => {
+    if (isAnimating.current) return;
+    isAnimating.current = true;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const EXIT_EASE = Easing.bezier(0.4, 0, 0.2, 1);
+
+    // Fade out button with slight downward slide
+    buttonEntry.value = withTiming(0, { duration: 250, easing: EXIT_EASE });
+    buttonTranslateY.value = withTiming(20, { duration: 300, easing: EXIT_EASE });
+
+    // Fade out headline + subtitle with slight upward drift
+    headlineEntry.value = withTiming(0, { duration: 300, easing: EXIT_EASE });
+    headlineTranslateY.value = withTiming(-12, { duration: 350, easing: EXIT_EASE });
+    subtitleEntry.value = withTiming(0, { duration: 250, easing: EXIT_EASE });
+
+    // Stagger cards out (reverse order: card3 first, card0 last)
+    cardEntries.forEach((entry, i) => {
+      const reverseDelay = (3 - i) * 80;
+      entry.value = withDelay(reverseDelay, withTiming(0, { duration: 300, easing: EXIT_EASE }));
+    });
+
+    // Arrows fade out together
+    arrowEntries.forEach((entry) => {
+      entry.value = withTiming(0, { duration: 250, easing: EXIT_EASE });
+    });
+
+    // Drive exitProgress for any global effects
+    exitProgress.value = withTiming(1, { duration: 500, easing: EXIT_EASE });
+
+    // Navigate after animation completes
+    setTimeout(() => {
+      router.push('/(onboarding)/permissions' as any);
+    }, 550);
+  }, []);
+
   const handleContinue = useCallback(() => {
     if (phase === 'overview' && allComplete) {
-      // All cards done, navigate to permissions
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      router.push('/(onboarding)/permissions' as any);
+      handleExit();
     } else if (phase === 'overview') {
       handleZoomIn();
     } else if (phase === 'detail') {
       handleZoomOut();
     }
-  }, [phase, allComplete, activeCardIndex, handleZoomIn, handleZoomOut]);
+  }, [phase, allComplete, activeCardIndex, handleZoomIn, handleZoomOut, handleExit]);
 
   const buttonText = useMemo(() => {
     if (phase === 'overview' && allComplete) return "Let's go";
@@ -686,11 +728,8 @@ function ZoomOverlay({
         </View>
       </Animated.View>
 
-      {/* Detail content */}
+      {/* Detail content — headline first, then hero */}
       <Animated.View style={[overlayZoomStyles.detailContent, detailContentStyle]}>
-        <View style={overlayZoomStyles.heroContainer}>
-          {showHero && <HeroComponent />}
-        </View>
         <View style={overlayZoomStyles.headlineContainer}>
           <Text style={[overlayZoomStyles.headline, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>
             {card.headline}
@@ -702,6 +741,9 @@ function ZoomOverlay({
         <Text style={[overlayZoomStyles.description, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.45)' }]}>
           {card.description}
         </Text>
+        <View style={overlayZoomStyles.heroContainer}>
+          {showHero && <HeroComponent />}
+        </View>
       </Animated.View>
     </Animated.View>
   );
@@ -790,7 +832,7 @@ const overlayZoomStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 150,
-    marginBottom: 28,
+    marginTop: 28,
   },
   headlineContainer: {
     alignItems: 'center',
