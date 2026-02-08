@@ -82,6 +82,23 @@ export function ImageUploadCard({
       width: CARD_WIDTH,
       alignItems: 'center',
     },
+    cardShadow: {
+      width: CARD_WIDTH,
+      height: CARD_WIDTH * 1.3,
+      borderRadius: borderRadius.xl,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    cardShadowFilled: {
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 20,
+      elevation: 10,
+    },
     card: {
       width: CARD_WIDTH,
       height: CARD_WIDTH * 1.3,
@@ -95,11 +112,7 @@ export function ImageUploadCard({
       borderStyle: 'dashed',
     },
     cardFilled: {
-      shadowColor: colors.accent,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 12,
-      elevation: 6,
+      backgroundColor: colors.bgCard,
     },
     placeholder: {
       flex: 1,
@@ -168,29 +181,31 @@ export function ImageUploadCard({
       onPressOut={handlePressOut}
       style={[styles.container, animatedStyle]}
     >
-      <View style={[styles.card, image ? styles.cardFilled : styles.cardEmpty]}>
-        {image ? (
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            exiting={FadeOut.duration(200)}
-            style={styles.imageContainer}
-          >
-            <Animated.Image
-              source={{ uri: image }}
-              style={[styles.image, imageAnimatedStyle]}
-            />
-            <Pressable onPress={handleRemove} style={styles.removeButton}>
-              <Ionicons name="close" size={14} color="#FFFFFF" />
-            </Pressable>
-          </Animated.View>
-        ) : (
-          <View style={styles.placeholder}>
-            <View style={styles.addIconContainer}>
-              <Ionicons name="camera-outline" size={28} color={colors.accent} />
+      <View style={[styles.cardShadow, image && styles.cardShadowFilled]}>
+        <View style={[styles.card, image ? styles.cardFilled : styles.cardEmpty]}>
+          {image ? (
+            <Animated.View
+              entering={FadeIn.duration(300)}
+              exiting={FadeOut.duration(200)}
+              style={styles.imageContainer}
+            >
+              <Animated.Image
+                source={{ uri: image }}
+                style={[styles.image, imageAnimatedStyle]}
+              />
+              <Pressable onPress={handleRemove} style={styles.removeButton}>
+                <Ionicons name="close" size={14} color="#FFFFFF" />
+              </Pressable>
+            </Animated.View>
+          ) : (
+            <View style={styles.placeholder}>
+              <View style={styles.addIconContainer}>
+                <Ionicons name="camera-outline" size={28} color={colors.accent} />
+              </View>
+              <Text style={styles.tapText}>Tap to add</Text>
             </View>
-            <Text style={styles.tapText}>Tap to add</Text>
-          </View>
-        )}
+          )}
+        </View>
       </View>
       <Text style={styles.label}>{label}</Text>
       {sublabel && <Text style={styles.sublabel}>{sublabel}</Text>}

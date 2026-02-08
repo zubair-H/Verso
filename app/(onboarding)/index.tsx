@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
   withDelay,
   withSpring,
@@ -13,6 +14,7 @@ import Animated, {
   interpolate,
   SharedValue,
 } from 'react-native-reanimated';
+import Svg, { Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,19 +26,30 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const LOGO_SIZE = 280;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
 const SMOOTH_EASE = Easing.bezier(0.33, 1, 0.68, 1);
 
 // Card dimensions
 const CARD_WIDTH = 152;
 const CARD_HEIGHT = 200;
+const CARD_BORDER_RADIUS = 16;
 const CARDS_CONTAINER_WIDTH = 270;
 const CARDS_CONTAINER_HEIGHT = 300;
 
-// Particle configuration - 8 particles flowing between cards
+// Avatar/icon dimensions (for outline drawing animation)
+const AVATAR_SIZE = 52;
+const AVATAR_BORDER_RADIUS = 12;
+const AVATAR_STRAIGHT = 2 * (AVATAR_SIZE - 2 * AVATAR_BORDER_RADIUS) + 2 * (AVATAR_SIZE - 2 * AVATAR_BORDER_RADIUS);
+const AVATAR_ARCS = 2 * Math.PI * AVATAR_BORDER_RADIUS;
+const AVATAR_PERIMETER = AVATAR_STRAIGHT + AVATAR_ARCS;
+// Each line draws just under half so they barely meet without overlapping
+const HALF_PERIMETER = AVATAR_PERIMETER / 2 - 1;
+
+// Particle configuration
 const NUM_PARTICLES = 8;
 
-// Bezier curve for particle path (from left card center to right card center)
+// Bezier curve for particle path
 const FROM_X = 76;
 const FROM_Y = 116;
 const TO_X = 194;
@@ -52,7 +65,7 @@ function getPointOnCurve(t: number) {
   };
 }
 
-// Single animated particle
+// Single animated particle — subtle dot with soft halo and trailing dot
 function Particle({
   index,
   exitProgress,
@@ -62,14 +75,14 @@ function Particle({
   exitProgress: SharedValue<number>;
   entryProgress: SharedValue<number>;
 }) {
-  const progress = useSharedValue(index / NUM_PARTICLES);
+  const progress = useSharedValue(0);
+  const offset = index / NUM_PARTICLES;
   const offsetY = ((index % 3) - 1) * 5;
-  const size = 2 + (index % 3) * 0.4;
+  const dotSize = 2 + (index % 3) * 0.4;
 
   useEffect(() => {
-    // Animate particle along the path continuously (delayed to start after logo animation)
     progress.value = withDelay(
-      2200 + index * 80,
+      3200,
       withRepeat(
         withTiming(1, { duration: 3000, easing: Easing.linear }),
         -1,
@@ -78,27 +91,163 @@ function Particle({
     );
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    const t = progress.value;
+  // Main dot
+  const mainStyle = useAnimatedStyle(() => {
+    const t = (progress.value + offset) % 1;
     const pt = getPointOnCurve(t);
-    const edgeFade = Math.sin(t * Math.PI);
-    const entryOpacity = interpolate(entryProgress.value, [0, 1], [0, 0.25]);
+    const edgeFade = Math.pow(Math.sin(t * Math.PI), 0.6);
+    const entryOpacity = entryProgress.value;
     const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
 
     return {
       position: 'absolute',
-      left: pt.x - size,
-      top: pt.y + offsetY - size,
-      width: size * 2,
-      height: size * 2,
-      borderRadius: size,
-      backgroundColor: 'rgba(26,29,43,0.18)',
-      opacity: edgeFade * entryOpacity * exitOpacity,
+      left: pt.x - dotSize,
+      top: pt.y + offsetY - dotSize,
+      width: dotSize * 2,
+      height: dotSize * 2,
+      borderRadius: dotSize,
+      backgroundColor: '#1A1D2B',
+      opacity: 0.18 * edgeFade * entryOpacity * exitOpacity,
     };
   });
 
-  return <Animated.View style={animatedStyle} />;
+  // Soft halo glow
+  const haloSize = dotSize * 3;
+  const haloStyle = useAnimatedStyle(() => {
+    const t = (progress.value + offset) % 1;
+    const pt = getPointOnCurve(t);
+    const edgeFade = Math.pow(Math.sin(t * Math.PI), 0.6);
+    const entryOpacity = entryProgress.value;
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+
+    return {
+      position: 'absolute',
+      left: pt.x - haloSize,
+      top: pt.y + offsetY - haloSize,
+      width: haloSize * 2,
+      height: haloSize * 2,
+      borderRadius: haloSize,
+      backgroundColor: '#1A1D2B',
+      opacity: 0.18 * 0.08 * edgeFade * entryOpacity * exitOpacity,
+    };
+  });
+
+  // Trailing dot
+  const trailSize = dotSize * 0.6;
+  const trailStyle = useAnimatedStyle(() => {
+    const t = (progress.value + offset) % 1;
+    const trailT = t - 0.03 < 0 ? t - 0.03 + 1 : t - 0.03;
+    const pt = getPointOnCurve(trailT);
+    const edgeFade = Math.pow(Math.sin(trailT * Math.PI), 0.6);
+    const entryOpacity = entryProgress.value;
+    const exitOpacity = interpolate(exitProgress.value, [0, 1], [1, 0]);
+
+    return {
+      position: 'absolute',
+      left: pt.x - trailSize,
+      top: pt.y + offsetY - trailSize,
+      width: trailSize * 2,
+      height: trailSize * 2,
+      borderRadius: trailSize,
+      backgroundColor: '#1A1D2B',
+      opacity: 0.18 * 0.35 * edgeFade * entryOpacity * exitOpacity,
+    };
+  });
+
+  return (
+    <>
+      <Animated.View style={haloStyle} />
+      <Animated.View style={trailStyle} />
+      <Animated.View style={mainStyle} />
+    </>
+  );
 }
+
+// Animated outline on the avatar icon — draws from two points then fades out
+function IconOutline({
+  drawProgress,
+  fadeProgress,
+  strokeColor,
+}: {
+  drawProgress: SharedValue<number>;
+  fadeProgress: SharedValue<number>;
+  strokeColor: string;
+}) {
+  // Line A: draws first half from top-left going clockwise
+  const lineAProps = useAnimatedProps(() => ({
+    strokeDashoffset: HALF_PERIMETER * (1 - drawProgress.value),
+  }));
+
+  // Line B: same progress, SVG flipped 180° to draw from bottom-right
+  const lineBProps = useAnimatedProps(() => ({
+    strokeDashoffset: HALF_PERIMETER * (1 - drawProgress.value),
+  }));
+
+  // Fade in as drawing starts, then fade out via fadeProgress
+  const opacityStyle = useAnimatedStyle(() => {
+    const drawOpacity = interpolate(drawProgress.value, [0, 0.05], [0, 1], 'clamp');
+    const fadeOut = interpolate(fadeProgress.value, [0, 1], [1, 0]);
+    return { opacity: drawOpacity * fadeOut };
+  });
+
+  const svgInset = 0.75;
+
+  return (
+    <>
+      {/* Line A — draws from top-left corner clockwise */}
+      <Animated.View style={[iconOutlineStyles.overlay, opacityStyle]}>
+        <Svg width={AVATAR_SIZE} height={AVATAR_SIZE}>
+          <AnimatedRect
+            x={svgInset}
+            y={svgInset}
+            width={AVATAR_SIZE - svgInset * 2}
+            height={AVATAR_SIZE - svgInset * 2}
+            rx={AVATAR_BORDER_RADIUS}
+            ry={AVATAR_BORDER_RADIUS}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth={1.5}
+            strokeLinecap="butt"
+            strokeDasharray={`${HALF_PERIMETER} ${AVATAR_PERIMETER}`}
+            animatedProps={lineAProps}
+          />
+        </Svg>
+      </Animated.View>
+      {/* Line B — flipped 180°, draws from bottom-right corner */}
+      <Animated.View style={[iconOutlineStyles.overlay, iconOutlineStyles.flipped, opacityStyle]}>
+        <Svg width={AVATAR_SIZE} height={AVATAR_SIZE}>
+          <AnimatedRect
+            x={svgInset}
+            y={svgInset}
+            width={AVATAR_SIZE - svgInset * 2}
+            height={AVATAR_SIZE - svgInset * 2}
+            rx={AVATAR_BORDER_RADIUS}
+            ry={AVATAR_BORDER_RADIUS}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth={1.5}
+            strokeLinecap="butt"
+            strokeDasharray={`${HALF_PERIMETER} ${AVATAR_PERIMETER}`}
+            animatedProps={lineBProps}
+          />
+        </Svg>
+      </Animated.View>
+    </>
+  );
+}
+
+const iconOutlineStyles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+  },
+  flipped: {
+    transform: [{ rotate: '180deg' }],
+  },
+});
 
 export default function IntroScreen() {
   const { colors, isDark } = useTheme();
@@ -117,83 +266,119 @@ export default function IntroScreen() {
   const buttonScale = useSharedValue(1);
   const particleEntry = useSharedValue(0);
 
+  // Outline draw progress (0 = invisible, 1 = fully drawn) and fade out
+  const leftOutlineDraw = useSharedValue(0);
+  const rightOutlineDraw = useSharedValue(0);
+  const leftOutlineFade = useSharedValue(0);
+  const rightOutlineFade = useSharedValue(0);
+
   // Exit animation
   const exitProgress = useSharedValue(0);
   const contentExitProgress = useSharedValue(0);
   const isExiting = useSharedValue(false);
 
+  const outlineColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(26,29,43,0.18)';
+
   useEffect(() => {
     const EASE = Easing.bezier(0.22, 1, 0.36, 1);
+    const DRAW_EASE = Easing.bezier(0.4, 0, 0.2, 1);
 
-    // Left card slides in from left (after logo animation)
+    // Left card sweeps in from far left
     cardLeftEntry.value = withDelay(
       LOGO_ANIMATION_DELAY,
-      withTiming(1, { duration: 900, easing: EASE })
+      withSpring(1, { damping: 12, stiffness: 55, mass: 1 })
     );
 
-    // Right card slides in from right (slightly staggered)
+    // Right card sweeps in from far right (more stagger)
     cardRightEntry.value = withDelay(
-      LOGO_ANIMATION_DELAY + 150,
-      withTiming(1, { duration: 900, easing: EASE })
+      LOGO_ANIMATION_DELAY + 400,
+      withSpring(1, { damping: 12, stiffness: 55, mass: 1 })
+    );
+
+    // Outline draws around each icon after card settles, then fades out
+    leftOutlineDraw.value = withDelay(
+      LOGO_ANIMATION_DELAY + 700,
+      withTiming(1, { duration: 800, easing: DRAW_EASE })
+    );
+    // Fade out left outline after draw completes (700 + 800 = 1500, + 200 pause)
+    leftOutlineFade.value = withDelay(
+      LOGO_ANIMATION_DELAY + 1700,
+      withTiming(1, { duration: 400, easing: SMOOTH_EASE })
+    );
+
+    rightOutlineDraw.value = withDelay(
+      LOGO_ANIMATION_DELAY + 1100,
+      withTiming(1, { duration: 800, easing: DRAW_EASE })
+    );
+    // Fade out right outline after draw completes (1100 + 800 = 1900, + 200 pause)
+    rightOutlineFade.value = withDelay(
+      LOGO_ANIMATION_DELAY + 2100,
+      withTiming(1, { duration: 400, easing: SMOOTH_EASE })
     );
 
     // Particles fade in
     particleEntry.value = withDelay(
-      LOGO_ANIMATION_DELAY + 300,
+      LOGO_ANIMATION_DELAY + 500,
       withTiming(1, { duration: 800, easing: SMOOTH_EASE })
     );
 
     // Headline fades up
     headlineEntry.value = withDelay(
-      LOGO_ANIMATION_DELAY + 550,
+      LOGO_ANIMATION_DELAY + 800,
       withTiming(1, { duration: 800, easing: EASE })
     );
     headlineTranslateY.value = withDelay(
-      LOGO_ANIMATION_DELAY + 550,
+      LOGO_ANIMATION_DELAY + 800,
       withSpring(0, { damping: 22, stiffness: 85 })
     );
 
     // Button appears
     buttonEntry.value = withDelay(
-      LOGO_ANIMATION_DELAY + 700,
+      LOGO_ANIMATION_DELAY + 1000,
       withTiming(1, { duration: 500, easing: SMOOTH_EASE })
     );
     buttonTranslateY.value = withDelay(
-      LOGO_ANIMATION_DELAY + 700,
+      LOGO_ANIMATION_DELAY + 1000,
       withSpring(0, { damping: 20, stiffness: 90 })
     );
   }, []);
 
-  // Card styles
+  // Card styles — dramatic entry from far off-screen with rotation and scale
   const cardLeftStyle = useAnimatedStyle(() => {
-    const entryOpacity = interpolate(cardLeftEntry.value, [0, 1], [0, 1]);
-    const entryTranslateX = interpolate(cardLeftEntry.value, [0, 1], [-25, 0]);
-    const entryScale = interpolate(cardLeftEntry.value, [0, 1], [0.92, 1]);
+    const entryOpacity = interpolate(cardLeftEntry.value, [0, 0.2], [0, 1], 'clamp');
+    const entryTranslateX = interpolate(cardLeftEntry.value, [0, 1], [-200, 0]);
+    const entryTranslateY = interpolate(cardLeftEntry.value, [0, 1], [100, 0]);
+    const entryScale = interpolate(cardLeftEntry.value, [0, 1], [0.3, 1]);
+    const entryRotate = interpolate(cardLeftEntry.value, [0, 1], [-25, -6]);
     const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(contentExitProgress.value, [0, 1], [0, -40]);
+    const exitTranslateX = interpolate(contentExitProgress.value, [0, 1], [0, -60]);
 
     return {
       opacity: entryOpacity * exitOpacity,
       transform: [
         { translateX: entryTranslateX + exitTranslateX },
-        { rotate: '-6deg' },
+        { translateY: entryTranslateY },
+        { rotate: `${entryRotate}deg` },
         { scale: entryScale },
       ],
     };
   });
 
   const cardRightStyle = useAnimatedStyle(() => {
-    const entryOpacity = interpolate(cardRightEntry.value, [0, 1], [0, 1]);
-    const entryTranslateX = interpolate(cardRightEntry.value, [0, 1], [25, 0]);
-    const entryScale = interpolate(cardRightEntry.value, [0, 1], [0.92, 1]);
+    const entryOpacity = interpolate(cardRightEntry.value, [0, 0.2], [0, 1], 'clamp');
+    const entryTranslateX = interpolate(cardRightEntry.value, [0, 1], [200, 0]);
+    const entryTranslateY = interpolate(cardRightEntry.value, [0, 1], [100, 0]);
+    const entryScale = interpolate(cardRightEntry.value, [0, 1], [0.3, 1]);
+    const entryRotate = interpolate(cardRightEntry.value, [0, 1], [22, 4]);
     const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(contentExitProgress.value, [0, 1], [0, 40]);
+    const exitTranslateX = interpolate(contentExitProgress.value, [0, 1], [0, 60]);
 
     return {
       opacity: entryOpacity * exitOpacity,
       transform: [
         { translateX: entryTranslateX + exitTranslateX },
-        { rotate: '4deg' },
+        { translateY: entryTranslateY },
+        { rotate: `${entryRotate}deg` },
         { scale: entryScale },
       ],
     };
@@ -234,11 +419,9 @@ export default function IntroScreen() {
     const EXIT_DURATION = 450;
     const EASE_OUT = Easing.bezier(0.33, 1, 0.68, 1);
 
-    // Animate content out
     contentExitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EASE_OUT });
     exitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EASE_OUT });
 
-    // Navigate after exit animation completes
     setTimeout(() => {
       router.push('/(onboarding)/possibilities');
     }, EXIT_DURATION - 100);
@@ -267,7 +450,7 @@ export default function IntroScreen() {
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Logo spacer - actual logo is in layout */}
+        {/* Logo spacer */}
         <View style={styles.logoSpacer} />
 
         {/* Hero section with cards */}
@@ -275,12 +458,15 @@ export default function IntroScreen() {
           <View style={styles.cardsContainer}>
             {/* Left card - "Pick a style" */}
             <Animated.View style={[styles.card, styles.cardLeft, cardLeftStyle]}>
-              <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
-                <Ionicons
-                  name="image-outline"
-                  size={22}
-                  color={isDark ? colors.textSecondary : '#1a1d2b'}
-                />
+              <View style={styles.avatarWrapper}>
+                <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
+                  <Ionicons
+                    name="image-outline"
+                    size={22}
+                    color={isDark ? colors.textSecondary : '#1a1d2b'}
+                  />
+                </View>
+                <IconOutline drawProgress={leftOutlineDraw} fadeProgress={leftOutlineFade} strokeColor={outlineColor} />
               </View>
               <Text style={[styles.cardTitle, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>
                 Pick a style
@@ -292,12 +478,15 @@ export default function IntroScreen() {
 
             {/* Right card - "See it on you" */}
             <Animated.View style={[styles.card, styles.cardRight, cardRightStyle]}>
-              <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
-                <Ionicons
-                  name="person-outline"
-                  size={22}
-                  color={isDark ? colors.textSecondary : '#1a1d2b'}
-                />
+              <View style={styles.avatarWrapper}>
+                <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
+                  <Ionicons
+                    name="person-outline"
+                    size={22}
+                    color={isDark ? colors.textSecondary : '#1a1d2b'}
+                  />
+                </View>
+                <IconOutline drawProgress={rightOutlineDraw} fadeProgress={rightOutlineFade} strokeColor={outlineColor} />
               </View>
               <Text style={[styles.cardTitle, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>
                 See it on you
@@ -380,17 +569,15 @@ const createStyles = (colors: any, insets: any, isDark: boolean) =>
       position: 'absolute',
       width: CARD_WIDTH,
       height: CARD_HEIGHT,
-      borderRadius: 16,
+      borderRadius: CARD_BORDER_RADIUS,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: isDark ? colors.bgSecondary : '#fff',
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: isDark ? 0.2 : 0.06,
-      shadowRadius: 40,
-      elevation: 8,
+      shadowOffset: { width: 0, height: 16 },
+      shadowOpacity: isDark ? 0.35 : 0.18,
+      shadowRadius: 32,
+      elevation: 12,
     },
     cardLeft: {
       left: 0,
@@ -402,13 +589,18 @@ const createStyles = (colors: any, insets: any, isDark: boolean) =>
       top: 36,
       zIndex: 3,
     },
+    avatarWrapper: {
+      width: AVATAR_SIZE,
+      height: AVATAR_SIZE,
+      marginBottom: 14,
+      position: 'relative',
+    },
     cardAvatar: {
-      width: 52,
-      height: 52,
-      borderRadius: 12,
+      width: AVATAR_SIZE,
+      height: AVATAR_SIZE,
+      borderRadius: AVATAR_BORDER_RADIUS,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 14,
     },
     cardTitle: {
       fontSize: 12,
