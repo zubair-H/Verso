@@ -14,7 +14,7 @@ import Animated, {
   interpolate,
   SharedValue,
 } from 'react-native-reanimated';
-import Svg, { Rect } from 'react-native-svg';
+import Svg, { Rect, Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +49,18 @@ const HALF_PERIMETER = AVATAR_PERIMETER / 2 - 1;
 // Particle configuration
 const NUM_PARTICLES = 8;
 
+// Shape silhouettes for particles (10x10 viewBox)
+const PARTICLE_SHAPES = [
+  'M0.5,5.5 a2.2,1.8 0 1,1 4.4,0 a2.2,1.8 0 1,1 -4.4,0 M5.1,5.5 a2.2,1.8 0 1,1 4.4,0 a2.2,1.8 0 1,1 -4.4,0', // glasses
+  'M0.5,5 Q5,1 9.5,5 Q5,9 0.5,5', // lips
+  'M5,0 C5.8,3.5 6.5,4.2 10,5 C6.5,5.8 5.8,6.5 5,10 C4.2,6.5 3.5,5.8 0,5 C3.5,4.2 4.2,3.5 5,0', // sparkle
+  'M5,9 C0,6 0,1.5 3.2,1.5 C4.5,1.5 5,3 5,3 C5,3 5.5,1.5 6.8,1.5 C10,1.5 10,6 5,9', // heart
+  'M5,0.5 L9.5,5 L5,9.5 L0.5,5 Z', // diamond
+  'M5,0.5 C9,2.5 9.5,7.5 5,9.5 C0.5,7.5 1,2.5 5,0.5', // leaf
+  'M1,8 L5,1.5 L9,8 Z', // hat
+  'M0.5,2 L5,5 L0.5,8 Z M9.5,2 L5,5 L9.5,8 Z', // bowtie
+];
+
 // Bezier curve for particle path
 const FROM_X = 76;
 const FROM_Y = 116;
@@ -82,7 +94,7 @@ function Particle({
 
   useEffect(() => {
     progress.value = withDelay(
-      3200,
+      4400,
       withRepeat(
         withTiming(1, { duration: 3000, easing: Easing.linear }),
         -1,
@@ -91,7 +103,8 @@ function Particle({
     );
   }, []);
 
-  // Main dot
+  // Main shape
+  const shape = PARTICLE_SHAPES[index % PARTICLE_SHAPES.length];
   const mainStyle = useAnimatedStyle(() => {
     const t = (progress.value + offset) % 1;
     const pt = getPointOnCurve(t);
@@ -105,8 +118,6 @@ function Particle({
       top: pt.y + offsetY - dotSize,
       width: dotSize * 2,
       height: dotSize * 2,
-      borderRadius: dotSize,
-      backgroundColor: '#1A1D2B',
       opacity: 0.18 * edgeFade * entryOpacity * exitOpacity,
     };
   });
@@ -158,7 +169,11 @@ function Particle({
     <>
       <Animated.View style={haloStyle} />
       <Animated.View style={trailStyle} />
-      <Animated.View style={mainStyle} />
+      <Animated.View style={mainStyle}>
+        <Svg width={dotSize * 2} height={dotSize * 2} viewBox="0 0 10 10">
+          <Path d={shape} fill="#1A1D2B" />
+        </Svg>
+      </Animated.View>
     </>
   );
 }
@@ -316,9 +331,9 @@ export default function IntroScreen() {
       withTiming(1, { duration: 400, easing: SMOOTH_EASE })
     );
 
-    // Particles fade in
+    // Particles fade in after icon outline animations complete
     particleEntry.value = withDelay(
-      LOGO_ANIMATION_DELAY + 500,
+      LOGO_ANIMATION_DELAY + 2600,
       withTiming(1, { duration: 800, easing: SMOOTH_EASE })
     );
 
