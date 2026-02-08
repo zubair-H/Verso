@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useCallback } from 'react';
+import React, { createContext, useContext, useCallback, useState } from 'react';
 import { useSharedValue, SharedValue, withTiming, Easing } from 'react-native-reanimated';
 
 interface OnboardingContextType {
@@ -6,6 +6,8 @@ interface OnboardingContextType {
   triggerLogoExit: () => void;
   carouselExitProgress: SharedValue<number>;
   triggerCarouselExit: () => void;
+  indicatorCount: number;
+  setIndicatorCount: (count: number) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | null>(null);
@@ -13,6 +15,7 @@ const OnboardingContext = createContext<OnboardingContextType | null>(null);
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
   const logoExitProgress = useSharedValue(0);
   const carouselExitProgress = useSharedValue(0);
+  const [indicatorCount, setIndicatorCount] = useState(0);
 
   const triggerLogoExit = useCallback(() => {
     // This will be animated by the layout
@@ -28,7 +31,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   return (
-    <OnboardingContext.Provider value={{ logoExitProgress, triggerLogoExit, carouselExitProgress, triggerCarouselExit }}>
+    <OnboardingContext.Provider value={{ logoExitProgress, triggerLogoExit, carouselExitProgress, triggerCarouselExit, indicatorCount, setIndicatorCount }}>
       {children}
     </OnboardingContext.Provider>
   );

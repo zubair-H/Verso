@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Text, View, Pressable, StyleSheet, Dimensions } from 'react-native';
+import { Text, View, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -22,7 +22,6 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const LOGO_SIZE = 280;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -359,22 +358,26 @@ export default function IntroScreen() {
   }, []);
 
   // Card styles — dramatic entry from far off-screen with rotation and scale
+  // On exit, cards scale down, lose rotation, and move toward center to suggest splitting into 4
   const cardLeftStyle = useAnimatedStyle(() => {
     const entryOpacity = interpolate(cardLeftEntry.value, [0, 0.2], [0, 1], 'clamp');
     const entryTranslateX = interpolate(cardLeftEntry.value, [0, 1], [-200, 0]);
     const entryTranslateY = interpolate(cardLeftEntry.value, [0, 1], [100, 0]);
     const entryScale = interpolate(cardLeftEntry.value, [0, 1], [0.3, 1]);
     const entryRotate = interpolate(cardLeftEntry.value, [0, 1], [-25, -6]);
-    const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(contentExitProgress.value, [0, 1], [0, -60]);
+    const exitOpacity = interpolate(contentExitProgress.value, [0.6, 1], [1, 0]);
+    const exitTranslateX = interpolate(contentExitProgress.value, [0, 1], [0, 20]);
+    const exitTranslateY = interpolate(contentExitProgress.value, [0, 1], [0, -30]);
+    const exitRotate = interpolate(contentExitProgress.value, [0, 1], [0, 6]);
+    const exitScale = interpolate(contentExitProgress.value, [0, 1], [1, 0.7]);
 
     return {
       opacity: entryOpacity * exitOpacity,
       transform: [
         { translateX: entryTranslateX + exitTranslateX },
-        { translateY: entryTranslateY },
-        { rotate: `${entryRotate}deg` },
-        { scale: entryScale },
+        { translateY: entryTranslateY + exitTranslateY },
+        { rotate: `${entryRotate + exitRotate}deg` },
+        { scale: entryScale * exitScale },
       ],
     };
   });
@@ -385,16 +388,19 @@ export default function IntroScreen() {
     const entryTranslateY = interpolate(cardRightEntry.value, [0, 1], [100, 0]);
     const entryScale = interpolate(cardRightEntry.value, [0, 1], [0.3, 1]);
     const entryRotate = interpolate(cardRightEntry.value, [0, 1], [22, 4]);
-    const exitOpacity = interpolate(contentExitProgress.value, [0, 1], [1, 0]);
-    const exitTranslateX = interpolate(contentExitProgress.value, [0, 1], [0, 60]);
+    const exitOpacity = interpolate(contentExitProgress.value, [0.6, 1], [1, 0]);
+    const exitTranslateX = interpolate(contentExitProgress.value, [0, 1], [0, -20]);
+    const exitTranslateY = interpolate(contentExitProgress.value, [0, 1], [0, -30]);
+    const exitRotate = interpolate(contentExitProgress.value, [0, 1], [0, -4]);
+    const exitScale = interpolate(contentExitProgress.value, [0, 1], [1, 0.7]);
 
     return {
       opacity: entryOpacity * exitOpacity,
       transform: [
         { translateX: entryTranslateX + exitTranslateX },
-        { translateY: entryTranslateY },
-        { rotate: `${entryRotate}deg` },
-        { scale: entryScale },
+        { translateY: entryTranslateY + exitTranslateY },
+        { rotate: `${entryRotate + exitRotate}deg` },
+        { scale: entryScale * exitScale },
       ],
     };
   });
@@ -438,7 +444,7 @@ export default function IntroScreen() {
     exitProgress.value = withTiming(1, { duration: EXIT_DURATION, easing: EASE_OUT });
 
     setTimeout(() => {
-      router.push('/(onboarding)/possibilities');
+      router.push('/(onboarding)/howitworks');
     }, EXIT_DURATION - 100);
   };
 
