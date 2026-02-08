@@ -465,7 +465,7 @@ export default function IntroScreen() {
       {/* Gradient background */}
       <Animated.View style={[StyleSheet.absoluteFill, gradientStyle]}>
         <LinearGradient
-          colors={isDark ? [colors.bgSecondary, colors.bgTertiary, colors.bgPrimary] : ['#F3F4F6', '#F5F6F8', '#F8F9FB']}
+          colors={[colors.bgSecondary, colors.bgTertiary, colors.bgPrimary]}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -482,19 +482,19 @@ export default function IntroScreen() {
             {/* Left card - "Pick a style" */}
             <Animated.View style={[styles.card, styles.cardLeft, cardLeftStyle]}>
               <View style={styles.avatarWrapper}>
-                <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
+                <View style={[styles.cardAvatar, { backgroundColor: colors.accentMuted }]}>
                   <Ionicons
                     name="image-outline"
                     size={22}
-                    color={isDark ? colors.textSecondary : '#1a1d2b'}
+                    color={colors.textSecondary}
                   />
                 </View>
                 <IconOutline drawProgress={leftOutlineDraw} fadeProgress={leftOutlineFade} strokeColor={outlineColor} />
               </View>
-              <Text style={[styles.cardTitle, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
                 Pick a style
               </Text>
-              <Text style={[styles.cardDesc, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.3)' }]}>
+              <Text style={[styles.cardDesc, { color: colors.textTertiary }]}>
                 Choose any celebrity look
               </Text>
             </Animated.View>
@@ -502,19 +502,19 @@ export default function IntroScreen() {
             {/* Right card - "See it on you" */}
             <Animated.View style={[styles.card, styles.cardRight, cardRightStyle]}>
               <View style={styles.avatarWrapper}>
-                <View style={[styles.cardAvatar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' }]}>
+                <View style={[styles.cardAvatar, { backgroundColor: colors.accentMuted }]}>
                   <Ionicons
                     name="person-outline"
                     size={22}
-                    color={isDark ? colors.textSecondary : '#1a1d2b'}
+                    color={colors.textSecondary}
                   />
                 </View>
                 <IconOutline drawProgress={rightOutlineDraw} fadeProgress={rightOutlineFade} strokeColor={outlineColor} />
               </View>
-              <Text style={[styles.cardTitle, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
                 See it on you
               </Text>
-              <Text style={[styles.cardDesc, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.3)' }]}>
+              <Text style={[styles.cardDesc, { color: colors.textTertiary }]}>
                 Try before you commit
               </Text>
             </Animated.View>
@@ -527,7 +527,7 @@ export default function IntroScreen() {
                   index={i}
                   exitProgress={exitProgress}
                   entryProgress={particleEntry}
-                  particleColor={isDark ? '#FFFFFF' : '#1A1D2B'}
+                  particleColor={colors.textPrimary}
                 />
               ))}
             </View>
@@ -549,7 +549,7 @@ export default function IntroScreen() {
           onPressOut={handlePressOut}
         >
           <LinearGradient
-            colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
+            colors={[colors.accentLight, colors.accent]}
             locations={[0.68, 1]}
             style={styles.button}
           >
@@ -596,7 +596,7 @@ const createStyles = (colors: any, insets: any, isDark: boolean) =>
       borderRadius: CARD_BORDER_RADIUS,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: isDark ? colors.bgSecondary : '#fff',
+      backgroundColor: colors.bgCard,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 16 },
       shadowOpacity: isDark ? 0.35 : 0.18,
@@ -654,13 +654,13 @@ const createStyles = (colors: any, insets: any, isDark: boolean) =>
       ...typography.displayLarge,
       fontSize: 38,
       fontWeight: '400',
-      color: isDark ? colors.textPrimary : '#1a1d2b',
+      color: colors.textPrimary,
       textAlign: 'center',
       lineHeight: 44,
       letterSpacing: -0.5,
     },
     headlineDim: {
-      color: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(26,29,43,0.2)',
+      color: isDark ? 'rgba(255,255,255,0.2)' : colors.textTertiary,
     },
     bottomSection: {
       paddingHorizontal: layout.screenPadding,

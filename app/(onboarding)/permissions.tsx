@@ -321,7 +321,7 @@ export default function PermissionsScreen() {
           onPressOut={handlePressOut}
         >
           <LinearGradient
-            colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
+            colors={[colors.accentLight, colors.accent]}
             locations={[0.68, 1]}
             style={styles.button}
           >

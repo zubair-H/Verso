@@ -50,8 +50,8 @@ function InspoHero() {
     transform: [{ scale: iconScale.value }],
   }));
 
-  const cardBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)';
-  const cardBorder = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(26,29,43,0.08)';
+  const cardBg = colors.accentMuted;
+  const cardBorder = isDark ? 'rgba(255,255,255,0.12)' : colors.borderAccent;
 
   return (
     <View style={heroStyles.container}>
@@ -93,7 +93,7 @@ function InspoHero() {
 
       {/* Central icon */}
       <Animated.View style={iconStyle}>
-        <Ionicons name="people-outline" size={56} color={isDark ? colors.textPrimary : '#1a1d2b'} />
+        <Ionicons name="people-outline" size={56} color={colors.textPrimary} />
       </Animated.View>
     </View>
   );

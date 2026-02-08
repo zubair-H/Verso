@@ -74,10 +74,10 @@ function MagicHero() {
     transform: [{ scale: iconScale.value }],
   }));
 
-  const ringStroke = isDark ? colors.accent : '#1A1F2E';
-  const ringBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,29,43,0.04)';
-  const glowColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.04)';
-  const particleColor = isDark ? colors.accent : '#1A1F2E';
+  const ringStroke = colors.accent;
+  const ringBg = colors.accentMuted;
+  const glowColor = colors.accentMuted;
+  const particleColor = colors.accent;
 
   return (
     <View style={heroStyles.container}>
@@ -126,7 +126,7 @@ function MagicHero() {
 
       {/* Central icon */}
       <Animated.View style={iconStyle}>
-        <Ionicons name="sparkles-outline" size={56} color={isDark ? colors.textPrimary : '#1a1d2b'} />
+        <Ionicons name="sparkles-outline" size={56} color={colors.textPrimary} />
       </Animated.View>
     </View>
   );

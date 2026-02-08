@@ -439,12 +439,12 @@ export default function HowItWorksScreen() {
 
   const arrowColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(26,29,43,0.1)';
 
-  const styles = useMemo(() => createStyles(colors, insets, isDark), [colors, insets, isDark]);
+  const styles = useMemo(() => createStyles(colors, insets), [colors, insets]);
 
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={isDark ? [colors.bgSecondary, colors.bgTertiary, colors.bgPrimary] : ['#F3F4F6', '#F5F6F8', '#F8F9FB']}
+        colors={[colors.bgSecondary, colors.bgTertiary, colors.bgPrimary]}
         locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFill}
       />
@@ -482,7 +482,7 @@ export default function HowItWorksScreen() {
                   entry={arrowEntries[i]}
                   zoomProgress={zoomProgress}
                   color={arrowColor}
-                  activeColor={isDark ? colors.accent : '#1A1F2E'}
+                  activeColor={colors.accent}
                   arrowFill={arrowFills[i]}
                 />
               );
@@ -534,7 +534,7 @@ export default function HowItWorksScreen() {
           onPressOut={() => { buttonScale.value = withTiming(1, { duration: 100 }); }}
         >
           <LinearGradient
-            colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
+            colors={[colors.accentLight, colors.accent]}
             locations={[0.68, 1]}
             style={styles.button}
           >
@@ -744,10 +744,10 @@ function OverviewTile({
   }));
 
   const iconBgColor = isActive
-    ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(26,29,43,0.1)')
-    : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)');
-  const iconColor = isDark ? colors.textPrimary : '#1a1d2b';
-  const accentColor = isDark ? colors.accent : '#1A1F2E';
+    ? (isDark ? 'rgba(255,255,255,0.14)' : colors.accentMuted)
+    : (isDark ? 'rgba(255,255,255,0.08)' : colors.accentMuted);
+  const iconColor = colors.textPrimary;
+  const accentColor = colors.accent;
 
   return (
     <Animated.View
@@ -756,9 +756,7 @@ function OverviewTile({
         {
           left: position.x,
           top: position.y,
-          backgroundColor: isDark
-            ? (isActive ? colors.bgTertiary : colors.bgSecondary)
-            : (isActive ? '#fff' : '#fff'),
+          backgroundColor: isActive ? colors.bgCard : colors.bgCard,
           shadowOpacity: isActive
             ? (isDark ? 0.4 : 0.14)
             : (isDark ? 0.25 : 0.08),
@@ -803,7 +801,7 @@ function OverviewTile({
           <Animated.View
             style={[tileStyles.checkBadge, { backgroundColor: accentColor }, checkBadgeStyle]}
           >
-            <Feather name="check" size={8} color={isDark ? colors.textOnAccent : '#fff'} />
+            <Feather name="check" size={8} color={colors.textOnAccent} />
           </Animated.View>
         )}
       </View>
@@ -814,7 +812,7 @@ function OverviewTile({
           style={[
             tileStyles.title,
             {
-              color: isDark ? colors.textPrimary : '#1a1d2b',
+              color: colors.textPrimary,
             },
             titleOpacityStyle,
           ]}
@@ -826,7 +824,7 @@ function OverviewTile({
           style={[
             tileStyles.desc,
             {
-              color: isDark ? colors.textSecondary : 'rgba(26,29,43,0.45)',
+              color: colors.textSecondary,
             },
             descOpacityStyle,
           ]}
@@ -899,14 +897,14 @@ function ZoomOverlay({
     opacity: interpolate(zoomProgress.value, [0, 0.3], [1, 0], 'clamp'),
   }));
 
-  const iconBgColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)';
+  const iconBgColor = colors.accentMuted;
 
   return (
     <Animated.View
       style={[
         overlayZoomStyles.overlay,
         {
-          backgroundColor: isDark ? colors.bgSecondary : '#fff',
+          backgroundColor: colors.bgCard,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 10 },
           shadowRadius: 30,
@@ -918,13 +916,13 @@ function ZoomOverlay({
       {/* Tile content (visible at start of zoom / end of zoom-out) */}
       <Animated.View style={[overlayZoomStyles.tileContent, tileContentStyle]}>
         <View style={[tileStyles.iconWrap, { backgroundColor: iconBgColor }]}>
-          <Feather name={card.icon} size={22} color={isDark ? colors.textPrimary : '#1a1d2b'} />
+          <Feather name={card.icon} size={22} color={colors.textPrimary} />
         </View>
         <View style={tileStyles.textWrap}>
-          <Text style={[tileStyles.title, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>
+          <Text style={[tileStyles.title, { color: colors.textPrimary }]}>
             {card.title}
           </Text>
-          <Text style={[tileStyles.desc, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.45)' }]}>
+          <Text style={[tileStyles.desc, { color: colors.textTertiary }]}>
             {card.desc}
           </Text>
         </View>
@@ -933,14 +931,14 @@ function ZoomOverlay({
       {/* Detail content — headline first, then hero */}
       <Animated.View style={[overlayZoomStyles.detailContent, detailContentStyle]}>
         <View style={overlayZoomStyles.headlineContainer}>
-          <Text style={[overlayZoomStyles.headline, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>
+          <Text style={[overlayZoomStyles.headline, { color: colors.textPrimary }]}>
             {card.headline}
           </Text>
-          <Text style={[overlayZoomStyles.headline, { color: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(26,29,43,0.2)' }]}>
+          <Text style={[overlayZoomStyles.headline, { color: colors.textTertiary }]}>
             {card.headlineDim}
           </Text>
         </View>
-        <Text style={[overlayZoomStyles.description, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.45)' }]}>
+        <Text style={[overlayZoomStyles.description, { color: colors.textTertiary }]}>
           {card.description}
         </Text>
         <View style={overlayZoomStyles.heroContainer}>
@@ -1048,7 +1046,7 @@ const overlayZoomStyles = StyleSheet.create({
   },
 });
 
-const createStyles = (colors: any, insets: any, isDark: boolean) =>
+const createStyles = (colors: any, insets: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -1071,7 +1069,7 @@ const createStyles = (colors: any, insets: any, isDark: boolean) =>
       ...typography.displayLarge,
       fontSize: 34,
       fontWeight: '400',
-      color: isDark ? colors.textPrimary : '#1a1d2b',
+      color: colors.textPrimary,
       textAlign: 'center',
       lineHeight: 40,
       letterSpacing: -0.5,
@@ -1079,7 +1077,7 @@ const createStyles = (colors: any, insets: any, isDark: boolean) =>
     subtitle: {
       ...typography.bodyLarge,
       fontSize: 14,
-      color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.45)',
+      color: colors.textTertiary,
       textAlign: 'center',
       marginBottom: 0,
       fontWeight: '500',

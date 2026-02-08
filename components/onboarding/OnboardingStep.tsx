@@ -163,14 +163,14 @@ export default function OnboardingStep({
     buttonScale.value = withTiming(1, { duration: 100 });
   };
 
-  const styles = useMemo(() => createStyles(colors, insets, isDark), [colors, insets, isDark]);
+  const styles = useMemo(() => createStyles(colors, insets), [colors, insets]);
 
   return (
     <View style={styles.container}>
       {/* Gradient background */}
       <Animated.View style={[StyleSheet.absoluteFill, gradientStyle]}>
         <LinearGradient
-          colors={isDark ? [colors.bgSecondary, colors.bgTertiary, colors.bgPrimary] : ['#F3F4F6', '#F5F6F8', '#F8F9FB']}
+          colors={[colors.bgSecondary, colors.bgTertiary, colors.bgPrimary]}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -205,7 +205,7 @@ export default function OnboardingStep({
           onPressOut={handlePressOut}
         >
           <LinearGradient
-            colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
+            colors={[colors.accentLight, colors.accent]}
             locations={[0.68, 1]}
             style={styles.button}
           >
@@ -217,7 +217,7 @@ export default function OnboardingStep({
   );
 }
 
-const createStyles = (colors: any, insets: any, isDark: boolean) =>
+const createStyles = (colors: any, insets: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -247,13 +247,13 @@ const createStyles = (colors: any, insets: any, isDark: boolean) =>
       ...typography.displayLarge,
       fontSize: 38,
       fontWeight: '400',
-      color: isDark ? colors.textPrimary : '#1a1d2b',
+      color: colors.textPrimary,
       textAlign: 'center',
       lineHeight: 44,
       letterSpacing: -0.5,
     },
     headlineDim: {
-      color: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(26,29,43,0.2)',
+      color: colors.textTertiary,
     },
     descContainer: {
       alignItems: 'center',
@@ -262,7 +262,7 @@ const createStyles = (colors: any, insets: any, isDark: boolean) =>
     desc: {
       ...typography.bodyLarge,
       fontSize: 15,
-      color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.45)',
+      color: colors.textTertiary,
       textAlign: 'center',
       lineHeight: 22,
     },

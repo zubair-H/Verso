@@ -40,10 +40,10 @@ const CIRCUMFERENCE = 2 * Math.PI * RING_R;
 export default function StepIndicator({ currentStep, steps, visibleCount }: StepIndicatorProps) {
   const { colors, isDark } = useTheme();
 
-  const accentColor = isDark ? colors.accent : '#1A1F2E';
-  const dimColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)';
-  const completedColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(26,29,43,0.08)';
-  const lineTrackColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,29,43,0.05)';
+  const accentColor = colors.accent;
+  const dimColor = colors.accentMuted;
+  const completedColor = isDark ? 'rgba(255,255,255,0.12)' : colors.accentMuted;
+  const lineTrackColor = colors.progressTrack;
 
   const maxVisible = visibleCount ?? steps.length;
 
@@ -64,8 +64,8 @@ export default function StepIndicator({ currentStep, steps, visibleCount }: Step
               dimColor={dimColor}
               completedColor={completedColor}
               isDark={isDark}
-              textColor={isDark ? colors.textPrimary : '#1a1d2b'}
-              dimTextColor={isDark ? colors.textTertiary : 'rgba(26,29,43,0.3)'}
+              textColor={colors.textPrimary}
+              dimTextColor={colors.textTertiary}
             />
             {i < steps.length - 1 && (
               <StepLine

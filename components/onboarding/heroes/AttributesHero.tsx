@@ -42,8 +42,8 @@ export default function AttributesHero() {
     transform: [{ scale: iconScale.value }],
   }));
 
-  const chipBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)';
-  const chipText = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(26,29,43,0.4)';
+  const chipBg = colors.accentMuted;
+  const chipText = colors.textTertiary;
 
   return (
     <View style={styles.container}>
@@ -70,7 +70,7 @@ export default function AttributesHero() {
         );
       })}
       <Animated.View style={iconStyle}>
-        <Ionicons name="cut-outline" size={56} color={isDark ? colors.textPrimary : '#1a1d2b'} />
+        <Ionicons name="cut-outline" size={56} color={colors.textPrimary} />
       </Animated.View>
     </View>
   );

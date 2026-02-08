@@ -82,9 +82,9 @@ function ViewfinderHero() {
     return { transform: [{ translateX: t }, { translateY: t }], opacity: bracketProgress.value };
   });
 
-  const ringStroke = isDark ? colors.accent : '#1A1F2E';
-  const ringBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,29,43,0.04)';
-  const bracketColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(26,29,43,0.25)';
+  const ringStroke = colors.accent;
+  const ringBg = colors.accentMuted;
+  const bracketColor = isDark ? 'rgba(255,255,255,0.35)' : colors.accentGlow;
 
   return (
     <View style={heroStyles.container}>
@@ -99,7 +99,7 @@ function ViewfinderHero() {
 
       {/* Icon */}
       <Animated.View style={[heroStyles.icon, iconStyle]}>
-        <Ionicons name="camera-outline" size={56} color={isDark ? colors.textPrimary : '#1a1d2b'} />
+        <Ionicons name="camera-outline" size={56} color={colors.textPrimary} />
       </Animated.View>
 
       {/* Viewfinder brackets */}
