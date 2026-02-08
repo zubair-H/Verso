@@ -5,14 +5,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
   withDelay,
   withSpring,
-  withSequence,
   Easing,
   interpolate,
   SharedValue,
 } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -21,6 +22,7 @@ import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 import { ViewfinderHero, InspoHero, AttributesHero, MagicHero } from '@/components/onboarding/heroes';
 
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -31,7 +33,7 @@ const CARD_DATA = [
   {
     icon: 'camera' as const,
     title: 'Selfie',
-    desc: 'Snap a quick photo of yourself',
+    desc: 'Snap a quick photo',
     headline: 'Start with you.',
     headlineDim: 'Your best angle.',
     description: 'Snap a photo or pick one from your gallery — any clear shot of your face works.',
@@ -40,7 +42,7 @@ const CARD_DATA = [
   {
     icon: 'users' as const,
     title: 'Inspo',
-    desc: 'Browse celebrity looks you love',
+    desc: 'Browse celeb looks',
     headline: 'Find your look.',
     headlineDim: 'Any style, any celeb.',
     description: 'Browse our collection of looks or upload a celeb photo you want to draw from.',
@@ -49,7 +51,7 @@ const CARD_DATA = [
   {
     icon: 'scissors' as const,
     title: 'Attributes',
-    desc: 'Fine-tune the details',
+    desc: 'Fine-tune details',
     headline: 'Fine-tune it.',
     headlineDim: 'Every detail matters.',
     description: 'Choose exactly what you want — hair, style, features — and fine-tune every detail.',
@@ -58,7 +60,7 @@ const CARD_DATA = [
   {
     icon: 'zap' as const,
     title: 'Magic',
-    desc: 'See the transformation',
+    desc: 'See the result',
     headline: 'See the magic.',
     headlineDim: 'AI brings it to life.',
     description: 'AI applies the look to your photo — see yourself transformed in seconds.',
@@ -66,11 +68,11 @@ const CARD_DATA = [
   },
 ];
 
-// Overview card layout
-const OVERVIEW_CARD_HEIGHT = 80;
-const OVERVIEW_CARD_GAP = 12;
-const OVERVIEW_CARD_RADIUS = 16;
-const TOTAL_CARDS_HEIGHT = OVERVIEW_CARD_HEIGHT * 4 + OVERVIEW_CARD_GAP * 3;
+// Card tile dimensions — wide horizontal cards
+// Width is ~75% of container so zigzag offset is visible
+const CARD_WIDTH = Math.round((SCREEN_WIDTH - layout.screenPadding * 2) * 0.75);
+const CARD_HEIGHT = 72;
+const CARD_RADIUS = 18;
 
 // Animation easings
 const SMOOTH_EASE = Easing.bezier(0.33, 1, 0.68, 1);
@@ -78,6 +80,51 @@ const STANDARD_EASE = Easing.bezier(0.4, 0, 0.2, 1);
 const ZOOM_DURATION = 500;
 
 type FlowPhase = 'overview' | 'zooming_in' | 'detail' | 'zooming_out';
+
+// Zigzag card positions relative to cards container
+// Staggered: left→right→left→right
+function getCardPositions(containerWidth: number, rowGap: number) {
+  const leftX = 0;
+  const rightX = containerWidth - CARD_WIDTH;
+  const rowHeight = CARD_HEIGHT + rowGap;
+
+  return [
+    { x: leftX, y: 0 },                    // Card 0: left
+    { x: rightX, y: rowHeight },            // Card 1: right
+    { x: leftX, y: rowHeight * 2 },         // Card 2: left
+    { x: rightX, y: rowHeight * 3 },        // Card 3: right
+  ];
+}
+
+// SVG arrow path between two cards
+function getArrowPath(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): string {
+  const fromCx = from.x + CARD_WIDTH / 2;
+  const fromCy = from.y + CARD_HEIGHT;
+  const toCx = to.x + CARD_WIDTH / 2;
+  const toCy = to.y;
+
+  // Bezier control points for a nice S-curve
+  const midY = (fromCy + toCy) / 2;
+  const cp1x = fromCx;
+  const cp1y = midY;
+  const cp2x = toCx;
+  const cp2y = midY;
+
+  return `M ${fromCx} ${fromCy} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${toCx} ${toCy}`;
+}
+
+// Measure the arrow path length for dash animation
+function approxPathLength(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): number {
+  const dx = (to.x + CARD_WIDTH / 2) - (from.x + CARD_WIDTH / 2);
+  const dy = (to.y) - (from.y + CARD_HEIGHT);
+  return Math.sqrt(dx * dx + dy * dy) * 1.3; // rough bezier length
+}
 
 export default function HowItWorksScreen() {
   const { colors, isDark } = useTheme();
@@ -87,11 +134,12 @@ export default function HowItWorksScreen() {
   const [phase, setPhase] = useState<FlowPhase>('overview');
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [completedCards, setCompletedCards] = useState<boolean[]>([false, false, false, false]);
+  const [allComplete, setAllComplete] = useState(false);
   const [showHero, setShowHero] = useState(false);
   const isAnimating = useRef(false);
 
   // Animation shared values
-  const zoomProgress = useSharedValue(0); // 0 = overview, 1 = expanded
+  const zoomProgress = useSharedValue(0);
   const activeIdx = useSharedValue(0);
   const detailOpacity = useSharedValue(0);
   const detailTranslateY = useSharedValue(16);
@@ -102,68 +150,59 @@ export default function HowItWorksScreen() {
   const headlineTranslateY = useSharedValue(20);
   const subtitleEntry = useSharedValue(0);
   const cardEntries = useRef([
-    useSharedValue(0),
-    useSharedValue(0),
-    useSharedValue(0),
-    useSharedValue(0),
+    useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0),
+  ]).current;
+  const arrowEntries = useRef([
+    useSharedValue(0), useSharedValue(0), useSharedValue(0),
   ]).current;
   const buttonEntry = useSharedValue(0);
   const buttonTranslateY = useSharedValue(30);
-
-  // Active card pulse
   const activePulse = useSharedValue(0);
 
-  // Computed layout values
-  const OVERVIEW_CARD_WIDTH = SCREEN_WIDTH - layout.screenPadding * 2;
-  const logoSpacerHeight = LOGO_SIZE_SMALL;
-  const topArea = insets.top - 40 + logoSpacerHeight;
-  const headlineAreaHeight = 72;
-  const bottomArea = Math.max(insets.bottom, 16) + 24 + 56;
-  const availableForCards = SCREEN_HEIGHT - topArea - headlineAreaHeight - bottomArea - 24;
-  const cardsContainerTop = (availableForCards - TOTAL_CARDS_HEIGHT) / 2;
+  // Layout
+  const containerWidth = SCREEN_WIDTH - layout.screenPadding * 2;
+  const ROW_GAP = 24;
+  const cardPositions = useMemo(() => getCardPositions(containerWidth, ROW_GAP), [containerWidth]);
+  const totalGridHeight = CARD_HEIGHT * 4 + ROW_GAP * 3;
 
-  // Expanded card fills below status bar to above button
+  const bottomArea = Math.max(insets.bottom, 16) + 24 + 56;
   const expandedTop = insets.top + 10;
   const expandedHeight = SCREEN_HEIGHT - expandedTop - bottomArea - 16;
 
-  // Calculate overview card Y positions relative to the cards container
-  const getCardOverviewY = useCallback(
-    (index: number) => index * (OVERVIEW_CARD_HEIGHT + OVERVIEW_CARD_GAP),
-    []
-  );
+  // Cards area positioning
+  const topArea = insets.top - 40 + LOGO_SIZE_SMALL;
+  const headlineAreaHeight = 72;
+  const availableForGrid = SCREEN_HEIGHT - topArea - headlineAreaHeight - bottomArea - 24;
+  const gridMarginTop = Math.max((availableForGrid - totalGridHeight) / 2, 8);
 
-  // Entry animation
+  // Entry animations
   useEffect(() => {
     const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 
     headlineEntry.value = withDelay(300, withTiming(1, { duration: 700, easing: EASE }));
     headlineTranslateY.value = withDelay(300, withSpring(0, { damping: 22, stiffness: 85 }));
-
     subtitleEntry.value = withDelay(450, withTiming(1, { duration: 500, easing: EASE }));
 
+    // Cards stagger in
     cardEntries.forEach((entry, i) => {
-      entry.value = withDelay(
-        500 + i * 100,
-        withSpring(1, { damping: 18, stiffness: 90 })
-      );
+      entry.value = withDelay(500 + i * 140, withSpring(1, { damping: 16, stiffness: 80 }));
     });
 
-    buttonEntry.value = withDelay(1000, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
-    buttonTranslateY.value = withDelay(1000, withSpring(0, { damping: 20, stiffness: 90 }));
+    // Arrows draw in after their source card appears
+    arrowEntries.forEach((entry, i) => {
+      entry.value = withDelay(700 + i * 140, withTiming(1, { duration: 600, easing: STANDARD_EASE }));
+    });
 
-    // Start active card pulse
-    activePulse.value = withDelay(
-      1200,
-      withSequence(
-        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-      )
-    );
+    buttonEntry.value = withDelay(1200, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
+    buttonTranslateY.value = withDelay(1200, withSpring(0, { damping: 20, stiffness: 90 }));
+
+    // Pulse loop for active card
     startPulse();
   }, []);
 
   const startPulse = useCallback(() => {
     activePulse.value = withDelay(
-      200,
+      1400,
       withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) }, () => {
         activePulse.value = withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.sin) });
       })
@@ -171,29 +210,20 @@ export default function HowItWorksScreen() {
   }, []);
 
   // --- Handlers ---
-
   const handleZoomIn = useCallback(() => {
     if (isAnimating.current) return;
     isAnimating.current = true;
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Start zoom
     setPhase('zooming_in');
-    zoomProgress.value = withTiming(1, {
-      duration: ZOOM_DURATION,
-      easing: STANDARD_EASE,
-    });
+    zoomProgress.value = withTiming(1, { duration: ZOOM_DURATION, easing: STANDARD_EASE });
 
-    // After zoom completes, show detail content
     setTimeout(() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setShowHero(true);
       setPhase('detail');
-
       detailOpacity.value = withDelay(50, withTiming(1, { duration: 400, easing: SMOOTH_EASE }));
       detailTranslateY.value = withDelay(50, withSpring(0, { damping: 22, stiffness: 85 }));
-
       isAnimating.current = false;
     }, ZOOM_DURATION + 50);
   }, [activeCardIndex]);
@@ -201,21 +231,13 @@ export default function HowItWorksScreen() {
   const handleZoomOut = useCallback(() => {
     if (isAnimating.current) return;
     isAnimating.current = true;
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Start zoom out immediately — detail content stays in the card and collapses with it
     setPhase('zooming_out');
-    zoomProgress.value = withTiming(0, {
-      duration: ZOOM_DURATION,
-      easing: STANDARD_EASE,
-    });
+    zoomProgress.value = withTiming(0, { duration: ZOOM_DURATION, easing: STANDARD_EASE });
 
-    // After zoom out completes, update state
     setTimeout(() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      // Reset detail content for next card
       setShowHero(false);
       detailOpacity.value = 0;
       detailTranslateY.value = 16;
@@ -226,50 +248,38 @@ export default function HowItWorksScreen() {
         return next;
       });
 
-      const nextIdx = activeCardIndex + 1;
-      setActiveCardIndex(nextIdx);
-      activeIdx.value = nextIdx;
+      if (activeCardIndex === 3) {
+        // Last card — return to overview with all cards complete
+        setAllComplete(true);
+      } else {
+        const nextIdx = activeCardIndex + 1;
+        setActiveCardIndex(nextIdx);
+        activeIdx.value = nextIdx;
+      }
       setPhase('overview');
       isAnimating.current = false;
     }, ZOOM_DURATION + 50);
   }, [activeCardIndex]);
 
-  const handleExitToPermissions = useCallback(() => {
-    if (isAnimating.current) return;
-    isAnimating.current = true;
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // Fade everything
-    detailOpacity.value = withTiming(0, { duration: 300, easing: SMOOTH_EASE });
-    zoomProgress.value = withTiming(0.85, { duration: 400, easing: SMOOTH_EASE });
-
-    setTimeout(() => {
-      router.push('/(onboarding)/permissions' as any);
-    }, 450);
-  }, []);
-
   const handleContinue = useCallback(() => {
-    if (phase === 'overview') {
+    if (phase === 'overview' && allComplete) {
+      // All cards done, navigate to permissions
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      router.push('/(onboarding)/permissions' as any);
+    } else if (phase === 'overview') {
       handleZoomIn();
     } else if (phase === 'detail') {
-      if (activeCardIndex === 3) {
-        handleExitToPermissions();
-      } else {
-        handleZoomOut();
-      }
+      handleZoomOut();
     }
-  }, [phase, activeCardIndex, handleZoomIn, handleZoomOut, handleExitToPermissions]);
+  }, [phase, allComplete, activeCardIndex, handleZoomIn, handleZoomOut]);
 
-  // --- Button label ---
   const buttonText = useMemo(() => {
-    if (phase === 'detail' && activeCardIndex === 3) return "Let's go";
+    if (phase === 'overview' && allComplete) return "Let's go";
     if (phase === 'detail') return 'Got it';
     return 'Continue';
-  }, [phase, activeCardIndex]);
+  }, [phase, allComplete]);
 
   // --- Animated styles ---
-
   const headlineStyle = useAnimatedStyle(() => ({
     opacity: headlineEntry.value * interpolate(zoomProgress.value, [0, 0.3], [1, 0], 'clamp'),
     transform: [{ translateY: headlineTranslateY.value }],
@@ -282,29 +292,21 @@ export default function HowItWorksScreen() {
   const buttonStyle = useAnimatedStyle(() => ({
     opacity: buttonEntry.value,
     transform: [
-      {
-        translateY: interpolate(
-          zoomProgress.value,
-          [0, 0.3, 0.7, 1],
-          [buttonTranslateY.value, buttonTranslateY.value + 8, buttonTranslateY.value + 8, buttonTranslateY.value]
-        ),
-      },
+      { translateY: interpolate(zoomProgress.value, [0, 0.3, 0.7, 1], [buttonTranslateY.value, buttonTranslateY.value + 8, buttonTranslateY.value + 8, buttonTranslateY.value]) },
       { scale: buttonScale.value },
     ],
   }));
 
-  // Detail content style (inside expanded card)
-  // Fades in via detailOpacity on entry, and flows down with the card via zoomProgress on exit
   const detailContentStyle = useAnimatedStyle(() => {
-    // zoomProgress drives the collapse — content fades and shifts down as card shrinks
     const zoomFade = interpolate(zoomProgress.value, [0.4, 1], [0, 1], 'clamp');
     const zoomShift = interpolate(zoomProgress.value, [0.3, 1], [30, 0], 'clamp');
-
     return {
       opacity: detailOpacity.value * zoomFade,
       transform: [{ translateY: detailTranslateY.value + zoomShift }],
     };
   });
+
+  const arrowColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(26,29,43,0.1)';
 
   const styles = useMemo(() => createStyles(colors, insets, isDark), [colors, insets, isDark]);
 
@@ -317,10 +319,8 @@ export default function HowItWorksScreen() {
       />
 
       <View style={styles.content}>
-        {/* Logo spacer */}
         <View style={styles.logoSpacer} />
 
-        {/* Headline */}
         <Animated.View style={[styles.headlineContainer, headlineStyle]}>
           <Text style={styles.headline}>Here's how it works</Text>
         </Animated.View>
@@ -329,14 +329,40 @@ export default function HowItWorksScreen() {
           <Text style={styles.subtitle}>4 simple steps to your new look</Text>
         </Animated.View>
 
-        {/* Cards container */}
-        <View style={[styles.cardsContainer, { marginTop: cardsContainerTop }]}>
+        {/* Cards grid with arrows */}
+        <View style={[styles.gridContainer, { marginTop: gridMarginTop, height: totalGridHeight }]}>
+          {/* SVG arrows between cards */}
+          <Svg
+            width={containerWidth}
+            height={totalGridHeight}
+            style={StyleSheet.absoluteFill}
+          >
+            {[0, 1, 2].map((i) => {
+              const from = cardPositions[i];
+              const to = cardPositions[i + 1];
+              const path = getArrowPath(from, to);
+              const pathLen = approxPathLength(from, to);
+
+              return (
+                <CurvedArrow
+                  key={i}
+                  d={path}
+                  pathLength={pathLen}
+                  entry={arrowEntries[i]}
+                  zoomProgress={zoomProgress}
+                  color={arrowColor}
+                />
+              );
+            })}
+          </Svg>
+
+          {/* Cards */}
           {CARD_DATA.map((card, i) => (
-            <OverviewCard
+            <OverviewTile
               key={i}
               card={card}
               index={i}
-              isActive={i === activeCardIndex && phase === 'overview'}
+              position={cardPositions[i]}
               isCompleted={completedCards[i]}
               isFuture={i > activeCardIndex}
               entryProgress={cardEntries[i]}
@@ -345,23 +371,15 @@ export default function HowItWorksScreen() {
               activePulse={activePulse}
               colors={colors}
               isDark={isDark}
-              cardWidth={OVERVIEW_CARD_WIDTH}
-              getCardOverviewY={getCardOverviewY}
-              topArea={topArea}
-              headlineAreaHeight={headlineAreaHeight}
-              cardsContainerTop={cardsContainerTop}
-              expandedTop={expandedTop}
-              expandedHeight={expandedHeight}
             />
           ))}
         </View>
       </View>
 
-      {/* Zoom overlay — the expanded card with detail content */}
+      {/* Zoom overlay */}
       {(phase === 'zooming_in' || phase === 'detail' || phase === 'zooming_out') && (
         <ZoomOverlay
           card={CARD_DATA[activeCardIndex]}
-          cardIndex={activeCardIndex}
           zoomProgress={zoomProgress}
           detailContentStyle={detailContentStyle}
           showHero={showHero}
@@ -370,10 +388,9 @@ export default function HowItWorksScreen() {
           insets={insets}
           expandedTop={expandedTop}
           expandedHeight={expandedHeight}
-          cardWidth={OVERVIEW_CARD_WIDTH}
-          getCardOverviewY={getCardOverviewY}
+          cardPosition={cardPositions[activeCardIndex]}
+          gridMarginTop={gridMarginTop}
           headlineAreaHeight={headlineAreaHeight}
-          cardsContainerTop={cardsContainerTop}
         />
       )}
 
@@ -381,12 +398,8 @@ export default function HowItWorksScreen() {
       <Animated.View style={[styles.bottomSection, buttonStyle]}>
         <AnimatedPressable
           onPress={handleContinue}
-          onPressIn={() => {
-            buttonScale.value = withTiming(0.97, { duration: 100 });
-          }}
-          onPressOut={() => {
-            buttonScale.value = withTiming(1, { duration: 100 });
-          }}
+          onPressIn={() => { buttonScale.value = withTiming(0.97, { duration: 100 }); }}
+          onPressOut={() => { buttonScale.value = withTiming(1, { duration: 100 }); }}
         >
           <LinearGradient
             colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
@@ -401,12 +414,49 @@ export default function HowItWorksScreen() {
   );
 }
 
-// --- Overview Card Component ---
+// --- Curved Arrow (SVG path that draws in) ---
 
-interface OverviewCardProps {
+function CurvedArrow({
+  d,
+  pathLength,
+  entry,
+  zoomProgress,
+  color,
+}: {
+  d: string;
+  pathLength: number;
+  entry: SharedValue<number>;
+  zoomProgress: SharedValue<number>;
+  color: string;
+}) {
+  const animatedProps = useAnimatedProps(() => {
+    const drawn = interpolate(entry.value, [0, 1], [pathLength, 0]);
+    const zoomOpacity = interpolate(zoomProgress.value, [0, 0.3], [1, 0], 'clamp');
+    return {
+      strokeDashoffset: drawn,
+      opacity: zoomOpacity,
+    };
+  });
+
+  return (
+    <AnimatedPath
+      d={d}
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      fill="none"
+      strokeDasharray={[pathLength, pathLength]}
+      animatedProps={animatedProps}
+    />
+  );
+}
+
+// --- Overview Tile (compact square card) ---
+
+interface OverviewTileProps {
   card: (typeof CARD_DATA)[number];
   index: number;
-  isActive: boolean;
+  position: { x: number; y: number };
   isCompleted: boolean;
   isFuture: boolean;
   entryProgress: SharedValue<number>;
@@ -415,19 +465,12 @@ interface OverviewCardProps {
   activePulse: SharedValue<number>;
   colors: any;
   isDark: boolean;
-  cardWidth: number;
-  getCardOverviewY: (i: number) => number;
-  topArea: number;
-  headlineAreaHeight: number;
-  cardsContainerTop: number;
-  expandedTop: number;
-  expandedHeight: number;
 }
 
-function OverviewCard({
+function OverviewTile({
   card,
   index,
-  isActive,
+  position,
   isCompleted,
   isFuture,
   entryProgress,
@@ -436,9 +479,7 @@ function OverviewCard({
   activePulse,
   colors,
   isDark,
-  cardWidth,
-}: OverviewCardProps) {
-  // Completion animation
+}: OverviewTileProps) {
   const completionProgress = useSharedValue(isCompleted ? 1 : 0);
   const checkScale = useSharedValue(isCompleted ? 1 : 0);
 
@@ -449,52 +490,32 @@ function OverviewCard({
     }
   }, [isCompleted]);
 
-  const cardAnimatedStyle = useAnimatedStyle(() => {
-    // Entry animation
-    const translateY = interpolate(entryProgress.value, [0, 1], [40, 0]);
-    const scale = interpolate(entryProgress.value, [0, 1], [0.92, 1]);
+  const tileStyle = useAnimatedStyle(() => {
+    // Entry: scale + fade from below
+    const entryScale = interpolate(entryProgress.value, [0, 1], [0.7, 1]);
     const entryOpacity = interpolate(entryProgress.value, [0, 0.3], [0, 1], 'clamp');
+    const entryTY = interpolate(entryProgress.value, [0, 1], [30, 0]);
 
-    // During zoom: non-active cards fade out, active card becomes invisible (overlay takes over)
+    // Zoom: active card hides instantly (overlay takes over), others fade
     const isActiveCard = index === activeIdx.value;
-    let zoomOpacity: number;
-    if (isActiveCard) {
-      // Active card: hide it when overlay is showing (immediately)
-      zoomOpacity = interpolate(zoomProgress.value, [0, 0.05], [1, 0], 'clamp');
-    } else {
-      // Other cards: graceful fade out
-      zoomOpacity = interpolate(zoomProgress.value, [0, 0.35], [1, 0], 'clamp');
-    }
-
-    const zoomTranslateY = isActiveCard
-      ? 0
-      : interpolate(zoomProgress.value, [0, 0.5], [0, index < activeIdx.value ? -15 : 15], 'clamp');
-
-    const zoomScale = isActiveCard ? 1 : interpolate(zoomProgress.value, [0, 0.5], [1, 0.97], 'clamp');
+    const zoomOpacity = isActiveCard
+      ? interpolate(zoomProgress.value, [0, 0.05], [1, 0], 'clamp')
+      : interpolate(zoomProgress.value, [0, 0.35], [1, 0], 'clamp');
 
     return {
       opacity: entryOpacity * zoomOpacity,
       transform: [
-        { translateY: translateY + zoomTranslateY },
-        { scale: scale * zoomScale },
+        { translateY: entryTY },
+        { scale: entryScale },
       ],
     };
   });
 
-  // Active card border pulse
-  const activeBorderStyle = useAnimatedStyle(() => {
+  const borderStyle = useAnimatedStyle(() => {
     if (index !== activeIdx.value) return { opacity: 0 };
-    const opacity = interpolate(activePulse.value, [0, 1], [0.15, 0.45]);
-    return { opacity };
+    return { opacity: interpolate(activePulse.value, [0, 1], [0.2, 0.5]) };
   });
 
-  // Completion bar animation
-  const completionBarStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleY: completionProgress.value }],
-    opacity: completionProgress.value,
-  }));
-
-  // Check badge animation
   const checkBadgeStyle = useAnimatedStyle(() => ({
     transform: [{ scale: checkScale.value }],
     opacity: checkScale.value,
@@ -507,54 +528,32 @@ function OverviewCard({
   return (
     <Animated.View
       style={[
-        overviewStyles.card,
+        tileStyles.tile,
         {
-          width: cardWidth,
+          left: position.x,
+          top: position.y,
           backgroundColor: isDark ? colors.bgSecondary : '#fff',
-          shadowOpacity: isDark ? 0.2 : 0.06,
+          shadowOpacity: isDark ? 0.25 : 0.08,
         },
-        cardAnimatedStyle,
+        tileStyle,
       ]}
     >
-      {/* Active border highlight */}
+      {/* Active border pulse */}
       <Animated.View
-        style={[
-          overviewStyles.activeBorder,
-          {
-            borderColor: accentColor,
-            borderRadius: OVERVIEW_CARD_RADIUS,
-          },
-          activeBorderStyle,
-        ]}
+        style={[tileStyles.activeBorder, { borderColor: accentColor }, borderStyle]}
       />
 
-      {/* Completion accent bar */}
-      {isCompleted && (
-        <Animated.View
-          style={[
-            overviewStyles.completionBar,
-            { backgroundColor: accentColor },
-            completionBarStyle,
-          ]}
-        />
-      )}
-
       {/* Icon */}
-      <View style={[overviewStyles.iconContainer, { backgroundColor: iconBgColor }]}>
+      <View style={[tileStyles.iconWrap, { backgroundColor: iconBgColor }]}>
         <Feather
           name={card.icon}
-          size={20}
+          size={22}
           color={iconColor}
-          style={{ opacity: isCompleted ? 0.5 : isFuture ? 0.4 : 1 }}
+          style={{ opacity: isCompleted ? 0.5 : isFuture ? 0.35 : 1 }}
         />
-        {/* Check badge */}
         {isCompleted && (
           <Animated.View
-            style={[
-              overviewStyles.checkBadge,
-              { backgroundColor: accentColor },
-              checkBadgeStyle,
-            ]}
+            style={[tileStyles.checkBadge, { backgroundColor: accentColor }, checkBadgeStyle]}
           >
             <Feather name="check" size={8} color={isDark ? colors.textOnAccent : '#fff'} />
           </Animated.View>
@@ -562,66 +561,40 @@ function OverviewCard({
       </View>
 
       {/* Text */}
-      <View style={overviewStyles.textContainer}>
+      <View style={tileStyles.textWrap}>
         <Text
           style={[
-            overviewStyles.title,
+            tileStyles.title,
             {
               color: isDark ? colors.textPrimary : '#1a1d2b',
-              opacity: isCompleted ? 0.5 : isFuture ? 0.5 : 1,
+              opacity: isCompleted ? 0.5 : isFuture ? 0.4 : 1,
             },
           ]}
+          numberOfLines={1}
         >
           {card.title}
         </Text>
         <Text
           style={[
-            overviewStyles.desc,
+            tileStyles.desc,
             {
               color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.45)',
-              opacity: isCompleted ? 0.5 : isFuture ? 0.4 : 1,
+              opacity: isCompleted ? 0.4 : isFuture ? 0.3 : 0.7,
             },
           ]}
+          numberOfLines={1}
         >
           {card.desc}
         </Text>
-      </View>
-
-      {/* Step badge / chevron */}
-      <View
-        style={[
-          overviewStyles.stepBadge,
-          {
-            backgroundColor: isActive
-              ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(26,29,43,0.08)')
-              : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(26,29,43,0.03)'),
-          },
-        ]}
-      >
-        {isCompleted ? (
-          <Feather name="check" size={12} color={accentColor} />
-        ) : isActive ? (
-          <Feather name="chevron-right" size={14} color={accentColor} />
-        ) : (
-          <Text
-            style={[
-              overviewStyles.stepBadgeText,
-              { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.3)' },
-            ]}
-          >
-            {index + 1}
-          </Text>
-        )}
       </View>
     </Animated.View>
   );
 }
 
-// --- Zoom Overlay Component ---
+// --- Zoom Overlay ---
 
 interface ZoomOverlayProps {
   card: (typeof CARD_DATA)[number];
-  cardIndex: number;
   zoomProgress: SharedValue<number>;
   detailContentStyle: any;
   showHero: boolean;
@@ -630,15 +603,13 @@ interface ZoomOverlayProps {
   insets: any;
   expandedTop: number;
   expandedHeight: number;
-  cardWidth: number;
-  getCardOverviewY: (i: number) => number;
+  cardPosition: { x: number; y: number };
+  gridMarginTop: number;
   headlineAreaHeight: number;
-  cardsContainerTop: number;
 }
 
 function ZoomOverlay({
   card,
-  cardIndex,
   zoomProgress,
   detailContentStyle,
   showHero,
@@ -647,76 +618,49 @@ function ZoomOverlay({
   insets,
   expandedTop,
   expandedHeight,
-  cardWidth,
-  getCardOverviewY,
+  cardPosition,
+  gridMarginTop,
   headlineAreaHeight,
-  cardsContainerTop,
 }: ZoomOverlayProps) {
   const HeroComponent = card.Hero;
 
-  // Calculate the card's overview position (absolute on screen)
-  const overviewCardScreenY =
-    insets.top - 40 + // logoSpacer marginTop
-    LOGO_SIZE_SMALL + // logoSpacer height
-    headlineAreaHeight +
-    cardsContainerTop +
-    getCardOverviewY(cardIndex);
-
-  const overviewCardScreenX = layout.screenPadding;
+  // Card's absolute screen position
+  const cardScreenX = layout.screenPadding + cardPosition.x;
+  const cardScreenY =
+    insets.top - 40 +        // logoSpacer marginTop
+    LOGO_SIZE_SMALL +        // logoSpacer height
+    headlineAreaHeight +     // headline + subtitle
+    gridMarginTop +          // grid top margin
+    cardPosition.y;          // position within grid
 
   const overlayStyle = useAnimatedStyle(() => {
-    const top = interpolate(
-      zoomProgress.value,
-      [0, 1],
-      [overviewCardScreenY, expandedTop]
-    );
-    const left = interpolate(
-      zoomProgress.value,
-      [0, 1],
-      [overviewCardScreenX, 0]
-    );
-    const width = interpolate(
-      zoomProgress.value,
-      [0, 1],
-      [cardWidth, SCREEN_WIDTH]
-    );
-    const height = interpolate(
-      zoomProgress.value,
-      [0, 1],
-      [OVERVIEW_CARD_HEIGHT, expandedHeight]
-    );
-    const bRadius = interpolate(
-      zoomProgress.value,
-      [0, 1],
-      [OVERVIEW_CARD_RADIUS, 24]
-    );
-    const shadowOpacity = interpolate(
-      zoomProgress.value,
-      [0, 0.5, 1],
-      [isDark ? 0.2 : 0.06, 0.25, isDark ? 0.35 : 0.15]
-    );
+    const top = interpolate(zoomProgress.value, [0, 1], [cardScreenY, expandedTop]);
+    const left = interpolate(zoomProgress.value, [0, 1], [cardScreenX, 0]);
+    const width = interpolate(zoomProgress.value, [0, 1], [CARD_WIDTH, SCREEN_WIDTH]);
+    const height = interpolate(zoomProgress.value, [0, 1], [CARD_HEIGHT, expandedHeight]);
+    const bRadius = interpolate(zoomProgress.value, [0, 1], [CARD_RADIUS, 24]);
+    const shadowOpacity = interpolate(zoomProgress.value, [0, 0.5, 1], [isDark ? 0.25 : 0.08, 0.3, isDark ? 0.35 : 0.15]);
 
     return {
       position: 'absolute' as const,
-      top,
-      left,
-      width,
-      height,
+      top, left, width, height,
       borderRadius: bRadius,
       shadowOpacity,
       zIndex: 200,
     };
   });
 
-  // Overview content (icon + text) fades out during zoom
-  const overviewContentStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(zoomProgress.value, [0, 0.25], [1, 0], 'clamp'),
+  // Tile content (icon + title) fades during zoom
+  const tileContentStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(zoomProgress.value, [0, 0.3], [1, 0], 'clamp'),
   }));
+
+  const iconBgColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)';
 
   return (
     <Animated.View
       style={[
-        overlayStyles.overlay,
+        overlayZoomStyles.overlay,
         {
           backgroundColor: isDark ? colors.bgSecondary : '#fff',
           shadowColor: '#000',
@@ -727,77 +671,35 @@ function ZoomOverlay({
         overlayStyle,
       ]}
     >
-      {/* Overview content (visible during zoom start) */}
-      <Animated.View style={[overlayStyles.overviewContent, overviewContentStyle]}>
-        <View
-          style={[
-            overviewStyles.iconContainer,
-            { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,29,43,0.06)' },
-          ]}
-        >
-          <Feather
-            name={card.icon}
-            size={20}
-            color={isDark ? colors.textPrimary : '#1a1d2b'}
-          />
+      {/* Tile content (visible at start of zoom / end of zoom-out) */}
+      <Animated.View style={[overlayZoomStyles.tileContent, tileContentStyle]}>
+        <View style={[tileStyles.iconWrap, { backgroundColor: iconBgColor }]}>
+          <Feather name={card.icon} size={22} color={isDark ? colors.textPrimary : '#1a1d2b'} />
         </View>
-        <View style={overviewStyles.textContainer}>
-          <Text
-            style={[
-              overviewStyles.title,
-              { color: isDark ? colors.textPrimary : '#1a1d2b' },
-            ]}
-          >
+        <View style={tileStyles.textWrap}>
+          <Text style={[tileStyles.title, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>
             {card.title}
           </Text>
-          <Text
-            style={[
-              overviewStyles.desc,
-              { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.45)' },
-            ]}
-          >
+          <Text style={[tileStyles.desc, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.45)' }]}>
             {card.desc}
           </Text>
         </View>
       </Animated.View>
 
-      {/* Detail content (visible when fully expanded) */}
-      <Animated.View style={[overlayStyles.detailContent, detailContentStyle]}>
-        {/* Hero */}
-        <View style={overlayStyles.heroContainer}>
+      {/* Detail content */}
+      <Animated.View style={[overlayZoomStyles.detailContent, detailContentStyle]}>
+        <View style={overlayZoomStyles.heroContainer}>
           {showHero && <HeroComponent />}
         </View>
-
-        {/* Headline */}
-        <View style={overlayStyles.headlineContainer}>
-          <Text
-            style={[
-              overlayStyles.headline,
-              { color: isDark ? colors.textPrimary : '#1a1d2b' },
-            ]}
-          >
+        <View style={overlayZoomStyles.headlineContainer}>
+          <Text style={[overlayZoomStyles.headline, { color: isDark ? colors.textPrimary : '#1a1d2b' }]}>
             {card.headline}
           </Text>
-          <Text
-            style={[
-              overlayStyles.headline,
-              overlayStyles.headlineDim,
-              {
-                color: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(26,29,43,0.2)',
-              },
-            ]}
-          >
+          <Text style={[overlayZoomStyles.headline, { color: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(26,29,43,0.2)' }]}>
             {card.headlineDim}
           </Text>
         </View>
-
-        {/* Description */}
-        <Text
-          style={[
-            overlayStyles.description,
-            { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.45)' },
-          ]}
-        >
+        <Text style={[overlayZoomStyles.description, { color: isDark ? colors.textTertiary : 'rgba(26,29,43,0.45)' }]}>
           {card.description}
         </Text>
       </Animated.View>
@@ -807,20 +709,20 @@ function ZoomOverlay({
 
 // --- Styles ---
 
-const overviewStyles = StyleSheet.create({
-  card: {
-    height: OVERVIEW_CARD_HEIGHT,
-    borderRadius: OVERVIEW_CARD_RADIUS,
+const tileStyles = StyleSheet.create({
+  tile: {
+    position: 'absolute',
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    borderRadius: CARD_RADIUS,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginBottom: OVERVIEW_CARD_GAP,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 4,
-    overflow: 'visible',
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 6,
   },
   activeBorder: {
     position: 'absolute',
@@ -829,23 +731,15 @@ const overviewStyles = StyleSheet.create({
     right: -1,
     bottom: -1,
     borderWidth: 1.5,
+    borderRadius: CARD_RADIUS + 1,
   },
-  completionBar: {
-    position: 'absolute',
-    left: 0,
-    top: 6,
-    bottom: 6,
-    width: 3,
-    borderTopLeftRadius: 2,
-    borderBottomLeftRadius: 2,
-  },
-  iconContainer: {
+  iconWrap: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   checkBadge: {
     position: 'absolute',
@@ -857,47 +751,34 @@ const overviewStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  textContainer: {
+  textWrap: {
     flex: 1,
   },
   title: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    marginBottom: 2,
     letterSpacing: -0.2,
   },
   desc: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '400',
-    lineHeight: 18,
-  },
-  stepBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  stepBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
+    marginTop: 2,
   },
 });
 
-const overlayStyles = StyleSheet.create({
+const overlayZoomStyles = StyleSheet.create({
   overlay: {
     overflow: 'hidden',
   },
-  overviewContent: {
+  tileContent: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: OVERVIEW_CARD_HEIGHT,
+    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
   },
   detailContent: {
     flex: 1,
@@ -923,7 +804,6 @@ const overlayStyles = StyleSheet.create({
     lineHeight: 44,
     letterSpacing: -0.5,
   },
-  headlineDim: {},
   description: {
     ...typography.bodyLarge,
     fontSize: 15,
@@ -969,9 +849,9 @@ const createStyles = (colors: any, insets: any, isDark: boolean) =>
       marginBottom: 0,
       fontWeight: '500',
     },
-    cardsContainer: {
+    gridContainer: {
       width: '100%',
-      alignItems: 'center',
+      position: 'relative',
     },
     bottomSection: {
       paddingHorizontal: layout.screenPadding,
