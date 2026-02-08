@@ -8,7 +8,7 @@ import Animated, {
   withSpring,
   interpolate,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const SIZE = 140;
@@ -70,7 +70,7 @@ export default function AttributesHero() {
         );
       })}
       <Animated.View style={iconStyle}>
-        <Ionicons name="cut-outline" size={56} color={colors.textPrimary} />
+        <Feather name="scissors" size={56} color={colors.textPrimary} />
       </Animated.View>
     </View>
   );

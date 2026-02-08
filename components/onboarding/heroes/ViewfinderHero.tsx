@@ -11,7 +11,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -87,7 +87,7 @@ export default function ViewfinderHero() {
       </Svg>
       <Animated.View style={[styles.flash, flashStyle]} />
       <Animated.View style={[styles.icon, iconStyle]}>
-        <Ionicons name="camera-outline" size={56} color={colors.textPrimary} />
+        <Feather name="camera" size={56} color={colors.textPrimary} />
       </Animated.View>
       <Animated.View style={[styles.bracket, styles.bracketTL, bracketTL]}>
         <Svg width={BRACKET_SIZE} height={BRACKET_SIZE}>

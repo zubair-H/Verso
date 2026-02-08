@@ -11,7 +11,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import OnboardingStep from '@/components/onboarding/OnboardingStep';
 
@@ -99,7 +99,7 @@ function ViewfinderHero() {
 
       {/* Icon */}
       <Animated.View style={[heroStyles.icon, iconStyle]}>
-        <Ionicons name="camera-outline" size={56} color={colors.textPrimary} />
+        <Feather name="camera" size={56} color={colors.textPrimary} />
       </Animated.View>
 
       {/* Viewfinder brackets */}

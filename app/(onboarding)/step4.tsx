@@ -12,7 +12,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import OnboardingStep from '@/components/onboarding/OnboardingStep';
 
@@ -126,7 +126,7 @@ function MagicHero() {
 
       {/* Central icon */}
       <Animated.View style={iconStyle}>
-        <Ionicons name="sparkles-outline" size={56} color={colors.textPrimary} />
+        <Feather name="zap" size={56} color={colors.textPrimary} />
       </Animated.View>
     </View>
   );
