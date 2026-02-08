@@ -211,9 +211,6 @@ export default function HowItWorksScreen() {
   const totalGridHeight = CARD_HEIGHT * 4 + ROW_GAP * 3;
 
   const bottomArea = Math.max(insets.bottom, 16) + 24 + 56;
-  const expandedTop = insets.top + 10;
-  const expandedHeight = SCREEN_HEIGHT - expandedTop - bottomArea - 16;
-
   // Cards area positioning
   const topArea = insets.top - 40 + LOGO_SIZE_SMALL;
   const headlineAreaHeight = 72;
@@ -523,8 +520,6 @@ export default function HowItWorksScreen() {
           colors={colors}
           isDark={isDark}
           insets={insets}
-          expandedTop={expandedTop}
-          expandedHeight={expandedHeight}
           cardPosition={cardPositions[activeCardIndex]}
           gridMarginTop={gridMarginTop}
           headlineAreaHeight={headlineAreaHeight}
@@ -532,7 +527,7 @@ export default function HowItWorksScreen() {
       )}
 
       {/* Bottom button */}
-      <Animated.View style={[styles.bottomSection, buttonStyle]}>
+      <Animated.View style={[styles.bottomSection, buttonStyle, { zIndex: 300 }]}>
         <AnimatedPressable
           onPress={handleContinue}
           onPressIn={() => { buttonScale.value = withTiming(0.97, { duration: 100 }); }}
@@ -854,8 +849,6 @@ interface ZoomOverlayProps {
   colors: any;
   isDark: boolean;
   insets: any;
-  expandedTop: number;
-  expandedHeight: number;
   cardPosition: { x: number; y: number };
   gridMarginTop: number;
   headlineAreaHeight: number;
@@ -869,8 +862,6 @@ function ZoomOverlay({
   colors,
   isDark,
   insets,
-  expandedTop,
-  expandedHeight,
   cardPosition,
   gridMarginTop,
   headlineAreaHeight,
@@ -887,11 +878,11 @@ function ZoomOverlay({
     cardPosition.y;          // position within grid
 
   const overlayStyle = useAnimatedStyle(() => {
-    const top = interpolate(zoomProgress.value, [0, 1], [cardScreenY, expandedTop]);
+    const top = interpolate(zoomProgress.value, [0, 1], [cardScreenY, 0]);
     const left = interpolate(zoomProgress.value, [0, 1], [cardScreenX, 0]);
     const width = interpolate(zoomProgress.value, [0, 1], [CARD_WIDTH, SCREEN_WIDTH]);
-    const height = interpolate(zoomProgress.value, [0, 1], [CARD_HEIGHT, expandedHeight]);
-    const bRadius = interpolate(zoomProgress.value, [0, 1], [CARD_RADIUS, 24]);
+    const height = interpolate(zoomProgress.value, [0, 1], [CARD_HEIGHT, SCREEN_HEIGHT]);
+    const bRadius = interpolate(zoomProgress.value, [0, 1], [CARD_RADIUS, 0]);
     const shadowOpacity = interpolate(zoomProgress.value, [0, 0.5, 1], [isDark ? 0.25 : 0.08, 0.3, isDark ? 0.35 : 0.15]);
 
     return {
