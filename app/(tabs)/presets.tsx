@@ -15,48 +15,142 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   FadeIn,
+  FadeInDown,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius, springs } from '@/constants/spacing';
-import { presets, categories, getPresetsByCategory, Preset } from '@/utils/presets';
+import { presetSections, searchPresets, Preset } from '@/utils/presets';
 
 const { width } = Dimensions.get('window');
+const CARD_WIDTH = 130;
+const CARD_HEIGHT = 170;
+
+// Grid card dimensions for search results
 const COLUMN_COUNT = 3;
-const CARD_GAP = 12;
-const CARD_WIDTH = (width - layout.screenPadding * 2 - CARD_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
+const GRID_GAP = 12;
+const GRID_CARD_WIDTH = (width - layout.screenPadding * 2 - GRID_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-interface ColorsType {
-  bgPrimary: string;
-  textPrimary: string;
-  textSecondary: string;
-  textTertiary: string;
-  textOnAccent: string;
-  accent: string;
-  bgTertiary: string;
-  border: string;
+function PresetCard({
+  preset,
+  onPress,
+}: {
+  preset: Preset;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, springs.snappy);
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, springs.snappy);
+  };
+
+  const handlePress = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onPress();
+  };
+
+  return (
+    <AnimatedPressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[staticStyles.cardWrapper, animatedStyle]}
+    >
+      <View style={[staticStyles.card, { backgroundColor: colors.bgSecondary }]}>
+        <Image source={{ uri: preset.image }} style={staticStyles.cardImage} />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.65)']}
+          style={staticStyles.cardOverlay}
+        >
+          <Text style={staticStyles.cardName} numberOfLines={1}>
+            {preset.name}
+          </Text>
+        </LinearGradient>
+      </View>
+    </AnimatedPressable>
+  );
+}
+
+function GridPresetCard({
+  preset,
+  index,
+  onPress,
+}: {
+  preset: Preset;
+  index: number;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, springs.snappy);
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, springs.snappy);
+  };
+
+  const handlePress = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onPress();
+  };
+
+  const cardStyles = useMemo(() => ({
+    name: {
+      ...typography.caption,
+      color: colors.textPrimary,
+    },
+  }), [colors]);
+
+  return (
+    <AnimatedPressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[staticStyles.gridCard, animatedStyle]}
+    >
+      <Animated.View entering={FadeIn.delay(index * 50)}>
+        <Image source={{ uri: preset.image }} style={staticStyles.gridCardImage} />
+        <View style={staticStyles.gridCardOverlay}>
+          <Text style={cardStyles.name} numberOfLines={1}>
+            {preset.name}
+          </Text>
+        </View>
+      </Animated.View>
+    </AnimatedPressable>
+  );
 }
 
 export default function PresetsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const filteredPresets = useMemo(() => {
-    let result = getPresetsByCategory(selectedCategory);
-    if (searchQuery) {
-      result = result.filter((p) =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-    return result;
-  }, [selectedCategory, searchQuery]);
+  const isSearching = searchQuery.length > 0;
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+    return searchPresets(searchQuery);
+  }, [searchQuery, isSearching]);
 
   const handleSelectPreset = async (preset: Preset) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -64,11 +158,6 @@ export default function PresetsScreen() {
       pathname: '/(tabs)',
       params: { presetImage: preset.image },
     });
-  };
-
-  const handleCategorySelect = async (categoryId: string) => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedCategory(categoryId);
   };
 
   const dynamicStyles = useMemo(() => ({
@@ -96,26 +185,31 @@ export default function PresetsScreen() {
       color: colors.textPrimary,
     },
     sectionTitle: {
-      ...typography.headlineMedium,
+      ...typography.labelLarge,
       color: colors.textPrimary,
     },
-    presetName: {
-      ...typography.caption,
-      color: colors.textPrimary,
+    sectionIcon: {
+      color: colors.textSecondary,
+    },
+    emptyText: {
+      ...typography.bodyMedium,
+      color: colors.textTertiary,
+      textAlign: 'center' as const,
+      marginTop: 40,
     },
   }), [colors]);
 
   return (
     <View style={[dynamicStyles.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={staticStyles.header}>
         <Text style={dynamicStyles.title}>Discover</Text>
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
+      <View style={staticStyles.searchContainer}>
         <View style={dynamicStyles.searchBar}>
-          <Ionicons name="search" size={16} color={colors.textTertiary} style={styles.searchIcon} />
+          <Ionicons name="search" size={16} color={colors.textTertiary} style={staticStyles.searchIcon} />
           <TextInput
             style={dynamicStyles.searchInput}
             placeholder="Search looks..."
@@ -131,213 +225,154 @@ export default function PresetsScreen() {
         </View>
       </View>
 
-      {/* Categories */}
+      {/* Content */}
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesScroll}
-        contentContainerStyle={styles.categoriesContent}
-      >
-        {categories.map((category) => (
-          <CategoryChip
-            key={category.id}
-            label={category.label}
-            icon={category.icon}
-            selected={selectedCategory === category.id}
-            onPress={() => handleCategorySelect(category.id)}
-            colors={colors}
-          />
-        ))}
-      </ScrollView>
-
-      {/* Grid */}
-      <ScrollView
-        style={styles.gridScroll}
-        contentContainerStyle={styles.gridContent}
+        style={staticStyles.scrollView}
+        contentContainerStyle={staticStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.sectionTitleRow}>
-          <Text style={dynamicStyles.sectionTitle}>
-            {selectedCategory === 'all' ? 'Trending Now' : categories.find(c => c.id === selectedCategory)?.label}
-          </Text>
-          {selectedCategory === 'all' && (
-            <Ionicons name="flame" size={20} color={colors.accent} style={styles.flameIcon} />
-          )}
-        </View>
-
-        <View style={styles.grid}>
-          {filteredPresets.map((preset, index) => (
-            <PresetCard
-              key={preset.id}
-              preset={preset}
-              index={index}
-              onPress={() => handleSelectPreset(preset)}
-              colors={colors}
-            />
-          ))}
-        </View>
+        {isSearching ? (
+          // Search results as grid
+          <>
+            {searchResults.length > 0 ? (
+              <View style={staticStyles.grid}>
+                {searchResults.map((preset, index) => (
+                  <GridPresetCard
+                    key={preset.id}
+                    preset={preset}
+                    index={index}
+                    onPress={() => handleSelectPreset(preset)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <Text style={dynamicStyles.emptyText}>No results found</Text>
+            )}
+          </>
+        ) : (
+          // Browse by sections
+          presetSections.map((section, sectionIndex) => (
+            <Animated.View
+              key={section.id}
+              entering={FadeInDown.delay(sectionIndex * 100).springify().damping(20).stiffness(200)}
+              style={staticStyles.sectionContainer}
+            >
+              <View style={staticStyles.sectionHeader}>
+                <View style={staticStyles.sectionTitleRow}>
+                  <Ionicons
+                    name={section.icon as any}
+                    size={16}
+                    style={dynamicStyles.sectionIcon}
+                  />
+                  <Text style={dynamicStyles.sectionTitle}>{section.title}</Text>
+                </View>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={staticStyles.sectionScroll}
+              >
+                {section.presets.map((preset) => (
+                  <PresetCard
+                    key={preset.id}
+                    preset={preset}
+                    onPress={() => handleSelectPreset(preset)}
+                  />
+                ))}
+              </ScrollView>
+            </Animated.View>
+          ))
+        )}
       </ScrollView>
     </View>
   );
 }
 
-function CategoryChip({
-  label,
-  icon,
-  selected,
-  onPress,
-  colors,
-}: {
-  label: string;
-  icon: string;
-  selected: boolean;
-  onPress: () => void;
-  colors: ColorsType;
-}) {
-  const chipStyles = useMemo(() => ({
-    categoryInner: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: borderRadius.full,
-      backgroundColor: selected ? colors.accent : colors.bgTertiary,
-      borderWidth: 1,
-      borderColor: selected ? colors.accent : colors.border,
-    },
-    categoryLabel: {
-      ...typography.labelMedium,
-      color: selected ? colors.textOnAccent : colors.textSecondary,
-    },
-  }), [colors, selected]);
-
-  return (
-    <Pressable onPress={onPress} style={styles.categoryChip}>
-      <View style={chipStyles.categoryInner}>
-        <Ionicons
-          name={icon as any}
-          size={14}
-          color={selected ? colors.textOnAccent : colors.textSecondary}
-          style={styles.categoryIcon}
-        />
-        <Text style={chipStyles.categoryLabel}>
-          {label}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
-
-function PresetCard({
-  preset,
-  index,
-  onPress,
-  colors,
-}: {
-  preset: Preset;
-  index: number;
-  onPress: () => void;
-  colors: ColorsType;
-}) {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withSpring(0.95, springs.snappy);
-  };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1, springs.snappy);
-  };
-
-  const cardStyles = useMemo(() => ({
-    presetName: {
-      ...typography.caption,
-      color: colors.textPrimary,
-    },
-  }), [colors]);
-
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={[styles.presetCard, animatedStyle]}
-    >
-      <Animated.View entering={FadeIn.delay(index * 50)}>
-        <Image source={{ uri: preset.image }} style={styles.presetImage} />
-        <View style={styles.presetOverlay}>
-          <Text style={cardStyles.presetName} numberOfLines={1}>
-            {preset.name}
-          </Text>
-        </View>
-      </Animated.View>
-    </AnimatedPressable>
-  );
-}
-
-const styles = StyleSheet.create({
+const staticStyles = StyleSheet.create({
   header: {
     paddingHorizontal: layout.screenPadding,
     paddingVertical: 16,
   },
   searchContainer: {
     paddingHorizontal: layout.screenPadding,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   searchIcon: {
     marginRight: 12,
   },
-  categoriesScroll: {
-    maxHeight: 50,
-    marginBottom: 16,
-  },
-  categoriesContent: {
-    paddingHorizontal: layout.screenPadding,
-  },
-  categoryChip: {
-    marginRight: 12,
-  },
-  categoryIcon: {
-    marginRight: 6,
-  },
-  gridScroll: {
+  scrollView: {
     flex: 1,
   },
-  gridContent: {
-    paddingHorizontal: layout.screenPadding,
+  scrollContent: {
     paddingBottom: layout.tabBarHeight + 20,
+  },
+  sectionContainer: {
+    marginBottom: 28,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: layout.screenPadding,
+    marginBottom: 12,
   },
   sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    gap: 8,
   },
-  flameIcon: {
-    marginLeft: 6,
+  sectionScroll: {
+    paddingLeft: layout.screenPadding,
+    paddingRight: 12,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -CARD_GAP / 2,
+  cardWrapper: {
+    marginRight: 12,
   },
-  presetCard: {
+  card: {
     width: CARD_WIDTH,
-    height: CARD_WIDTH * 1.3,
-    marginHorizontal: CARD_GAP / 2,
-    marginBottom: CARD_GAP,
-    borderRadius: borderRadius.md,
+    height: CARD_HEIGHT,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
   },
-  presetImage: {
+  cardImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  presetOverlay: {
+  cardOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    paddingTop: 24,
+  },
+  cardName: {
+    ...typography.labelSmall,
+    fontSize: 11,
+    color: '#FFFFFF',
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: layout.screenPadding,
+    marginHorizontal: -GRID_GAP / 2,
+  },
+  gridCard: {
+    width: GRID_CARD_WIDTH,
+    height: GRID_CARD_WIDTH * 1.3,
+    marginHorizontal: GRID_GAP / 2,
+    marginBottom: GRID_GAP,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+  },
+  gridCardImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  gridCardOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,

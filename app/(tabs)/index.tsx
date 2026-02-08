@@ -4,35 +4,25 @@ import {
   Text,
   View,
   ScrollView,
-  Pressable,
-  Image,
-  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   FadeIn,
   FadeInDown,
-  useSharedValue,
-  useAnimatedStyle,
-  useAnimatedProps,
-  withRepeat,
-  withTiming,
-  withDelay,
-  withSequence,
-  Easing,
 } from 'react-native-reanimated';
-import Svg, { Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-import { ImageUploadCard, PrimaryButton } from '@/components/ui';
+import { PrimaryButton } from '@/components/ui';
+import { TransformationVisualizer, InspirationSections, HowItWorks } from '@/components/home';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
-import { presets } from '@/utils/presets';
+import { getHomeSections } from '@/utils/presets';
 import { trackEvent } from '@/utils/analytics';
 
 function getGreeting(): string {
@@ -45,56 +35,17 @@ function getGreeting(): string {
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ presetImage?: string }>();
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
   const [lookImage, setLookImage] = useState<string | null>(null);
-  const [menuVisible, setMenuVisible] = useState(false);
   const [greeting, setGreeting] = useState(getGreeting());
 
-  // Arrow stroke drawing animation
-  const PATH_LENGTH = 180;
-  const ARROW_LENGTH = 35;
-  const strokeProgress = useSharedValue(PATH_LENGTH);
-  const arrowStrokeProgress = useSharedValue(ARROW_LENGTH);
-  const arrowOpacity = useSharedValue(1);
-
+  // Handle preset image from Presets tab navigation
   useEffect(() => {
-    // Draw the main path first
-    strokeProgress.value = withDelay(
-      300,
-      withTiming(0, { duration: 1200, easing: Easing.out(Easing.cubic) })
-    );
-    // Draw the arrowhead after the main path
-    arrowStrokeProgress.value = withDelay(
-      1200,
-      withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) })
-    );
-    // Subtle pulsing after drawing completes
-    arrowOpacity.value = withDelay(
-      1800,
-      withRepeat(
-        withSequence(
-          withTiming(0.92, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        false
-      )
-    );
-  }, []);
-
-  const pathAnimatedProps = useAnimatedProps(() => ({
-    strokeDasharray: [PATH_LENGTH, PATH_LENGTH],
-    strokeDashoffset: strokeProgress.value,
-  }));
-
-  const arrowAnimatedProps = useAnimatedProps(() => ({
-    strokeDasharray: [ARROW_LENGTH, ARROW_LENGTH],
-    strokeDashoffset: arrowStrokeProgress.value,
-  }));
-
-  const arrowAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: arrowOpacity.value,
-  }));
+    if (params.presetImage) {
+      setLookImage(params.presetImage);
+    }
+  }, [params.presetImage]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -105,7 +56,7 @@ export default function HomeScreen() {
 
   const pickImage = async (type: 'selfie' | 'look') => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [3, 4],
       quality: 0.8,
@@ -137,7 +88,18 @@ export default function HomeScreen() {
     }
   };
 
-  const canGenerate = selfieImage && lookImage;
+  const getButtonState = () => {
+    if (!selfieImage && !lookImage) return { label: 'Add your photos to start', disabled: true };
+    if (selfieImage && !lookImage) return { label: 'Now pick a style', disabled: true };
+    if (!selfieImage && lookImage) return { label: 'Now add your photo', disabled: true };
+    return { label: 'See Your Look', disabled: false, icon: 'sparkles' as const };
+  };
+
+  const buttonState = getButtonState();
+
+  const handleSeeAllPresets = () => {
+    router.push('/(tabs)/presets');
+  };
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -149,33 +111,13 @@ export default function HomeScreen() {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: layout.screenPadding,
-      paddingVertical: 16,
+      height: layout.headerHeight,
     },
-    menuButton: {
-      padding: 8,
-    },
-    menuOverlay: {
-      flex: 1,
-      backgroundColor: colors.overlay,
-    },
-    menuContainer: {
-      backgroundColor: colors.bgSecondary,
-      paddingHorizontal: 20,
-      paddingBottom: 20,
-      borderBottomLeftRadius: 20,
-      borderBottomRightRadius: 20,
-    },
-    menuItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 16,
-      borderBottomWidth: 0.5,
-      borderBottomColor: colors.border,
-    },
-    menuItemText: {
-      ...typography.bodyLarge,
-      color: colors.textPrimary,
-      marginLeft: 16,
+    brandText: {
+      fontFamily: 'Phosphate-Solid',
+      fontSize: 18,
+      fontWeight: '700',
+      letterSpacing: -0.5,
     },
     proBadge: {
       flexDirection: 'row',
@@ -193,202 +135,61 @@ export default function HomeScreen() {
       flex: 1,
     },
     scrollContent: {
+      paddingBottom: layout.tabBarHeight + 32,
+    },
+    heroSection: {
       paddingHorizontal: layout.screenPadding,
-      paddingBottom: layout.tabBarHeight + 20,
+      marginTop: 8,
     },
     greeting: {
-      ...typography.bodyLarge,
+      ...typography.bodyMedium,
       color: colors.textSecondary,
       marginBottom: 4,
     },
-    title: {
-      ...typography.displayMedium,
+    headline: {
+      ...typography.displayLarge,
       color: colors.textPrimary,
-      marginBottom: 20,
     },
-    progressCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.bgCard,
-      borderRadius: borderRadius.lg,
-      padding: 16,
-      marginBottom: 28,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    progressIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
-      backgroundColor: colors.accentSecondaryMuted,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 12,
-    },
-    progressContent: {
-      flex: 1,
-    },
-    progressTitle: {
-      ...typography.labelMedium,
-      color: colors.textPrimary,
-      marginBottom: 2,
-    },
-    progressSubtitle: {
-      ...typography.caption,
+    subtitle: {
+      ...typography.bodyLarge,
       color: colors.textTertiary,
+      marginTop: 4,
     },
-    streakBadge: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: colors.accentSecondary,
-      alignItems: 'center',
-      justifyContent: 'center',
+    visualizerSection: {
+      marginTop: 32,
+      paddingHorizontal: layout.screenPadding,
     },
-    streakText: {
-      ...typography.labelMedium,
-      color: colors.textOnAccent,
+    ctaSection: {
+      marginTop: 24,
+      paddingHorizontal: layout.screenPadding,
     },
-    uploadSection: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 28,
-      position: 'relative',
-    },
-    arrowOverlay: {
-      position: 'absolute',
-      top: '50%',
-      left: '50%',
-      transform: [{ translateX: -40 }, { translateY: -30 }],
-      zIndex: 10,
-    },
-    generateSection: {
-      marginBottom: 36,
-    },
-    generateButton: {
+    ctaButton: {
       width: '100%',
     },
-    presetSection: {
-      marginBottom: 20,
+    inspirationSection: {
+      marginTop: 40,
     },
-    dividerContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 24,
-    },
-    divider: {
-      flex: 1,
-      height: 1,
-      backgroundColor: colors.border,
-    },
-    dividerText: {
-      ...typography.caption,
-      color: colors.textTertiary,
-      marginHorizontal: 16,
-    },
-    presetStrip: {
-      paddingVertical: 4,
-    },
-    presetItem: {
-      marginRight: 16,
-      position: 'relative',
-    },
-    presetBorder: {
-      padding: 2,
-      borderRadius: borderRadius.full,
-      borderWidth: 2,
-      borderColor: colors.border,
-    },
-    presetBorderActive: {
-      borderColor: colors.accent,
-    },
-    presetImageContainer: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      overflow: 'hidden',
-      backgroundColor: colors.bgSecondary,
-    },
-    presetImage: {
-      width: '100%',
-      height: '100%',
-      resizeMode: 'cover',
-    },
-    newBadge: {
-      position: 'absolute',
-      top: -4,
-      right: -4,
-      backgroundColor: colors.accent,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: borderRadius.sm,
-    },
-    newBadgeText: {
-      ...typography.proBadge,
-      fontSize: 8,
-      color: colors.textOnAccent,
+    howItWorksSection: {
+      marginTop: 40,
     },
   }), [colors]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Menu Modal */}
-      <Modal
-        visible={menuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
-      >
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => setMenuVisible(false)}
-        >
-          <View style={[styles.menuContainer, { paddingTop: insets.top + 16 }]}>
-            <Pressable
-              style={styles.menuItem}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setMenuVisible(false);
-              }}
-            >
-              <Ionicons name="settings-outline" size={22} color={colors.textSecondary} />
-              <Text style={styles.menuItemText}>Settings</Text>
-            </Pressable>
-            <Pressable
-              style={styles.menuItem}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setMenuVisible(false);
-              }}
-            >
-              <Ionicons name="help-circle-outline" size={22} color={colors.textSecondary} />
-              <Text style={styles.menuItemText}>Help & Support</Text>
-            </Pressable>
-            <Pressable
-              style={styles.menuItem}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setMenuVisible(false);
-              }}
-            >
-              <Ionicons name="information-circle-outline" size={22} color={colors.textSecondary} />
-              <Text style={styles.menuItemText}>About</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
-
       {/* Header */}
       <View style={styles.header}>
-        <Pressable
-          style={styles.menuButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setMenuVisible(true);
-          }}
+        <MaskedView
+          maskElement={<Text style={styles.brandText}>VERSO</Text>}
         >
-          <Ionicons name="menu" size={24} color={colors.textSecondary} />
-        </Pressable>
+          <LinearGradient
+            colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
+            locations={[0.68, 1]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+          >
+            <Text style={[styles.brandText, { opacity: 0 }]}>VERSO</Text>
+          </LinearGradient>
+        </MaskedView>
         <View style={styles.proBadge}>
           <Ionicons name="sparkles" size={12} color={colors.textOnAccent} style={{ marginRight: 4 }} />
           <Text style={styles.proText}>PRO</Text>
@@ -400,99 +201,57 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Personalized Greeting */}
-        <Animated.View entering={FadeIn.delay(100)}>
-          <Text style={styles.greeting}>{greeting}</Text>
-          <Text style={styles.title}>Explore a Look</Text>
-        </Animated.View>
-
-        {/* Upload Cards */}
-        <Animated.View entering={FadeInDown.delay(200)} style={styles.uploadSection}>
-          <ImageUploadCard
-            label="Your Photo"
-            sublabel=""
-            image={selfieImage}
-            onSelect={() => pickImage('selfie')}
-            onRemove={() => setSelfieImage(null)}
-          />
-          <ImageUploadCard
-            label="The Look"
-            sublabel=""
-            image={lookImage}
-            onSelect={() => pickImage('look')}
-            onRemove={() => setLookImage(null)}
-          />
-          <Animated.View style={[styles.arrowOverlay, arrowAnimatedStyle]} pointerEvents="none">
-            <Svg viewBox="0 0 80 60" width={80} height={60}>
-              <AnimatedPath
-                d="M 10 48 C 5 25, 25 5, 45 15 C 58 22, 50 35, 40 32 C 32 30, 38 20, 50 22 C 60 24, 68 28, 70 35"
-                stroke={!isDark && (selfieImage || lookImage) ? '#2A2A2A' : '#BEBEBE'}
-                strokeWidth={!isDark && (selfieImage || lookImage) ? 2.25 : 1.75}
-                strokeLinecap="round"
-                fill="none"
-                animatedProps={pathAnimatedProps}
-              />
-              <AnimatedPath
-                d="M 69 24 L 73 39 L 63 32"
-                stroke={!isDark && (selfieImage || lookImage) ? '#2A2A2A' : '#BEBEBE'}
-                strokeWidth={!isDark && (selfieImage || lookImage) ? 2.25 : 1.75}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-                animatedProps={arrowAnimatedProps}
-              />
-            </Svg>
+        {/* Hero Headline */}
+        <View style={styles.heroSection}>
+          <Animated.View entering={FadeIn.delay(100)}>
+            <Text style={styles.greeting}>{greeting}</Text>
           </Animated.View>
-        </Animated.View>
+          <Animated.View entering={FadeInDown.delay(200).springify().damping(20).stiffness(200)}>
+            <Text style={styles.headline}>Try Their Look</Text>
+          </Animated.View>
+          <Animated.View entering={FadeInDown.delay(350)}>
+            <Text style={styles.subtitle}>
+              Upload your photo, pick a style, see yourself transformed.
+            </Text>
+          </Animated.View>
+        </View>
 
-        {/* Generate Button */}
-        <Animated.View entering={FadeInDown.delay(300)} style={styles.generateSection}>
-          <PrimaryButton
-            label="See Your Look"
-            onPress={handleGenerate}
-            disabled={!canGenerate}
-            style={styles.generateButton}
+        {/* Transformation Visualizer */}
+        <Animated.View entering={FadeInDown.delay(400).springify().damping(20).stiffness(200)} style={styles.visualizerSection}>
+          <TransformationVisualizer
+            selfieImage={selfieImage}
+            lookImage={lookImage}
+            onSelectSelfie={() => pickImage('selfie')}
+            onSelectLook={() => pickImage('look')}
+            onRemoveSelfie={() => setSelfieImage(null)}
+            onRemoveLook={() => setLookImage(null)}
           />
         </Animated.View>
 
-        {/* Preset Strip */}
-        <Animated.View entering={FadeInDown.delay(400)} style={styles.presetSection}>
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>or try a preset</Text>
-            <View style={styles.divider} />
-          </View>
+        {/* CTA Button */}
+        <Animated.View entering={FadeInDown.delay(900)} style={styles.ctaSection}>
+          <PrimaryButton
+            label={buttonState.label}
+            onPress={handleGenerate}
+            disabled={buttonState.disabled}
+            icon={buttonState.icon}
+            style={styles.ctaButton}
+          />
+        </Animated.View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.presetStrip}
-          >
-            {presets.slice(0, 8).map((preset, index) => (
-              <Pressable
-                key={preset.id}
-                onPress={() => selectPreset(preset.image)}
-                style={styles.presetItem}
-              >
-                <View style={[
-                  styles.presetBorder,
-                  lookImage === preset.image && styles.presetBorderActive
-                ]}>
-                  <View style={styles.presetImageContainer}>
-                    <Image
-                      source={{ uri: preset.image }}
-                      style={styles.presetImage}
-                    />
-                  </View>
-                </View>
-                {index === 0 && (
-                  <View style={styles.newBadge}>
-                    <Text style={styles.newBadgeText}>NEW</Text>
-                  </View>
-                )}
-              </Pressable>
-            ))}
-          </ScrollView>
+        {/* Inspiration Sections */}
+        <View style={styles.inspirationSection}>
+          <InspirationSections
+            sections={getHomeSections()}
+            selectedPresetImage={lookImage}
+            onSelectPreset={selectPreset}
+            onSeeAll={handleSeeAllPresets}
+          />
+        </View>
+
+        {/* How It Works */}
+        <Animated.View entering={FadeInDown.delay(1400)} style={styles.howItWorksSection}>
+          <HowItWorks />
         </Animated.View>
       </ScrollView>
     </View>

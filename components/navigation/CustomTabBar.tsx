@@ -29,6 +29,7 @@ const tabs: TabItem[] = [
   { name: 'index', label: 'Home', icon: 'home-outline', iconFilled: 'home' },
   { name: 'presets', label: 'Presets', icon: 'grid-outline', iconFilled: 'grid' },
   { name: 'saved', label: 'Saved', icon: 'heart-outline', iconFilled: 'heart' },
+  { name: 'settings', label: 'More', icon: 'menu', iconFilled: 'menu' },
 ];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);

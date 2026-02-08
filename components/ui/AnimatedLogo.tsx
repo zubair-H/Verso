@@ -12,7 +12,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { springs } from '@/constants/spacing';
 
 interface AnimatedLogoProps {
-  size?: 'small' | 'medium' | 'large';
+  size?: 'header' | 'small' | 'medium' | 'large';
   animate?: boolean;
   revealFromBottom?: boolean;
   revealDelay?: number;
@@ -32,6 +32,7 @@ export function AnimatedLogo({
   const opacity = useSharedValue(animate && !revealFromBottom ? 0 : 1);
 
   const sizeStyles = {
+    header: { width: 40, height: 40 },
     small: { width: 100, height: 100 },
     medium: { width: 160, height: 160 },
     large: { width: 220, height: 220 },

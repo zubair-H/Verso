@@ -14,7 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
 import { borderRadius, springs } from '@/constants/spacing';
-import { presets, Preset } from '@/utils/presets';
+import { allPresets, Preset } from '@/utils/presets';
 
 interface PresetStripProps {
   onSelectPreset: (preset: Preset) => void;
@@ -36,7 +36,7 @@ export function PresetStrip({ onSelectPreset }: PresetStripProps) {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
     >
-      {presets.slice(0, 8).map((preset) => (
+      {allPresets.slice(0, 8).map((preset) => (
         <PresetItem
           key={preset.id}
           preset={preset}
