@@ -206,7 +206,7 @@ export default function HomeScreen() {
           <Animated.View entering={FadeIn.delay(100)}>
             <Text style={styles.greeting}>{greeting}</Text>
           </Animated.View>
-          <Animated.View entering={FadeInDown.delay(200).springify().damping(20).stiffness(200)}>
+          <Animated.View entering={FadeInDown.delay(200).springify().damping(38).stiffness(200)}>
             <Text style={styles.headline}>Try Their Look</Text>
           </Animated.View>
           <Animated.View entering={FadeInDown.delay(350)}>
@@ -217,7 +217,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Transformation Visualizer */}
-        <Animated.View entering={FadeInDown.delay(400).springify().damping(20).stiffness(200)} style={styles.visualizerSection}>
+        <Animated.View entering={FadeInDown.delay(400).springify().damping(38).stiffness(200)} style={styles.visualizerSection}>
           <TransformationVisualizer
             selfieImage={selfieImage}
             lookImage={lookImage}

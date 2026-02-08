@@ -98,6 +98,12 @@ export function useStorage() {
     await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, JSON.stringify(true));
   }, []);
 
+  // Reset onboarding
+  const resetOnboarding = useCallback(async () => {
+    setOnboardingComplete(false);
+    await AsyncStorage.removeItem(STORAGE_KEYS.ONBOARDING_COMPLETE);
+  }, []);
+
   // Use a free try
   const useFreeTry = useCallback(async () => {
     if (freeTries > 0) {
@@ -126,6 +132,7 @@ export function useStorage() {
     toggleFavorite,
     deleteLook,
     completeOnboarding,
+    resetOnboarding,
     useFreeTry,
     updateSettings,
   };

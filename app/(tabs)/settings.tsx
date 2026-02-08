@@ -1,15 +1,18 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useStorage } from '@/hooks/useStorage';
 import { typography } from '@/constants/typography';
 import { layout } from '@/constants/spacing';
 
 export default function SettingsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { resetOnboarding } = useStorage();
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -46,6 +49,12 @@ export default function SettingsScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const handleResetOnboarding = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await resetOnboarding();
+    router.replace('/(onboarding)');
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -63,6 +72,10 @@ export default function SettingsScreen() {
         <Pressable style={styles.menuItem} onPress={handlePress}>
           <Ionicons name="information-circle-outline" size={22} color={colors.textSecondary} />
           <Text style={styles.menuItemText}>About</Text>
+        </Pressable>
+        <Pressable style={styles.menuItem} onPress={handleResetOnboarding}>
+          <Ionicons name="refresh-outline" size={22} color={colors.textSecondary} />
+          <Text style={styles.menuItemText}>Restart Onboarding</Text>
         </Pressable>
       </View>
     </View>
