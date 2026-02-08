@@ -95,7 +95,7 @@ function Particle({
 
   useEffect(() => {
     progress.value = withDelay(
-      4400,
+      3200,
       withRepeat(
         withTiming(1, { duration: 3000, easing: Easing.linear }),
         -1,
@@ -334,7 +334,7 @@ export default function IntroScreen() {
 
     // Particles fade in after icon outline animations complete
     particleEntry.value = withDelay(
-      LOGO_ANIMATION_DELAY + 2600,
+      LOGO_ANIMATION_DELAY + 1400,
       withTiming(1, { duration: 800, easing: SMOOTH_EASE })
     );
 
