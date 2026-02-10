@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -20,12 +20,12 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { borderRadius, layout, springs } from '@/constants/spacing';
 import type { Preset, PresetSection } from '@/utils/presets';
+import { SeeAllOverlay } from './SeeAllOverlay';
 
 interface InspirationSectionsProps {
   sections: PresetSection[];
   selectedPresetImage: string | null;
   onSelectPreset: (presetImage: string) => void;
-  onSeeAll: () => void;
 }
 
 const CARD_SIZE = 110;
@@ -141,16 +141,15 @@ function SectionRow({
   section,
   selectedPresetImage,
   onSelectPreset,
-  onSeeAll,
   index,
 }: {
   section: PresetSection;
   selectedPresetImage: string | null;
   onSelectPreset: (presetImage: string) => void;
-  onSeeAll: () => void;
   index: number;
 }) {
   const { colors } = useTheme();
+  const [overlayVisible, setOverlayVisible] = useState(false);
 
   const styles = useMemo(
     () =>
@@ -186,35 +185,50 @@ function SectionRow({
     [colors]
   );
 
+  const handleSeeAll = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setOverlayVisible(true);
+  };
+
   return (
-    <Animated.View
-      entering={FadeInDown.delay(800 + index * 150).springify().damping(20).stiffness(200)}
-      style={styles.container}
-    >
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Ionicons name={section.icon as any} size={16} color={colors.textSecondary} />
-          <Text style={styles.title}>{section.title}</Text>
-        </View>
-        <Pressable onPress={onSeeAll}>
-          <Text style={styles.seeAll}>See all</Text>
-        </Pressable>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+    <>
+      <Animated.View
+        entering={FadeInDown.delay(800 + index * 150).springify().damping(20).stiffness(200)}
+        style={styles.container}
       >
-        {section.presets.map((preset) => (
-          <InspirationCard
-            key={preset.id}
-            preset={preset}
-            isSelected={selectedPresetImage === preset.image}
-            onPress={() => onSelectPreset(preset.image)}
-          />
-        ))}
-      </ScrollView>
-    </Animated.View>
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <Ionicons name={section.icon as any} size={16} color={colors.textSecondary} />
+            <Text style={styles.title}>{section.title}</Text>
+          </View>
+          <Pressable onPress={handleSeeAll}>
+            <Text style={styles.seeAll}>See all</Text>
+          </Pressable>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {section.presets.map((preset) => (
+            <InspirationCard
+              key={preset.id}
+              preset={preset}
+              isSelected={selectedPresetImage === preset.image}
+              onPress={() => onSelectPreset(preset.image)}
+            />
+          ))}
+        </ScrollView>
+      </Animated.View>
+
+      <SeeAllOverlay
+        visible={overlayVisible}
+        title={section.title}
+        presets={section.presets}
+        onSelectPreset={onSelectPreset}
+        onClose={() => setOverlayVisible(false)}
+      />
+    </>
   );
 }
 
@@ -222,7 +236,6 @@ export function InspirationSections({
   sections,
   selectedPresetImage,
   onSelectPreset,
-  onSeeAll,
 }: InspirationSectionsProps) {
   return (
     <View>
@@ -232,7 +245,6 @@ export function InspirationSections({
           section={section}
           selectedPresetImage={selectedPresetImage}
           onSelectPreset={onSelectPreset}
-          onSeeAll={onSeeAll}
           index={index}
         />
       ))}

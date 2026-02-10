@@ -165,7 +165,6 @@ export default function CreateScreen() {
             sections={getHomeSections()}
             selectedPresetImage={lookImage}
             onSelectPreset={selectPreset}
-            onSeeAll={() => router.push('/(tabs)/presets')}
           />
         </View>
       </ScrollView>
