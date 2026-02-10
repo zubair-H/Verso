@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -18,14 +18,48 @@ import { PaywallModal } from '@/components/features/PaywallModal';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
-import { getHomeGroupedSections } from '@/utils/presets';
+import { getHomeGroupedSections, getPresetsForCategory } from '@/utils/presets';
 
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const sections = useMemo(() => getHomeGroupedSections(), []);
+
+  // When a filter is active, show only that category's full preset list
+  const filteredSection = useMemo(() => {
+    if (!activeFilter) return null;
+    // Check if it's a grouped section id (hair, face, style)
+    const group = sections.find((s) => s.id === activeFilter);
+    if (group) {
+      // Expand all sub-category presets into a flat 2-column grid
+      const allPresets = group.subCategories.flatMap((cat) => {
+        const full = getPresetsForCategory(cat.id);
+        return full ? full.presets : [];
+      });
+      return {
+        id: group.id,
+        title: group.title,
+        icon: group.icon,
+        presets: allPresets,
+        subCategories: [],
+      };
+    }
+    // Otherwise it's a sub-category id — get full presets for it
+    const category = getPresetsForCategory(activeFilter);
+    if (category) {
+      return {
+        id: category.id,
+        title: category.title,
+        icon: category.icon,
+        presets: category.presets,
+        subCategories: [],
+      };
+    }
+    return null;
+  }, [activeFilter, sections]);
 
   const handleSelectPreset = (presetImage: string) => {
     router.push({
@@ -34,9 +68,13 @@ export default function HomeScreen() {
     });
   };
 
-  const handleSeeAllPresets = () => {
-    // Scroll-to-top or show all — presets tab removed, home is the browse page
-  };
+  const handleSeeAll = useCallback((sectionId: string) => {
+    setActiveFilter(sectionId);
+  }, []);
+
+  const handleClearFilter = useCallback(() => {
+    setActiveFilter(null);
+  }, []);
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -85,8 +123,81 @@ export default function HomeScreen() {
       marginTop: 36,
       paddingHorizontal: layout.screenPadding,
     },
+    filterHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: layout.screenPadding,
+      marginTop: 16,
+      marginBottom: 8,
+      gap: 12,
+    },
+    backButton: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    filterTitle: {
+      ...typography.headlineMedium,
+      color: colors.textPrimary,
+    },
   }), [colors]);
 
+  // Filtered view — show only the selected category
+  if (activeFilter && filteredSection) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <MaskedView
+            maskElement={<Text style={styles.brandText}>VERSO</Text>}
+          >
+            <LinearGradient
+              colors={isDark ? [colors.accentLight, colors.accent] : ['#1A1F2E', '#0D1017']}
+              locations={[0.68, 1]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+            >
+              <Text style={[styles.brandText, { opacity: 0 }]}>VERSO</Text>
+            </LinearGradient>
+          </MaskedView>
+          <Pressable
+            style={styles.proBadge}
+            onPress={() => setPaywallVisible(true)}
+          >
+            <Ionicons name="sparkles" size={12} color={colors.textOnAccent} style={{ marginRight: 4 }} />
+            <Text style={styles.proText}>PRO</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.filterHeader}>
+          <Pressable onPress={handleClearFilter} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          </Pressable>
+          <Text style={styles.filterTitle}>{filteredSection.title}</Text>
+        </View>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <PresetGrid
+            section={filteredSection}
+            onSelectPreset={handleSelectPreset}
+            onSeeAll={() => handleClearFilter()}
+            animationDelay={0}
+          />
+        </ScrollView>
+
+        <PaywallModal
+          visible={paywallVisible}
+          onClose={() => setPaywallVisible(false)}
+        />
+      </View>
+    );
+  }
+
+  // Default home — full discovery feed
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
@@ -126,6 +237,7 @@ export default function HomeScreen() {
             badgeIcon="sparkles"
             ctaLabel="Create Your Look"
             onPress={() => router.push('/create')}
+            tilt={-1.2}
           />
         </Animated.View>
 
@@ -134,7 +246,7 @@ export default function HomeScreen() {
           <PresetGrid
             section={sections[0]}
             onSelectPreset={handleSelectPreset}
-            onSeeAll={handleSeeAllPresets}
+            onSeeAll={handleSeeAll}
             animationDelay={300}
           />
         </View>
@@ -149,6 +261,7 @@ export default function HomeScreen() {
             ctaLabel="Analyze My Face"
             onPress={() => router.push('/create')}
             variant="vertical"
+            tilt={1.8}
             gradientColors={[
               colors.faceShapeBannerEnd,
               colors.faceShapeBannerMid,
@@ -162,7 +275,7 @@ export default function HomeScreen() {
           <PresetGrid
             section={sections[1]}
             onSelectPreset={handleSelectPreset}
-            onSeeAll={handleSeeAllPresets}
+            onSeeAll={handleSeeAll}
             animationDelay={700}
           />
         </View>
@@ -182,6 +295,7 @@ export default function HomeScreen() {
             ctaLabel="Find My Colors"
             onPress={() => router.push('/create')}
             variant="vertical"
+            tilt={-1.5}
             gradientColors={[
               colors.colorAnalysisBannerEnd,
               colors.colorAnalysisBannerMid,
@@ -195,7 +309,7 @@ export default function HomeScreen() {
           <PresetGrid
             section={sections[2]}
             onSelectPreset={handleSelectPreset}
-            onSeeAll={handleSeeAllPresets}
+            onSeeAll={handleSeeAll}
             animationDelay={1300}
           />
         </View>

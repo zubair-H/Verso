@@ -21,6 +21,8 @@ interface HeroBannerProps {
   onPress: () => void;
   gradientColors?: [string, string, string];
   variant?: 'horizontal' | 'vertical';
+  /** Slight rotation in degrees for imperfect placement (e.g. -1.5, 2) */
+  tilt?: number;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -34,6 +36,7 @@ export function HeroBanner({
   onPress,
   gradientColors,
   variant = 'horizontal',
+  tilt = 0,
 }: HeroBannerProps) {
   const isVertical = variant === 'vertical';
   const { colors, isDark } = useTheme();
@@ -65,6 +68,9 @@ export function HeroBanner({
   const styles = useMemo(
     () =>
       StyleSheet.create({
+        outer: {
+          transform: [{ rotate: `${tilt}deg` }],
+        },
         container: {
           borderRadius: borderRadius.xl,
           overflow: 'hidden',
@@ -156,53 +162,55 @@ export function HeroBanner({
           right: 10,
         },
       }),
-    [colors, isDark, bannerGradient]
+    [colors, isDark, bannerGradient, isVertical, tilt]
   );
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={bannerGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradient}
-      >
-        <View style={styles.content}>
-          <View style={styles.badge}>
-            <Ionicons name={badgeIcon} size={10} color="rgba(255, 255, 255, 0.9)" />
-            <Text style={styles.badgeText}>{badge}</Text>
+    <View style={styles.outer}>
+      <View style={styles.container}>
+        <LinearGradient
+          colors={bannerGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradient}
+        >
+          <View style={styles.content}>
+            <View style={styles.badge}>
+              <Ionicons name={badgeIcon} size={10} color="rgba(255, 255, 255, 0.9)" />
+              <Text style={styles.badgeText}>{badge}</Text>
+            </View>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.subtitle}>{subtitle}</Text>
+            <AnimatedPressable
+              onPress={handlePress}
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+              style={[styles.ctaButton, animatedStyle]}
+            >
+              <Text style={styles.ctaText}>{ctaLabel}</Text>
+              <Ionicons
+                name="arrow-forward"
+                size={14}
+                color={isDark ? bannerGradient[0] : '#1A1035'}
+              />
+            </AnimatedPressable>
           </View>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
-          <AnimatedPressable
-            onPress={handlePress}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
-            style={[styles.ctaButton, animatedStyle]}
-          >
-            <Text style={styles.ctaText}>{ctaLabel}</Text>
-            <Ionicons
-              name="arrow-forward"
-              size={14}
-              color={isDark ? bannerGradient[0] : '#1A1035'}
-            />
-          </AnimatedPressable>
-        </View>
 
-        {!isVertical && (
-          <View style={styles.visual}>
-            <View style={styles.cardBack} />
-            <View style={styles.cardFront} />
-            <View style={styles.splitLine} />
-            <Ionicons
-              name="sparkles"
-              size={16}
-              color="rgba(255, 255, 255, 0.4)"
-              style={styles.sparkleOverlay}
-            />
-          </View>
-        )}
-      </LinearGradient>
+          {!isVertical && (
+            <View style={styles.visual}>
+              <View style={styles.cardBack} />
+              <View style={styles.cardFront} />
+              <View style={styles.splitLine} />
+              <Ionicons
+                name="sparkles"
+                size={16}
+                color="rgba(255, 255, 255, 0.4)"
+                style={styles.sparkleOverlay}
+              />
+            </View>
+          )}
+        </LinearGradient>
+      </View>
     </View>
   );
 }

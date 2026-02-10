@@ -6,35 +6,38 @@ import {
   Pressable,
   Image,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   FadeInDown,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { borderRadius, layout, springs } from '@/constants/spacing';
-import type { Preset, PresetSection } from '@/utils/presets';
+import { getPresetsForCategory } from '@/utils/presets';
+import type { Preset, GroupedSection } from '@/utils/presets';
 
 interface PresetGridProps {
-  section: PresetSection;
+  section: GroupedSection;
   onSelectPreset: (presetImage: string) => void;
-  onSeeAll: () => void;
+  onSeeAll: (sectionId: string) => void;
   animationDelay?: number;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const GAP = 12;
-const CARD_WIDTH = (SCREEN_WIDTH - layout.screenPadding * 2 - GAP) / 2;
+const HORIZONTAL_CARD_SIZE = 120;
+const HORIZONTAL_GAP = 10;
+
+// Alternating tilts for cards — intentionally imperfect but symmetric
+const CARD_TILTS = [-1.8, 1.2, 2, -1.5, -0.8, 1.8];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-function GridCard({
+function HorizontalCard({
   preset,
   index,
   onPress,
@@ -43,6 +46,7 @@ function GridCard({
   index: number;
   onPress: () => void;
 }) {
+  const tilt = CARD_TILTS[index % CARD_TILTS.length];
   const { colors } = useTheme();
   const scale = useSharedValue(1);
 
@@ -67,11 +71,12 @@ function GridCard({
     () =>
       StyleSheet.create({
         card: {
-          width: CARD_WIDTH,
-          height: CARD_WIDTH,
+          width: HORIZONTAL_CARD_SIZE,
+          height: HORIZONTAL_CARD_SIZE,
           borderRadius: borderRadius.lg,
           overflow: 'hidden',
           backgroundColor: colors.bgSecondary,
+          transform: [{ rotate: `${tilt}deg` }],
         },
         image: {
           width: '100%',
@@ -80,28 +85,92 @@ function GridCard({
         },
         splitLine: {
           position: 'absolute',
-          top: CARD_WIDTH * 0.15,
-          left: CARD_WIDTH / 2 - 0.75,
+          top: HORIZONTAL_CARD_SIZE * 0.15,
+          left: HORIZONTAL_CARD_SIZE / 2 - 0.75,
           width: 1.5,
-          height: CARD_WIDTH * 0.7,
+          height: HORIZONTAL_CARD_SIZE * 0.7,
           backgroundColor: 'rgba(255, 255, 255, 0.45)',
           borderRadius: 1,
         },
-        overlay: {
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          paddingHorizontal: 10,
-          paddingBottom: 10,
-          paddingTop: 28,
+      }),
+    [colors, tilt]
+  );
+
+  return (
+    <AnimatedPressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={animatedStyle}
+    >
+      <View style={styles.card}>
+        <Image source={{ uri: preset.image }} style={styles.image} />
+        <View style={styles.splitLine} />
+      </View>
+    </AnimatedPressable>
+  );
+}
+
+const GAP = 12;
+const GRID_CARD_WIDTH = (SCREEN_WIDTH - layout.screenPadding * 2 - GAP) / 2;
+
+function GridCard({
+  preset,
+  index,
+  onPress,
+}: {
+  preset: Preset;
+  index: number;
+  onPress: () => void;
+}) {
+  const tilt = CARD_TILTS[index % CARD_TILTS.length];
+  const { colors } = useTheme();
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.96, springs.snappy);
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, springs.snappy);
+  };
+
+  const handlePress = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onPress();
+  };
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        card: {
+          width: GRID_CARD_WIDTH,
+          height: GRID_CARD_WIDTH,
+          borderRadius: borderRadius.lg,
+          overflow: 'hidden',
+          backgroundColor: colors.bgSecondary,
+          transform: [{ rotate: `${tilt}deg` }],
         },
-        name: {
-          ...typography.labelSmall,
-          color: '#FFFFFF',
+        image: {
+          width: '100%',
+          height: '100%',
+          resizeMode: 'cover',
+        },
+        splitLine: {
+          position: 'absolute',
+          top: GRID_CARD_WIDTH * 0.15,
+          left: GRID_CARD_WIDTH / 2 - 0.75,
+          width: 1.5,
+          height: GRID_CARD_WIDTH * 0.7,
+          backgroundColor: 'rgba(255, 255, 255, 0.45)',
+          borderRadius: 1,
         },
       }),
-    [colors]
+    [colors, tilt]
   );
 
   return (
@@ -117,16 +186,85 @@ function GridCard({
       >
         <Image source={{ uri: preset.image }} style={styles.image} />
         <View style={styles.splitLine} />
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.6)']}
-          style={styles.overlay}
-        >
-          <Text style={styles.name} numberOfLines={1}>
-            {preset.name}
-          </Text>
-        </LinearGradient>
       </Animated.View>
     </AnimatedPressable>
+  );
+}
+
+function SubCategoryRow({
+  categoryId,
+  title,
+  onSelectPreset,
+  onSeeAll,
+  rowIndex,
+  animationDelay,
+}: {
+  categoryId: string;
+  title: string;
+  onSelectPreset: (presetImage: string) => void;
+  onSeeAll: (sectionId: string) => void;
+  rowIndex: number;
+  animationDelay: number;
+}) {
+  const { colors } = useTheme();
+  const category = getPresetsForCategory(categoryId);
+  if (!category) return null;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        row: {
+          marginBottom: 24,
+        },
+        rowHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: layout.screenPadding,
+          marginBottom: 10,
+        },
+        rowTitle: {
+          ...typography.labelMedium,
+          color: colors.textPrimary,
+        },
+        seeAll: {
+          ...typography.caption,
+          color: colors.accent,
+        },
+        scrollContent: {
+          paddingHorizontal: layout.screenPadding,
+          gap: HORIZONTAL_GAP,
+        },
+      }),
+    [colors]
+  );
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(animationDelay + rowIndex * 120).springify().damping(20).stiffness(200)}
+      style={styles.row}
+    >
+      <View style={styles.rowHeader}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Pressable onPress={() => onSeeAll(categoryId)}>
+          <Text style={styles.seeAll}>See all</Text>
+        </Pressable>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {category.presets.map((preset, index) => (
+          <HorizontalCard
+            key={preset.id}
+            preset={preset}
+            index={index}
+            onPress={() => onSelectPreset(preset.image)}
+          />
+        ))}
+      </ScrollView>
+    </Animated.View>
   );
 }
 
@@ -141,22 +279,16 @@ export function PresetGrid({
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        container: {
-          paddingHorizontal: layout.screenPadding,
-        },
+        container: {},
         header: {
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
+          paddingHorizontal: layout.screenPadding,
           marginBottom: 14,
         },
-        titleRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-        },
         title: {
-          ...typography.headlineMedium,
+          ...typography.labelLarge,
           color: colors.textPrimary,
         },
         seeAll: {
@@ -167,35 +299,54 @@ export function PresetGrid({
           flexDirection: 'row',
           flexWrap: 'wrap',
           gap: GAP,
+          paddingHorizontal: layout.screenPadding,
         },
       }),
     [colors]
   );
 
+  // If no sub-categories (filtered view), show 2-column grid
+  if (!section.subCategories || section.subCategories.length === 0) {
+    return (
+      <Animated.View
+        entering={FadeInDown.delay(animationDelay).springify().damping(20).stiffness(200)}
+        style={styles.container}
+      >
+        <View style={styles.grid}>
+          {section.presets.map((preset, index) => (
+            <GridCard
+              key={preset.id}
+              preset={preset}
+              index={index}
+              onPress={() => onSelectPreset(preset.image)}
+            />
+          ))}
+        </View>
+      </Animated.View>
+    );
+  }
+
+  // Default: group title + horizontal rows per sub-category
   return (
     <Animated.View
       entering={FadeInDown.delay(animationDelay).springify().damping(20).stiffness(200)}
       style={styles.container}
     >
       <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Ionicons name={section.icon as any} size={18} color={colors.textSecondary} />
-          <Text style={styles.title}>{section.title}</Text>
-        </View>
-        <Pressable onPress={onSeeAll}>
-          <Text style={styles.seeAll}>See all</Text>
-        </Pressable>
+        <Text style={styles.title}>{section.title}</Text>
       </View>
-      <View style={styles.grid}>
-        {section.presets.map((preset, index) => (
-          <GridCard
-            key={preset.id}
-            preset={preset}
-            index={index}
-            onPress={() => onSelectPreset(preset.image)}
-          />
-        ))}
-      </View>
+
+      {section.subCategories.map((cat, rowIndex) => (
+        <SubCategoryRow
+          key={cat.id}
+          categoryId={cat.id}
+          title={cat.title}
+          onSelectPreset={onSelectPreset}
+          onSeeAll={onSeeAll}
+          rowIndex={rowIndex}
+          animationDelay={animationDelay}
+        />
+      ))}
     </Animated.View>
   );
 }

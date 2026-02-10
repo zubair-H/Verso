@@ -136,8 +136,17 @@ export function getHomeSections(): PresetSection[] {
   return presetSections.slice(0, 4);
 }
 
+export interface GroupedSection {
+  id: string;
+  title: string;
+  icon: string;
+  presets: Preset[];
+  /** Sub-category IDs that make up this group */
+  subCategories: { id: string; title: string }[];
+}
+
 // Get regrouped sections for redesigned home page
-export function getHomeGroupedSections(): PresetSection[] {
+export function getHomeGroupedSections(): GroupedSection[] {
   const findSection = (id: string) => presetSections.find((s) => s.id === id)!;
 
   return [
@@ -150,6 +159,11 @@ export function getHomeGroupedSections(): PresetSection[] {
         ...findSection('hair-color').presets.slice(0, 2),
         ...findSection('hairstyles').presets.slice(0, 2),
       ],
+      subCategories: [
+        { id: 'haircuts', title: 'Haircuts' },
+        { id: 'hair-color', title: 'Hair Color' },
+        { id: 'hairstyles', title: 'Hairstyles' },
+      ],
     },
     {
       id: 'face',
@@ -160,6 +174,11 @@ export function getHomeGroupedSections(): PresetSection[] {
         ...findSection('sunglasses').presets.slice(0, 2),
         ...findSection('makeup').presets.slice(0, 2),
       ],
+      subCategories: [
+        { id: 'glasses', title: 'Glasses' },
+        { id: 'sunglasses', title: 'Sunglasses' },
+        { id: 'makeup', title: 'Makeup' },
+      ],
     },
     {
       id: 'style',
@@ -169,6 +188,15 @@ export function getHomeGroupedSections(): PresetSection[] {
         ...findSection('streetwear').presets.slice(0, 3),
         ...findSection('formal').presets.slice(0, 3),
       ],
+      subCategories: [
+        { id: 'streetwear', title: 'Streetwear' },
+        { id: 'formal', title: 'Formal' },
+      ],
     },
   ];
+}
+
+// Get all presets for a specific sub-category
+export function getPresetsForCategory(categoryId: string): PresetSection | undefined {
+  return presetSections.find((s) => s.id === categoryId);
 }
