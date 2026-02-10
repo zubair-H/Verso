@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,34 +11,28 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
-  FadeIn,
   FadeInDown,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 
 import { PrimaryButton } from '@/components/ui';
-import { TransformationVisualizer, InspirationSections, HowItWorks } from '@/components/home';
+import { TransformationVisualizer, InspirationSections, HeroBanner, UpgradeBanner } from '@/components/home';
+import { PaywallModal } from '@/components/features/PaywallModal';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
-import { getHomeSections } from '@/utils/presets';
+import { getHomeGroupedSections } from '@/utils/presets';
 import { trackEvent } from '@/utils/analytics';
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
-}
 
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ presetImage?: string }>();
+  const scrollViewRef = useRef<ScrollView>(null);
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
   const [lookImage, setLookImage] = useState<string | null>(null);
-  const [greeting, setGreeting] = useState(getGreeting());
+  const [paywallVisible, setPaywallVisible] = useState(false);
 
   // Handle preset image from Presets tab navigation
   useEffect(() => {
@@ -46,13 +40,6 @@ export default function HomeScreen() {
       setLookImage(params.presetImage);
     }
   }, [params.presetImage]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setGreeting(getGreeting());
-    }, 60000);
-    return () => clearInterval(interval);
-  }, []);
 
   const pickImage = async (type: 'selfie' | 'look') => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -137,26 +124,12 @@ export default function HomeScreen() {
     scrollContent: {
       paddingBottom: layout.tabBarHeight + 32,
     },
-    heroSection: {
+    heroBannerSection: {
       paddingHorizontal: layout.screenPadding,
       marginTop: 8,
     },
-    greeting: {
-      ...typography.bodyMedium,
-      color: colors.textSecondary,
-      marginBottom: 4,
-    },
-    headline: {
-      ...typography.displayLarge,
-      color: colors.textPrimary,
-    },
-    subtitle: {
-      ...typography.bodyLarge,
-      color: colors.textTertiary,
-      marginTop: 4,
-    },
     visualizerSection: {
-      marginTop: 32,
+      marginTop: 28,
       paddingHorizontal: layout.screenPadding,
     },
     ctaSection: {
@@ -169,8 +142,9 @@ export default function HomeScreen() {
     inspirationSection: {
       marginTop: 40,
     },
-    howItWorksSection: {
+    upgradeBannerSection: {
       marginTop: 40,
+      paddingHorizontal: layout.screenPadding,
     },
   }), [colors]);
 
@@ -197,27 +171,20 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Headline */}
-        <View style={styles.heroSection}>
-          <Animated.View entering={FadeIn.delay(100)}>
-            <Text style={styles.greeting}>{greeting}</Text>
-          </Animated.View>
-          <Animated.View entering={FadeInDown.delay(200).springify().damping(38).stiffness(200)}>
-            <Text style={styles.headline}>Try Their Look</Text>
-          </Animated.View>
-          <Animated.View entering={FadeInDown.delay(350)}>
-            <Text style={styles.subtitle}>
-              Upload your photo, pick a style, see yourself transformed.
-            </Text>
-          </Animated.View>
-        </View>
+        {/* Hero Banner */}
+        <Animated.View entering={FadeInDown.delay(100).springify().damping(38).stiffness(200)} style={styles.heroBannerSection}>
+          <HeroBanner onStartNow={() => {
+            scrollViewRef.current?.scrollTo({ y: 240, animated: true });
+          }} />
+        </Animated.View>
 
         {/* Transformation Visualizer */}
-        <Animated.View entering={FadeInDown.delay(400).springify().damping(38).stiffness(200)} style={styles.visualizerSection}>
+        <Animated.View entering={FadeInDown.delay(300).springify().damping(38).stiffness(200)} style={styles.visualizerSection}>
           <TransformationVisualizer
             selfieImage={selfieImage}
             lookImage={lookImage}
@@ -229,7 +196,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* CTA Button */}
-        <Animated.View entering={FadeInDown.delay(900)} style={styles.ctaSection}>
+        <Animated.View entering={FadeInDown.delay(500)} style={styles.ctaSection}>
           <PrimaryButton
             label={buttonState.label}
             onPress={handleGenerate}
@@ -242,18 +209,24 @@ export default function HomeScreen() {
         {/* Inspiration Sections */}
         <View style={styles.inspirationSection}>
           <InspirationSections
-            sections={getHomeSections()}
+            sections={getHomeGroupedSections()}
             selectedPresetImage={lookImage}
             onSelectPreset={selectPreset}
             onSeeAll={handleSeeAllPresets}
           />
         </View>
 
-        {/* How It Works */}
-        <Animated.View entering={FadeInDown.delay(1400)} style={styles.howItWorksSection}>
-          <HowItWorks />
+        {/* Upgrade Banner */}
+        <Animated.View entering={FadeInDown.delay(1200)} style={styles.upgradeBannerSection}>
+          <UpgradeBanner onChoosePlan={() => setPaywallVisible(true)} />
         </Animated.View>
       </ScrollView>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+      />
     </View>
   );
 }

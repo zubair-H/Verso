@@ -135,3 +135,40 @@ export function searchPresets(query: string): Preset[] {
 export function getHomeSections(): PresetSection[] {
   return presetSections.slice(0, 4);
 }
+
+// Get regrouped sections for redesigned home page
+export function getHomeGroupedSections(): PresetSection[] {
+  const findSection = (id: string) => presetSections.find((s) => s.id === id)!;
+
+  return [
+    {
+      id: 'hair',
+      title: 'Transform Your Hair',
+      icon: 'cut',
+      presets: [
+        ...findSection('haircuts').presets.slice(0, 2),
+        ...findSection('hair-color').presets.slice(0, 2),
+        ...findSection('hairstyles').presets.slice(0, 2),
+      ],
+    },
+    {
+      id: 'face',
+      title: 'Enhance Your Face',
+      icon: 'sparkles',
+      presets: [
+        ...findSection('glasses').presets.slice(0, 2),
+        ...findSection('sunglasses').presets.slice(0, 2),
+        ...findSection('makeup').presets.slice(0, 2),
+      ],
+    },
+    {
+      id: 'style',
+      title: 'Style Your Look',
+      icon: 'shirt',
+      presets: [
+        ...findSection('streetwear').presets.slice(0, 3),
+        ...findSection('formal').presets.slice(0, 3),
+      ],
+    },
+  ];
+}

@@ -28,8 +28,7 @@ interface InspirationSectionsProps {
   onSeeAll: () => void;
 }
 
-const CARD_WIDTH = 120;
-const CARD_HEIGHT = 160;
+const CARD_SIZE = 110;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -75,8 +74,8 @@ function InspirationCard({
           padding: 2,
         },
         card: {
-          width: CARD_WIDTH,
-          height: CARD_HEIGHT,
+          width: CARD_SIZE,
+          height: CARD_SIZE,
           borderRadius: borderRadius.lg,
           overflow: 'hidden',
           backgroundColor: colors.bgSecondary,
@@ -86,6 +85,15 @@ function InspirationCard({
           height: '100%',
           resizeMode: 'cover',
         },
+        splitLine: {
+          position: 'absolute',
+          top: CARD_SIZE * 0.15,
+          left: CARD_SIZE / 2 - 0.75,
+          width: 1.5,
+          height: CARD_SIZE * 0.7,
+          backgroundColor: 'rgba(255, 255, 255, 0.5)',
+          borderRadius: 1,
+        },
         overlay: {
           position: 'absolute',
           bottom: 0,
@@ -93,7 +101,7 @@ function InspirationCard({
           right: 0,
           paddingHorizontal: 8,
           paddingBottom: 8,
-          paddingTop: 24,
+          paddingTop: 16,
         },
         name: {
           ...typography.labelSmall,
@@ -114,6 +122,7 @@ function InspirationCard({
       <View style={styles.border}>
         <View style={styles.card}>
           <Image source={{ uri: preset.image }} style={styles.image} />
+          <View style={styles.splitLine} />
           <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.65)']}
             style={styles.overlay}
@@ -179,7 +188,7 @@ function SectionRow({
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(1100 + index * 150).springify().damping(20).stiffness(200)}
+      entering={FadeInDown.delay(800 + index * 150).springify().damping(20).stiffness(200)}
       style={styles.container}
     >
       <View style={styles.header}>

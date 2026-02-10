@@ -60,6 +60,15 @@ export const lightColors = {
   // Gradient colors for accents
   gradientStart: '#1A1F2E',
   gradientEnd: '#0D1017',
+
+  // Hero banner gradient
+  heroBannerStart: '#E8D5F5',
+  heroBannerMid: '#D0B8E8',
+  heroBannerEnd: '#C4A6DE',
+
+  // Upgrade banner gradient
+  upgradeBannerStart: '#F0F4F8',
+  upgradeBannerEnd: '#E8EDF5',
 };
 
 export const darkColors = {
@@ -125,6 +134,15 @@ export const darkColors = {
   // Gradient colors for buttons
   gradientStart: '#27272A',  // Zinc-800
   gradientEnd: '#18181B',    // Zinc-900
+
+  // Hero banner gradient
+  heroBannerStart: '#2D1B4E',
+  heroBannerMid: '#1A1035',
+  heroBannerEnd: '#0F0A20',
+
+  // Upgrade banner gradient
+  upgradeBannerStart: '#1C1C21',
+  upgradeBannerEnd: '#131316',
 };
 
 // Default export for backward compatibility (light mode)
