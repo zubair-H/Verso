@@ -69,6 +69,16 @@ export const lightColors = {
   // Upgrade banner gradient
   upgradeBannerStart: '#F0F4F8',
   upgradeBannerEnd: '#E8EDF5',
+
+  // Face shape analysis banner
+  faceShapeBannerStart: '#D4E8F0',
+  faceShapeBannerMid: '#B8D4E8',
+  faceShapeBannerEnd: '#A0C4DE',
+
+  // Color analysis banner
+  colorAnalysisBannerStart: '#F5E0D0',
+  colorAnalysisBannerMid: '#E8C8B0',
+  colorAnalysisBannerEnd: '#DEB8A0',
 };
 
 export const darkColors = {
@@ -143,6 +153,16 @@ export const darkColors = {
   // Upgrade banner gradient
   upgradeBannerStart: '#1C1C21',
   upgradeBannerEnd: '#131316',
+
+  // Face shape analysis banner
+  faceShapeBannerStart: '#1B2838',
+  faceShapeBannerMid: '#0F1A28',
+  faceShapeBannerEnd: '#0A1220',
+
+  // Color analysis banner
+  colorAnalysisBannerStart: '#382B1B',
+  colorAnalysisBannerMid: '#281A0F',
+  colorAnalysisBannerEnd: '#20150A',
 };
 
 // Default export for backward compatibility (light mode)

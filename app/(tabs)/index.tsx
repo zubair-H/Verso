@@ -1,91 +1,41 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   ScrollView,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  FadeInDown,
-} from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 
-import { PrimaryButton } from '@/components/ui';
-import { TransformationVisualizer, InspirationSections, HeroBanner, UpgradeBanner } from '@/components/home';
+import { HeroBanner, UpgradeBanner, PresetGrid } from '@/components/home';
 import { PaywallModal } from '@/components/features/PaywallModal';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
 import { getHomeGroupedSections } from '@/utils/presets';
-import { trackEvent } from '@/utils/analytics';
 
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ presetImage?: string }>();
-  const scrollViewRef = useRef<ScrollView>(null);
-  const [selfieImage, setSelfieImage] = useState<string | null>(null);
-  const [lookImage, setLookImage] = useState<string | null>(null);
   const [paywallVisible, setPaywallVisible] = useState(false);
 
-  // Handle preset image from Presets tab navigation
-  useEffect(() => {
-    if (params.presetImage) {
-      setLookImage(params.presetImage);
-    }
-  }, [params.presetImage]);
+  const sections = useMemo(() => getHomeGroupedSections(), []);
 
-  const pickImage = async (type: 'selfie' | 'look') => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 0.8,
+  const handleSelectPreset = (presetImage: string) => {
+    router.push({
+      pathname: '/create',
+      params: { presetImage },
     });
-
-    if (!result.canceled && result.assets[0]) {
-      const uri = result.assets[0].uri;
-      if (type === 'selfie') {
-        setSelfieImage(uri);
-      } else {
-        setLookImage(uri);
-      }
-      trackEvent('photo_uploaded', { type });
-    }
   };
-
-  const selectPreset = async (presetImage: string) => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLookImage(presetImage);
-    trackEvent('preset_selected');
-  };
-
-  const handleGenerate = () => {
-    if (selfieImage && lookImage) {
-      router.push({
-        pathname: '/create/select-elements',
-        params: { selfie: selfieImage, look: lookImage },
-      });
-    }
-  };
-
-  const getButtonState = () => {
-    if (!selfieImage && !lookImage) return { label: 'Add your photos to start', disabled: true };
-    if (selfieImage && !lookImage) return { label: 'Now pick a style', disabled: true };
-    if (!selfieImage && lookImage) return { label: 'Now add your photo', disabled: true };
-    return { label: 'See Your Look', disabled: false, icon: 'sparkles' as const };
-  };
-
-  const buttonState = getButtonState();
 
   const handleSeeAllPresets = () => {
-    router.push('/(tabs)/presets');
+    // Scroll-to-top or show all — presets tab removed, home is the browse page
   };
 
   const styles = useMemo(() => StyleSheet.create({
@@ -128,22 +78,11 @@ export default function HomeScreen() {
       paddingHorizontal: layout.screenPadding,
       marginTop: 8,
     },
-    visualizerSection: {
-      marginTop: 28,
-      paddingHorizontal: layout.screenPadding,
-    },
-    ctaSection: {
-      marginTop: 24,
-      paddingHorizontal: layout.screenPadding,
-    },
-    ctaButton: {
-      width: '100%',
-    },
-    inspirationSection: {
-      marginTop: 40,
+    sectionSpacing: {
+      marginTop: 36,
     },
     upgradeBannerSection: {
-      marginTop: 40,
+      marginTop: 36,
       paddingHorizontal: layout.screenPadding,
     },
   }), [colors]);
@@ -164,62 +103,102 @@ export default function HomeScreen() {
             <Text style={[styles.brandText, { opacity: 0 }]}>VERSO</Text>
           </LinearGradient>
         </MaskedView>
-        <View style={styles.proBadge}>
+        <Pressable
+          style={styles.proBadge}
+          onPress={() => setPaywallVisible(true)}
+        >
           <Ionicons name="sparkles" size={12} color={colors.textOnAccent} style={{ marginRight: 4 }} />
           <Text style={styles.proText}>PRO</Text>
-        </View>
+        </Pressable>
       </View>
 
       <ScrollView
-        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Banner */}
+        {/* Hero Banner — Create Your Look */}
         <Animated.View entering={FadeInDown.delay(100).springify().damping(38).stiffness(200)} style={styles.heroBannerSection}>
-          <HeroBanner onStartNow={() => {
-            scrollViewRef.current?.scrollTo({ y: 240, animated: true });
-          }} />
-        </Animated.View>
-
-        {/* Transformation Visualizer */}
-        <Animated.View entering={FadeInDown.delay(300).springify().damping(38).stiffness(200)} style={styles.visualizerSection}>
-          <TransformationVisualizer
-            selfieImage={selfieImage}
-            lookImage={lookImage}
-            onSelectSelfie={() => pickImage('selfie')}
-            onSelectLook={() => pickImage('look')}
-            onRemoveSelfie={() => setSelfieImage(null)}
-            onRemoveLook={() => setLookImage(null)}
+          <HeroBanner
+            title="Try Any Look"
+            subtitle="Upload your photo, pick a style, and see it on you instantly"
+            badge="AI-Powered"
+            badgeIcon="sparkles"
+            ctaLabel="Create Your Look"
+            onPress={() => router.push('/create')}
           />
         </Animated.View>
 
-        {/* CTA Button */}
-        <Animated.View entering={FadeInDown.delay(500)} style={styles.ctaSection}>
-          <PrimaryButton
-            label={buttonState.label}
-            onPress={handleGenerate}
-            disabled={buttonState.disabled}
-            icon={buttonState.icon}
-            style={styles.ctaButton}
-          />
-        </Animated.View>
-
-        {/* Inspiration Sections */}
-        <View style={styles.inspirationSection}>
-          <InspirationSections
-            sections={getHomeGroupedSections()}
-            selectedPresetImage={lookImage}
-            onSelectPreset={selectPreset}
+        {/* Transform Your Hair */}
+        <View style={styles.sectionSpacing}>
+          <PresetGrid
+            section={sections[0]}
+            onSelectPreset={handleSelectPreset}
             onSeeAll={handleSeeAllPresets}
+            animationDelay={300}
+          />
+        </View>
+
+        {/* Face Shape Analysis Banner */}
+        <Animated.View entering={FadeInDown.delay(500)} style={[styles.heroBannerSection, styles.sectionSpacing]}>
+          <HeroBanner
+            title="Face Shape Analysis"
+            subtitle="Discover your face shape and get personalized style recommendations"
+            badge="New"
+            badgeIcon="scan"
+            ctaLabel="Analyze My Face"
+            onPress={() => router.push('/create')}
+            variant="vertical"
+            gradientColors={[
+              colors.faceShapeBannerEnd,
+              colors.faceShapeBannerMid,
+              colors.faceShapeBannerStart,
+            ]}
+          />
+        </Animated.View>
+
+        {/* Enhance Your Face */}
+        <View style={styles.sectionSpacing}>
+          <PresetGrid
+            section={sections[1]}
+            onSelectPreset={handleSelectPreset}
+            onSeeAll={handleSeeAllPresets}
+            animationDelay={700}
           />
         </View>
 
         {/* Upgrade Banner */}
-        <Animated.View entering={FadeInDown.delay(1200)} style={styles.upgradeBannerSection}>
+        <Animated.View entering={FadeInDown.delay(900)} style={styles.upgradeBannerSection}>
           <UpgradeBanner onChoosePlan={() => setPaywallVisible(true)} />
         </Animated.View>
+
+        {/* Color Analysis Banner */}
+        <Animated.View entering={FadeInDown.delay(1100)} style={[styles.heroBannerSection, styles.sectionSpacing]}>
+          <HeroBanner
+            title="Color Analysis"
+            subtitle="Find your season and the colors that complement you best"
+            badge="Popular"
+            badgeIcon="color-palette"
+            ctaLabel="Find My Colors"
+            onPress={() => router.push('/create')}
+            variant="vertical"
+            gradientColors={[
+              colors.colorAnalysisBannerEnd,
+              colors.colorAnalysisBannerMid,
+              colors.colorAnalysisBannerStart,
+            ]}
+          />
+        </Animated.View>
+
+        {/* Style Your Look */}
+        <View style={styles.sectionSpacing}>
+          <PresetGrid
+            section={sections[2]}
+            onSelectPreset={handleSelectPreset}
+            onSeeAll={handleSeeAllPresets}
+            animationDelay={1300}
+          />
+        </View>
       </ScrollView>
 
       {/* Paywall Modal */}

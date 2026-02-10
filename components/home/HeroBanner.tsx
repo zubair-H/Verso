@@ -13,12 +13,29 @@ import { typography } from '@/constants/typography';
 import { borderRadius, springs } from '@/constants/spacing';
 
 interface HeroBannerProps {
-  onStartNow: () => void;
+  title: string;
+  subtitle: string;
+  badge: string;
+  badgeIcon?: keyof typeof Ionicons.glyphMap;
+  ctaLabel: string;
+  onPress: () => void;
+  gradientColors?: [string, string, string];
+  variant?: 'horizontal' | 'vertical';
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function HeroBanner({ onStartNow }: HeroBannerProps) {
+export function HeroBanner({
+  title,
+  subtitle,
+  badge,
+  badgeIcon = 'sparkles',
+  ctaLabel,
+  onPress,
+  gradientColors,
+  variant = 'horizontal',
+}: HeroBannerProps) {
+  const isVertical = variant === 'vertical';
   const { colors, isDark } = useTheme();
   const scale = useSharedValue(1);
 
@@ -36,8 +53,14 @@ export function HeroBanner({ onStartNow }: HeroBannerProps) {
 
   const handlePress = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onStartNow();
+    onPress();
   };
+
+  const bannerGradient = gradientColors || [
+    colors.heroBannerEnd,
+    colors.heroBannerMid,
+    colors.heroBannerStart,
+  ];
 
   const styles = useMemo(
     () =>
@@ -47,19 +70,21 @@ export function HeroBanner({ onStartNow }: HeroBannerProps) {
           overflow: 'hidden',
         },
         gradient: {
-          flexDirection: 'row',
+          flexDirection: isVertical ? 'column' : 'row',
           padding: 24,
-          minHeight: 200,
+          minHeight: isVertical ? 160 : 200,
+          alignItems: isVertical ? 'center' : undefined,
         },
         content: {
-          flex: 1,
+          flex: isVertical ? undefined : 1,
           justifyContent: 'center',
-          paddingRight: 12,
+          alignItems: isVertical ? 'center' : undefined,
+          paddingRight: isVertical ? 0 : 12,
         },
         badge: {
           flexDirection: 'row',
           alignItems: 'center',
-          alignSelf: 'flex-start',
+          alignSelf: isVertical ? 'center' : 'flex-start',
           backgroundColor: 'rgba(255, 255, 255, 0.15)',
           paddingVertical: 4,
           paddingHorizontal: 10,
@@ -75,16 +100,18 @@ export function HeroBanner({ onStartNow }: HeroBannerProps) {
         title: {
           ...typography.headlineLarge,
           color: '#FFFFFF',
+          textAlign: isVertical ? 'center' : undefined,
         },
         subtitle: {
           ...typography.bodySmall,
           color: 'rgba(255, 255, 255, 0.7)',
           marginTop: 6,
+          textAlign: isVertical ? 'center' : undefined,
         },
         ctaButton: {
           flexDirection: 'row',
           alignItems: 'center',
-          alignSelf: 'flex-start',
+          alignSelf: isVertical ? 'center' : 'flex-start',
           backgroundColor: '#FFFFFF',
           paddingVertical: 10,
           paddingHorizontal: 20,
@@ -94,7 +121,7 @@ export function HeroBanner({ onStartNow }: HeroBannerProps) {
         },
         ctaText: {
           ...typography.labelMedium,
-          color: isDark ? colors.heroBannerStart : '#1A1035',
+          color: isDark ? bannerGradient[0] : '#1A1035',
         },
         visual: {
           width: 120,
@@ -129,52 +156,52 @@ export function HeroBanner({ onStartNow }: HeroBannerProps) {
           right: 10,
         },
       }),
-    [colors, isDark]
+    [colors, isDark, bannerGradient]
   );
 
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[colors.heroBannerStart, colors.heroBannerMid, colors.heroBannerEnd]}
+        colors={bannerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
         <View style={styles.content}>
           <View style={styles.badge}>
-            <Ionicons name="sparkles" size={10} color="rgba(255, 255, 255, 0.9)" />
-            <Text style={styles.badgeText}>Featured</Text>
+            <Ionicons name={badgeIcon} size={10} color="rgba(255, 255, 255, 0.9)" />
+            <Text style={styles.badgeText}>{badge}</Text>
           </View>
-          <Text style={styles.title}>Celebrity{'\n'}Look Transfer</Text>
-          <Text style={styles.subtitle}>
-            Extract any style from your favorite celebrity onto your photo
-          </Text>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
           <AnimatedPressable
             onPress={handlePress}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             style={[styles.ctaButton, animatedStyle]}
           >
-            <Text style={styles.ctaText}>Start Now</Text>
+            <Text style={styles.ctaText}>{ctaLabel}</Text>
             <Ionicons
               name="arrow-forward"
               size={14}
-              color={isDark ? colors.heroBannerStart : '#1A1035'}
+              color={isDark ? bannerGradient[0] : '#1A1035'}
             />
           </AnimatedPressable>
         </View>
 
-        <View style={styles.visual}>
-          <View style={styles.cardBack} />
-          <View style={styles.cardFront} />
-          <View style={styles.splitLine} />
-          <Ionicons
-            name="sparkles"
-            size={16}
-            color="rgba(255, 255, 255, 0.4)"
-            style={styles.sparkleOverlay}
-          />
-        </View>
+        {!isVertical && (
+          <View style={styles.visual}>
+            <View style={styles.cardBack} />
+            <View style={styles.cardFront} />
+            <View style={styles.splitLine} />
+            <Ionicons
+              name="sparkles"
+              size={16}
+              color="rgba(255, 255, 255, 0.4)"
+              style={styles.sparkleOverlay}
+            />
+          </View>
+        )}
       </LinearGradient>
     </View>
   );
