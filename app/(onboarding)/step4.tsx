@@ -146,7 +146,7 @@ export default function Step4Screen() {
       headline="See the magic."
       headlineDim="AI brings it to life."
       description="AI applies the look to your photo — see yourself transformed in seconds."
-      nextRoute="/(onboarding)/permissions"
+      nextRoute="/(onboarding)/demo1"
     >
       <MagicHero />
     </OnboardingStep>

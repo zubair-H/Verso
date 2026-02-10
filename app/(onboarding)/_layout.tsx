@@ -28,6 +28,7 @@ const LOGO_SIZE_LARGE = 280;
 const LOGO_SIZE_SMALL = 220;
 
 const STEP_SCREENS = ['step1', 'step2', 'step3', 'step4'];
+const DEMO_SCREENS = ['demo1', 'demo2', 'demo3'];
 
 function getStepIndex(screen: string): number {
   const idx = STEP_SCREENS.indexOf(screen);
@@ -43,7 +44,8 @@ function OnboardingLayoutContent() {
   // Get current screen from segments
   const currentScreen = segments[segments.length - 1] || 'index';
   const isStepScreen = STEP_SCREENS.includes(currentScreen);
-  const isSmallLogo = isStepScreen || currentScreen === 'permissions' || currentScreen === 'howitworks';
+  const isDemoScreen = DEMO_SCREENS.includes(currentScreen);
+  const isSmallLogo = isStepScreen || isDemoScreen || currentScreen === 'permissions' || currentScreen === 'howitworks';
 
   // Logo animation progress (0 = large/top position, 1 = small/higher position)
   const logoProgress = useSharedValue(0);
@@ -128,7 +130,7 @@ function OnboardingLayoutContent() {
     opacity: indicatorOpacity.value,
   }));
 
-  const showLogo = !currentScreen || currentScreen === '(onboarding)' || ['index', 'howitworks', 'step1', 'step2', 'step3', 'step4', 'permissions'].includes(currentScreen);
+  const showLogo = !currentScreen || currentScreen === '(onboarding)' || ['index', 'howitworks', 'step1', 'step2', 'step3', 'step4', 'demo1', 'demo2', 'demo3', 'permissions'].includes(currentScreen);
 
   const isHowItWorks = currentScreen === 'howitworks';
   // On howitworks, currentStep = indicatorCount so collected dots show as "completed"
@@ -198,6 +200,10 @@ function OnboardingLayoutContent() {
         <Stack.Screen name="step2" options={{ animation: 'none' }} />
         <Stack.Screen name="step3" options={{ animation: 'none' }} />
         <Stack.Screen name="step4" options={{ animation: 'none' }} />
+        <Stack.Screen name="demo1" options={{ animation: 'none' }} />
+        <Stack.Screen name="demo2" options={{ animation: 'none' }} />
+        <Stack.Screen name="demo3" options={{ animation: 'none' }} />
+        <Stack.Screen name="permissions" options={{ animation: 'none' }} />
       </Stack>
     </View>
   );

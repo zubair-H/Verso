@@ -116,7 +116,7 @@ export default function HomeScreen() {
     brandText: {
       fontFamily: 'Phosphate-Solid',
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: '900',
       letterSpacing: -0.5,
     },
     proBadge: {

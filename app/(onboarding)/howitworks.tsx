@@ -390,7 +390,7 @@ export default function HowItWorksScreen() {
 
     // Navigate after animation completes
     setTimeout(() => {
-      router.push('/(onboarding)/permissions' as any);
+      router.push('/(onboarding)/demo1' as any);
     }, 550);
   }, []);
 
