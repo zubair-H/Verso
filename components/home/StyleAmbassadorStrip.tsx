@@ -7,6 +7,8 @@ import {
   Image,
   Dimensions,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -22,33 +24,65 @@ interface StyleAmbassadorStripProps {
   personas: StylePersona[];
   selectedPersonaId: string | null;
   onSelectPersona: (persona: StylePersona) => void;
+  analysisTiles?: AnalysisGridTile[];
+}
+
+export interface AnalysisGridTile {
+  id: string;
+  title: string;
+  subtitle: string;
+  badge: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  gradientColors: [string, string, string];
+  onPress: () => void;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const GRID_HORIZONTAL_GAP = 6;
-const GRID_VERTICAL_GAP = 8;
-const GRID_PADDING = layout.screenPadding;
-const CARD_WIDTH = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_HORIZONTAL_GAP) / 2;
-const HEADSHOT_IMAGE_HEIGHT = 182;
-const OUTFIT_IMAGE_HEIGHT = 298;
-const CARD_TEXT_ESTIMATE = 110;
+const GRID_HORIZONTAL_GAP = 4;
+const GRID_VERTICAL_GAP = 10;
+const GRID_TARGET_SIDE_PADDING = 6;
+const CARD_WIDTH = Math.floor(
+  (SCREEN_WIDTH - GRID_TARGET_SIDE_PADDING * 2 - GRID_HORIZONTAL_GAP) / 2
+);
+const GRID_PADDING =
+  (SCREEN_WIDTH - CARD_WIDTH * 2 - GRID_HORIZONTAL_GAP) / 2;
+const CONTENT_HEIGHT = 92;
+const SHORT_CARD_HEIGHT = 248;
+const LONG_CARD_HEIGHT = SHORT_CARD_HEIGHT * 2 + GRID_VERTICAL_GAP;
+const ANALYSIS_CARD_HEIGHT = 210;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+interface PersonaGridTile {
+  id: string;
+  persona: StylePersona;
+  image: string;
+  tileTitle: string;
+  kind: 'headshot' | 'outfit';
+  cardHeight: number;
+}
+
+type FeedBlock =
+  | {
+      id: string;
+      type: 'mosaic';
+      longTile: PersonaGridTile;
+      shortTop: PersonaGridTile;
+      shortBottom: PersonaGridTile;
+      longOnLeft: boolean;
+    }
+  | { id: string; type: 'short-row'; left: PersonaGridTile; right: PersonaGridTile }
+  | { id: string; type: 'analysis'; tile: AnalysisGridTile };
 
 function AmbassadorCard({
   tile,
   isSelected,
   onPress,
+  withBottomGap = false,
 }: {
-  tile: {
-    id: string;
-    persona: StylePersona;
-    image: string;
-    tileTitle: string;
-    kind: 'headshot' | 'outfit';
-    imageHeight: number;
-  };
+  tile: PersonaGridTile;
   isSelected: boolean;
   onPress: () => void;
+  withBottomGap?: boolean;
 }) {
   const { colors } = useTheme();
   const scale = useSharedValue(1);
@@ -74,10 +108,11 @@ function AmbassadorCard({
     () =>
       StyleSheet.create({
         wrapper: {
-          marginBottom: GRID_VERTICAL_GAP,
+          marginBottom: withBottomGap ? GRID_VERTICAL_GAP : 0,
         },
         card: {
           width: '100%',
+          height: tile.cardHeight,
           borderRadius: borderRadius.lg,
           overflow: 'hidden',
           borderWidth: 1.5,
@@ -86,12 +121,14 @@ function AmbassadorCard({
         },
         image: {
           width: '100%',
-          height: tile.imageHeight,
+          height: tile.cardHeight - CONTENT_HEIGHT,
           resizeMode: 'cover',
           backgroundColor: colors.bgSecondary,
         },
         content: {
+          height: CONTENT_HEIGHT,
           padding: 12,
+          justifyContent: 'space-between',
         },
         nameRow: {
           flexDirection: 'row',
@@ -126,7 +163,7 @@ function AmbassadorCard({
           marginTop: 8,
         },
       }),
-    [colors, isSelected]
+    [colors, isSelected, tile.cardHeight, withBottomGap]
   );
 
   return (
@@ -157,66 +194,225 @@ function AmbassadorCard({
   );
 }
 
+function AnalysisBannerCard({ tile }: { tile: AnalysisGridTile }) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.98, springs.snappy);
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, springs.snappy);
+  };
+
+  const handlePress = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    tile.onPress();
+  };
+
+  const styles = StyleSheet.create({
+    wrapper: {
+      width: '100%',
+      marginBottom: GRID_VERTICAL_GAP,
+    },
+    card: {
+      width: '100%',
+      borderRadius: borderRadius.lg,
+      overflow: 'hidden',
+    },
+    body: {
+      minHeight: ANALYSIS_CARD_HEIGHT,
+      padding: 16,
+      justifyContent: 'space-between',
+    },
+    badge: {
+      alignSelf: 'flex-start',
+      borderRadius: borderRadius.full,
+      backgroundColor: 'rgba(255,255,255,0.18)',
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    badgeText: {
+      ...typography.caption,
+      color: 'rgba(255,255,255,0.95)',
+    },
+    title: {
+      ...typography.labelLarge,
+      color: '#FFFFFF',
+      marginTop: 12,
+    },
+    subtitle: {
+      ...typography.bodySmall,
+      color: 'rgba(255,255,255,0.8)',
+      marginTop: 6,
+    },
+    cta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 14,
+    },
+    ctaText: {
+      ...typography.labelSmall,
+      color: '#FFFFFF',
+    },
+  });
+
+  return (
+    <AnimatedPressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[styles.wrapper, animatedStyle]}
+    >
+      <View style={styles.card}>
+        <LinearGradient
+          colors={tile.gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.body}
+        >
+          <View>
+            <View style={styles.badge}>
+              <Ionicons name={tile.icon} size={12} color="rgba(255,255,255,0.95)" />
+              <Text style={styles.badgeText}>{tile.badge}</Text>
+            </View>
+            <Text style={styles.title}>{tile.title}</Text>
+            <Text style={styles.subtitle}>{tile.subtitle}</Text>
+          </View>
+          <View style={styles.cta}>
+            <Text style={styles.ctaText}>Open</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+          </View>
+        </LinearGradient>
+      </View>
+    </AnimatedPressable>
+  );
+}
+
 export function StyleAmbassadorStrip({
   personas,
   selectedPersonaId,
   onSelectPersona,
+  analysisTiles = [],
 }: StyleAmbassadorStripProps) {
   const { colors } = useTheme();
   const personaTiles = useMemo(() => {
-    return personas.flatMap((persona) => {
-      const tiles: Array<{
-        id: string;
-        persona: StylePersona;
-        image: string;
-        tileTitle: string;
-        kind: 'headshot' | 'outfit';
-        imageHeight: number;
-      }> = [
-        {
-          id: `${persona.id}-headshot`,
+    let extraHeadshotsAdded = 0;
+
+    return personas.reduce((acc, persona) => {
+      acc.push({
+        id: `${persona.id}-headshot`,
+        persona,
+        image: persona.headshotImage,
+        tileTitle: `${persona.title} Headshot`,
+        kind: 'headshot',
+        cardHeight: SHORT_CARD_HEIGHT,
+      });
+
+      if (persona.outfitImage && extraHeadshotsAdded < 4) {
+        acc.push({
+          id: `${persona.id}-detail`,
           persona,
           image: persona.headshotImage,
-          tileTitle: `${persona.title} Headshot`,
+          tileTitle: `${persona.title} Detail`,
           kind: 'headshot',
-          imageHeight: HEADSHOT_IMAGE_HEIGHT,
-        },
-      ];
+          cardHeight: SHORT_CARD_HEIGHT,
+        });
+        extraHeadshotsAdded += 1;
+      }
 
       if (persona.outfitImage) {
-        tiles.push({
+        acc.push({
           id: `${persona.id}-outfit`,
           persona,
           image: persona.outfitImage,
           tileTitle: `${persona.title} Outfit`,
           kind: 'outfit',
-          imageHeight: OUTFIT_IMAGE_HEIGHT,
+          cardHeight: LONG_CARD_HEIGHT,
         });
       }
 
-      return tiles;
-    });
+      return acc;
+    }, [] as PersonaGridTile[]);
   }, [personas]);
 
-  const { leftColumn, rightColumn } = useMemo(() => {
-    const left: typeof personaTiles = [];
-    const right: typeof personaTiles = [];
-    let leftHeight = 0;
-    let rightHeight = 0;
+  const feedBlocks = useMemo<FeedBlock[]>(() => {
+    const longTiles = personaTiles.filter((tile) => tile.kind === 'outfit');
+    const shortTiles = personaTiles.filter((tile) => tile.kind === 'headshot');
+    const blocks: FeedBlock[] = [];
+    let longIndex = 0;
+    let shortIndex = 0;
+    let analysisIndex = 0;
+    let longOnLeft = true;
 
-    personaTiles.forEach((tile) => {
-      const estimatedCardHeight = tile.imageHeight + CARD_TEXT_ESTIMATE + GRID_VERTICAL_GAP;
-      if (leftHeight <= rightHeight) {
-        left.push(tile);
-        leftHeight += estimatedCardHeight;
-      } else {
-        right.push(tile);
-        rightHeight += estimatedCardHeight;
+    while (longIndex < longTiles.length && shortIndex + 1 < shortTiles.length) {
+      const longTile = longTiles[longIndex];
+      const shortTop = shortTiles[shortIndex];
+      const shortBottom = shortTiles[shortIndex + 1];
+
+      blocks.push({
+        id: `mosaic-${longTile.id}`,
+        type: 'mosaic',
+        longTile,
+        shortTop,
+        shortBottom,
+        longOnLeft,
+      });
+
+      longIndex += 1;
+      shortIndex += 2;
+      longOnLeft = !longOnLeft;
+
+      if (analysisTiles[analysisIndex]) {
+        blocks.push({
+          id: `analysis-${analysisTiles[analysisIndex].id}`,
+          type: 'analysis',
+          tile: analysisTiles[analysisIndex],
+        });
+        analysisIndex += 1;
       }
-    });
+    }
 
-    return { leftColumn: left, rightColumn: right };
-  }, [personaTiles]);
+    while (shortIndex + 1 < shortTiles.length) {
+      const left = shortTiles[shortIndex];
+      const right = shortTiles[shortIndex + 1];
+      blocks.push({
+        id: `short-row-${left.id}-${right.id}`,
+        type: 'short-row',
+        left,
+        right,
+      });
+      shortIndex += 2;
+
+      if (analysisTiles[analysisIndex]) {
+        blocks.push({
+          id: `analysis-${analysisTiles[analysisIndex].id}`,
+          type: 'analysis',
+          tile: analysisTiles[analysisIndex],
+        });
+        analysisIndex += 1;
+      }
+    }
+
+    while (analysisIndex < analysisTiles.length) {
+      blocks.push({
+        id: `analysis-${analysisTiles[analysisIndex].id}`,
+        type: 'analysis',
+        tile: analysisTiles[analysisIndex],
+      });
+      analysisIndex += 1;
+    }
+
+    return blocks;
+  }, [personaTiles, analysisTiles]);
 
   const styles = useMemo(
     () =>
@@ -237,13 +433,18 @@ export function StyleAmbassadorStrip({
           color: colors.textSecondary,
           marginTop: 4,
         },
+        feed: {
+          paddingHorizontal: GRID_PADDING,
+        },
         masonry: {
           flexDirection: 'row',
-          justifyContent: 'space-between',
-          paddingHorizontal: GRID_PADDING,
+          marginBottom: GRID_VERTICAL_GAP,
         },
         column: {
           width: CARD_WIDTH,
+        },
+        columnGap: {
+          marginRight: GRID_HORIZONTAL_GAP,
         },
       }),
     [colors]
@@ -257,27 +458,85 @@ export function StyleAmbassadorStrip({
           Each persona includes a headshot; outfit personas include full-body references.
         </Text>
       </View>
-      <View style={styles.masonry}>
-        <View style={styles.column}>
-          {leftColumn.map((tile) => (
-            <AmbassadorCard
-              key={tile.id}
-              tile={tile}
-              isSelected={selectedPersonaId === tile.persona.id}
-              onPress={() => onSelectPersona({ ...tile.persona, image: tile.image })}
-            />
-          ))}
-        </View>
-        <View style={styles.column}>
-          {rightColumn.map((tile) => (
-            <AmbassadorCard
-              key={tile.id}
-              tile={tile}
-              isSelected={selectedPersonaId === tile.persona.id}
-              onPress={() => onSelectPersona({ ...tile.persona, image: tile.image })}
-            />
-          ))}
-        </View>
+      <View style={styles.feed}>
+        {feedBlocks.map((block) => {
+          if (block.type === 'analysis') {
+            return <AnalysisBannerCard key={block.id} tile={block.tile} />;
+          }
+
+          if (block.type === 'short-row') {
+            return (
+              <View key={block.id} style={styles.masonry}>
+                <View style={[styles.column, styles.columnGap]}>
+                  <AmbassadorCard
+                    tile={block.left}
+                    isSelected={selectedPersonaId === block.left.persona.id}
+                    onPress={() => onSelectPersona({ ...block.left.persona, image: block.left.image })}
+                  />
+                </View>
+                <View style={styles.column}>
+                  <AmbassadorCard
+                    tile={block.right}
+                    isSelected={selectedPersonaId === block.right.persona.id}
+                    onPress={() => onSelectPersona({ ...block.right.persona, image: block.right.image })}
+                  />
+                </View>
+              </View>
+            );
+          }
+
+          return (
+            <View key={block.id} style={styles.masonry}>
+              {block.longOnLeft ? (
+                <>
+                  <View style={[styles.column, styles.columnGap]}>
+                    <AmbassadorCard
+                      tile={block.longTile}
+                      isSelected={selectedPersonaId === block.longTile.persona.id}
+                      onPress={() => onSelectPersona({ ...block.longTile.persona, image: block.longTile.image })}
+                    />
+                  </View>
+                  <View style={styles.column}>
+                    <AmbassadorCard
+                      tile={block.shortTop}
+                      isSelected={selectedPersonaId === block.shortTop.persona.id}
+                      onPress={() => onSelectPersona({ ...block.shortTop.persona, image: block.shortTop.image })}
+                      withBottomGap
+                    />
+                    <AmbassadorCard
+                      tile={block.shortBottom}
+                      isSelected={selectedPersonaId === block.shortBottom.persona.id}
+                      onPress={() => onSelectPersona({ ...block.shortBottom.persona, image: block.shortBottom.image })}
+                    />
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={[styles.column, styles.columnGap]}>
+                    <AmbassadorCard
+                      tile={block.shortTop}
+                      isSelected={selectedPersonaId === block.shortTop.persona.id}
+                      onPress={() => onSelectPersona({ ...block.shortTop.persona, image: block.shortTop.image })}
+                      withBottomGap
+                    />
+                    <AmbassadorCard
+                      tile={block.shortBottom}
+                      isSelected={selectedPersonaId === block.shortBottom.persona.id}
+                      onPress={() => onSelectPersona({ ...block.shortBottom.persona, image: block.shortBottom.image })}
+                    />
+                  </View>
+                  <View style={styles.column}>
+                    <AmbassadorCard
+                      tile={block.longTile}
+                      isSelected={selectedPersonaId === block.longTile.persona.id}
+                      onPress={() => onSelectPersona({ ...block.longTile.persona, image: block.longTile.image })}
+                    />
+                  </View>
+                </>
+              )}
+            </View>
+          );
+        })}
       </View>
     </View>
   );
