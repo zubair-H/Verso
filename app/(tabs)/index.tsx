@@ -13,24 +13,23 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 
-import { HeroBanner, UpgradeBanner, PresetGrid } from '@/components/home';
+import { HeroBanner, UpgradeBanner, StyleAmbassadorStrip } from '@/components/home';
 import { PaywallModal } from '@/components/features/PaywallModal';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
-import { getHomeGroupedSections } from '@/utils/presets';
+import { stylePersonas } from '@/utils/personas';
+import type { StylePersona } from '@/utils/personas';
 
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [paywallVisible, setPaywallVisible] = useState(false);
 
-  const sections = useMemo(() => getHomeGroupedSections(), []);
-
-  const handleSelectPreset = (presetImage: string) => {
+  const handleSelectPersona = (persona: StylePersona) => {
     router.push({
       pathname: '/create',
-      params: { presetImage },
+      params: { presetImage: persona.image, personaId: persona.id },
     });
   };
 
@@ -117,8 +116,8 @@ export default function HomeScreen() {
         <Animated.View entering={FadeInDown.delay(100).springify().damping(38).stiffness(200)} style={styles.heroBannerSection}>
           <HeroBanner
             title="Try Any Look"
-            subtitle="Upload your photo, pick a style, and see it on you instantly"
-            badge="AI-Powered"
+            subtitle="Upload your photo, pick Aria, Luna, or Max, and remix any attribute instantly"
+            badge="Style Ambassadors"
             badgeIcon="sparkles"
             ctaLabel="Create Your Look"
             onPress={() => router.push('/create')}
@@ -126,14 +125,13 @@ export default function HomeScreen() {
           />
         </Animated.View>
 
-        {/* Transform Your Hair */}
-        <View style={styles.sectionSpacing}>
-          <PresetGrid
-            section={sections[0]}
-            onSelectPreset={handleSelectPreset}
-            animationDelay={300}
+        <Animated.View entering={FadeInDown.delay(300)} style={styles.sectionSpacing}>
+          <StyleAmbassadorStrip
+            personas={stylePersonas}
+            selectedPersonaId={null}
+            onSelectPersona={handleSelectPersona}
           />
-        </View>
+        </Animated.View>
 
         {/* Face Shape Analysis Banner */}
         <Animated.View entering={FadeInDown.delay(500)} style={[styles.heroBannerSection, styles.sectionSpacing]}>
@@ -153,15 +151,6 @@ export default function HomeScreen() {
             ]}
           />
         </Animated.View>
-
-        {/* Enhance Your Face */}
-        <View style={styles.sectionSpacing}>
-          <PresetGrid
-            section={sections[1]}
-            onSelectPreset={handleSelectPreset}
-            animationDelay={700}
-          />
-        </View>
 
         {/* Upgrade Banner */}
         <Animated.View entering={FadeInDown.delay(900)} style={styles.upgradeBannerSection}>
@@ -187,14 +176,6 @@ export default function HomeScreen() {
           />
         </Animated.View>
 
-        {/* Style Your Look */}
-        <View style={styles.sectionSpacing}>
-          <PresetGrid
-            section={sections[2]}
-            onSelectPreset={handleSelectPreset}
-            animationDelay={1300}
-          />
-        </View>
       </ScrollView>
 
       {/* Paywall Modal */}

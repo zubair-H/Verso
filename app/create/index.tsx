@@ -14,25 +14,30 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { PrimaryButton } from '@/components/ui';
-import { TransformationVisualizer, InspirationSections } from '@/components/home';
+import { TransformationVisualizer, StyleAmbassadorStrip } from '@/components/home';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
-import { getHomeSections } from '@/utils/presets';
 import { trackEvent } from '@/utils/analytics';
+import { stylePersonas } from '@/utils/personas';
+import type { StylePersona } from '@/utils/personas';
 
 export default function CreateScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ presetImage?: string }>();
+  const params = useLocalSearchParams<{ presetImage?: string; personaId?: string }>();
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
   const [lookImage, setLookImage] = useState<string | null>(null);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
 
   useEffect(() => {
     if (params.presetImage) {
       setLookImage(params.presetImage);
     }
-  }, [params.presetImage]);
+    if (params.personaId) {
+      setSelectedPersonaId(params.personaId);
+    }
+  }, [params.presetImage, params.personaId]);
 
   const pickImage = async (type: 'selfie' | 'look') => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -48,14 +53,16 @@ export default function CreateScreen() {
         setSelfieImage(uri);
       } else {
         setLookImage(uri);
+        setSelectedPersonaId(null);
       }
       trackEvent('photo_uploaded', { type });
     }
   };
 
-  const selectPreset = async (presetImage: string) => {
+  const selectPersona = async (persona: StylePersona) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLookImage(presetImage);
+    setLookImage(persona.image);
+    setSelectedPersonaId(persona.id);
     trackEvent('preset_selected');
   };
 
@@ -70,7 +77,7 @@ export default function CreateScreen() {
 
   const getButtonState = () => {
     if (!selfieImage && !lookImage) return { label: 'Add your photos to start', disabled: true };
-    if (selfieImage && !lookImage) return { label: 'Now pick a style', disabled: true };
+    if (selfieImage && !lookImage) return { label: 'Now pick an ambassador look', disabled: true };
     if (!selfieImage && lookImage) return { label: 'Now add your photo', disabled: true };
     return { label: 'See Your Look', disabled: false, icon: 'sparkles' as const };
   };
@@ -159,12 +166,12 @@ export default function CreateScreen() {
           />
         </Animated.View>
 
-        {/* Quick Pick Presets */}
+        {/* Style Ambassadors */}
         <View style={styles.inspirationSection}>
-          <InspirationSections
-            sections={getHomeSections()}
-            selectedPresetImage={lookImage}
-            onSelectPreset={selectPreset}
+          <StyleAmbassadorStrip
+            personas={stylePersonas}
+            selectedPersonaId={selectedPersonaId}
+            onSelectPersona={selectPersona}
           />
         </View>
       </ScrollView>

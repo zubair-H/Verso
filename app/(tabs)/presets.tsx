@@ -203,7 +203,7 @@ export default function PresetsScreen() {
     <View style={[dynamicStyles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={staticStyles.header}>
-        <Text style={dynamicStyles.title}>Discover</Text>
+        <Text style={dynamicStyles.title}>Ambassadors</Text>
       </View>
 
       {/* Search Bar */}
@@ -212,7 +212,7 @@ export default function PresetsScreen() {
           <Ionicons name="search" size={16} color={colors.textTertiary} style={staticStyles.searchIcon} />
           <TextInput
             style={dynamicStyles.searchInput}
-            placeholder="Search looks..."
+            placeholder="Search ambassadors or looks..."
             placeholderTextColor={colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -246,7 +246,7 @@ export default function PresetsScreen() {
                 ))}
               </View>
             ) : (
-              <Text style={dynamicStyles.emptyText}>No results found</Text>
+              <Text style={dynamicStyles.emptyText}>No ambassador looks found</Text>
             )}
           </>
         ) : (

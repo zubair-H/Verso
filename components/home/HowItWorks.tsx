@@ -7,7 +7,7 @@ import { borderRadius, layout } from '@/constants/spacing';
 
 const STEPS = [
   { icon: 'camera-outline' as const, label: 'Upload your photo' },
-  { icon: 'search-outline' as const, label: 'Pick a celebrity look' },
+  { icon: 'search-outline' as const, label: 'Pick an ambassador look' },
   { icon: 'sparkles-outline' as const, label: 'See yourself transformed' },
 ];
 

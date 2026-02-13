@@ -281,7 +281,7 @@ export function TransformationVisualizer({
       <UploadCard
         image={lookImage}
         icon="search-outline"
-        label="Inspo"
+        label="Ambassador"
         onSelect={onSelectLook}
         onRemove={onRemoveLook}
       />
