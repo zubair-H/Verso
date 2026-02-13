@@ -48,7 +48,8 @@ export default function HomeScreen() {
           colors.faceShapeBannerMid,
           colors.faceShapeBannerStart,
         ],
-        onPress: () => router.push('/(tabs)/create'),
+        onPress: () =>
+          router.push({ pathname: '/(tabs)/create', params: { mode: 'face', category: 'face-structure' } }),
       },
       {
         id: 'hair-texture',
@@ -61,7 +62,8 @@ export default function HomeScreen() {
           colors.heroBannerMid,
           colors.colorAnalysisBannerEnd,
         ],
-        onPress: () => router.push('/(tabs)/create'),
+        onPress: () =>
+          router.push({ pathname: '/(tabs)/create', params: { mode: 'hair', category: 'hair-texture' } }),
       },
       {
         id: 'color-analysis',
@@ -74,7 +76,8 @@ export default function HomeScreen() {
           colors.colorAnalysisBannerMid,
           colors.colorAnalysisBannerStart,
         ],
-        onPress: () => router.push('/(tabs)/create'),
+        onPress: () =>
+          router.push({ pathname: '/(tabs)/create', params: { mode: 'color', category: 'color-undertone' } }),
       },
       {
         id: 'skin-tone',
@@ -87,7 +90,8 @@ export default function HomeScreen() {
           colors.faceShapeBannerMid,
           colors.colorAnalysisBannerStart,
         ],
-        onPress: () => router.push('/(tabs)/create'),
+        onPress: () =>
+          router.push({ pathname: '/(tabs)/create', params: { mode: 'skin', category: 'skin-tone' } }),
       },
       {
         id: 'style-dna',
@@ -100,7 +104,8 @@ export default function HomeScreen() {
           colors.heroBannerStart,
           colors.faceShapeBannerEnd,
         ],
-        onPress: () => router.push('/(tabs)/create'),
+        onPress: () =>
+          router.push({ pathname: '/(tabs)/create', params: { mode: 'style', category: 'style-vibe' } }),
       },
     ],
     [colors]
