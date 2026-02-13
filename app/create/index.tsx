@@ -230,14 +230,14 @@ export default function CreateScreen() {
         plannerCard: {
           paddingTop: 2,
         },
-        plannerTitle: {
-          ...typography.labelLarge,
-          color: colors.textPrimary,
-        },
         plannerHeader: {
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
+        },
+        plannerTitle: {
+          ...typography.labelLarge,
+          color: colors.textPrimary,
         },
         clearButton: {
           paddingHorizontal: 6,
@@ -246,6 +246,37 @@ export default function CreateScreen() {
         clearText: {
           ...typography.caption,
           color: colors.textSecondary,
+        },
+        customRow: {
+          marginTop: 10,
+        },
+        customComposer: {
+          minHeight: 56,
+          borderRadius: borderRadius.lg,
+          backgroundColor: colors.bgCard,
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+        },
+        customInput: {
+          flex: 1,
+          minHeight: 40,
+          color: colors.textPrimary,
+          paddingHorizontal: 8,
+          paddingVertical: 8,
+          ...typography.bodyMedium,
+        },
+        composerAddButton: {
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          backgroundColor: colors.accentMuted,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        composerAddButtonActive: {
+          backgroundColor: colors.accent,
         },
         selectedRow: {
           marginTop: 10,
@@ -269,7 +300,7 @@ export default function CreateScreen() {
           color: colors.textPrimary,
         },
         categoryRow: {
-          marginTop: 10,
+          marginTop: 12,
           flexDirection: 'row',
           flexWrap: 'wrap',
           marginHorizontal: -4,
@@ -295,12 +326,6 @@ export default function CreateScreen() {
         categoryTextActive: {
           color: colors.textPrimary,
         },
-        tagsWrap: {
-          marginTop: 10,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          marginHorizontal: -4,
-        },
         optionsDivider: {
           marginTop: 4,
           marginBottom: 2,
@@ -317,6 +342,12 @@ export default function CreateScreen() {
         optionsDividerText: {
           ...typography.caption,
           color: colors.textTertiary,
+        },
+        tagsWrap: {
+          marginTop: 10,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          marginHorizontal: -4,
         },
         tag: {
           borderRadius: borderRadius.full,
@@ -336,54 +367,6 @@ export default function CreateScreen() {
         tagTextActive: {
           color: colors.textPrimary,
         },
-        customRow: {
-          marginTop: 8,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-        },
-        customSearchBar: {
-          flex: 1,
-          height: 46,
-          borderRadius: borderRadius.full,
-          backgroundColor: colors.bgCard,
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: 12,
-          gap: 8,
-        },
-        customInput: {
-          flex: 1,
-          height: '100%',
-          color: colors.textPrimary,
-          ...typography.bodyMedium,
-        },
-        clearSearchButton: {
-          width: 24,
-          height: 24,
-          borderRadius: 12,
-          backgroundColor: colors.bgTertiary,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        addButton: {
-          height: 40,
-          borderRadius: borderRadius.full,
-          paddingHorizontal: 14,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.accentMuted,
-        },
-        addButtonActive: {
-          backgroundColor: colors.accent,
-        },
-        addButtonText: {
-          ...typography.labelSmall,
-          color: colors.textSecondary,
-        },
-        addButtonTextActive: {
-          color: colors.textOnAccent,
-        },
         bottomBar: {
           backgroundColor: colors.bgPrimary,
           paddingHorizontal: layout.screenPadding,
@@ -401,7 +384,7 @@ export default function CreateScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}> 
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
@@ -445,6 +428,34 @@ export default function CreateScreen() {
                     <Text style={styles.clearText}>Clear</Text>
                   </Pressable>
                 )}
+              </Animated.View>
+
+              <Animated.View style={styles.customRow} layout={SOFT_LAYOUT}>
+                <View style={styles.customComposer}>
+                  <Ionicons name="create-outline" size={16} color={colors.textTertiary} />
+                  <TextInput
+                    style={styles.customInput}
+                    value={customAttribute}
+                    onChangeText={setCustomAttribute}
+                    placeholder="Type your own attribute"
+                    placeholderTextColor={colors.textTertiary}
+                    returnKeyType="done"
+                    onSubmitEditing={addCustomAttribute}
+                  />
+                  <Pressable
+                    style={[
+                      styles.composerAddButton,
+                      customAttribute.trim().length > 0 && styles.composerAddButtonActive,
+                    ]}
+                    onPress={addCustomAttribute}
+                  >
+                    <Ionicons
+                      name="add"
+                      size={16}
+                      color={customAttribute.trim().length > 0 ? colors.textOnAccent : colors.textSecondary}
+                    />
+                  </Pressable>
+                </View>
               </Animated.View>
 
               {selectedAttributes.length > 0 && (
@@ -530,50 +541,11 @@ export default function CreateScreen() {
                   );
                 })}
               </Animated.View>
-
-              <Animated.View style={styles.customRow} layout={SOFT_LAYOUT}>
-                <View style={styles.customSearchBar}>
-                  <Ionicons name="search" size={16} color={colors.textTertiary} />
-                  <TextInput
-                    style={styles.customInput}
-                    value={customAttribute}
-                    onChangeText={setCustomAttribute}
-                    placeholder="Search or type custom attribute"
-                    placeholderTextColor={colors.textTertiary}
-                    returnKeyType="search"
-                    onSubmitEditing={addCustomAttribute}
-                  />
-                  {customAttribute.trim().length > 0 && (
-                    <Pressable
-                      style={styles.clearSearchButton}
-                      onPress={() => setCustomAttribute('')}
-                    >
-                      <Ionicons name="close" size={12} color={colors.textSecondary} />
-                    </Pressable>
-                  )}
-                </View>
-                <Pressable
-                  style={[
-                    styles.addButton,
-                    customAttribute.trim().length > 0 && styles.addButtonActive,
-                  ]}
-                  onPress={addCustomAttribute}
-                >
-                  <Text
-                    style={[
-                      styles.addButtonText,
-                      customAttribute.trim().length > 0 && styles.addButtonTextActive,
-                    ]}
-                  >
-                    Add
-                  </Text>
-                </Pressable>
-              </Animated.View>
             </Animated.View>
           </Animated.View>
         </ScrollView>
 
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}> 
           <Animated.View
             key={ctaLabel}
             layout={SOFT_LAYOUT}
