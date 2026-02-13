@@ -25,10 +25,13 @@ interface StyleAmbassadorStripProps {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const GRID_GAP = 8;
+const GRID_HORIZONTAL_GAP = 6;
+const GRID_VERTICAL_GAP = 8;
 const GRID_PADDING = layout.screenPadding;
-const CARD_WIDTH = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP) / 2;
-const CARD_IMAGE_HEIGHT = 210;
+const CARD_WIDTH = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_HORIZONTAL_GAP) / 2;
+const HEADSHOT_IMAGE_HEIGHT = 182;
+const OUTFIT_IMAGE_HEIGHT = 298;
+const CARD_TEXT_ESTIMATE = 110;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 function AmbassadorCard({
@@ -42,6 +45,7 @@ function AmbassadorCard({
     image: string;
     tileTitle: string;
     kind: 'headshot' | 'outfit';
+    imageHeight: number;
   };
   isSelected: boolean;
   onPress: () => void;
@@ -70,11 +74,10 @@ function AmbassadorCard({
     () =>
       StyleSheet.create({
         wrapper: {
-          width: CARD_WIDTH,
-          marginBottom: GRID_GAP,
+          marginBottom: GRID_VERTICAL_GAP,
         },
         card: {
-          width: CARD_WIDTH,
+          width: '100%',
           borderRadius: borderRadius.lg,
           overflow: 'hidden',
           borderWidth: 1.5,
@@ -83,8 +86,8 @@ function AmbassadorCard({
         },
         image: {
           width: '100%',
-          height: CARD_IMAGE_HEIGHT,
-          resizeMode: tile.kind === 'outfit' ? 'contain' : 'cover',
+          height: tile.imageHeight,
+          resizeMode: 'cover',
           backgroundColor: colors.bgSecondary,
         },
         content: {
@@ -168,6 +171,7 @@ export function StyleAmbassadorStrip({
         image: string;
         tileTitle: string;
         kind: 'headshot' | 'outfit';
+        imageHeight: number;
       }> = [
         {
           id: `${persona.id}-headshot`,
@@ -175,6 +179,7 @@ export function StyleAmbassadorStrip({
           image: persona.headshotImage,
           tileTitle: `${persona.title} Headshot`,
           kind: 'headshot',
+          imageHeight: HEADSHOT_IMAGE_HEIGHT,
         },
       ];
 
@@ -185,12 +190,33 @@ export function StyleAmbassadorStrip({
           image: persona.outfitImage,
           tileTitle: `${persona.title} Outfit`,
           kind: 'outfit',
+          imageHeight: OUTFIT_IMAGE_HEIGHT,
         });
       }
 
       return tiles;
     });
   }, [personas]);
+
+  const { leftColumn, rightColumn } = useMemo(() => {
+    const left: typeof personaTiles = [];
+    const right: typeof personaTiles = [];
+    let leftHeight = 0;
+    let rightHeight = 0;
+
+    personaTiles.forEach((tile) => {
+      const estimatedCardHeight = tile.imageHeight + CARD_TEXT_ESTIMATE + GRID_VERTICAL_GAP;
+      if (leftHeight <= rightHeight) {
+        left.push(tile);
+        leftHeight += estimatedCardHeight;
+      } else {
+        right.push(tile);
+        rightHeight += estimatedCardHeight;
+      }
+    });
+
+    return { leftColumn: left, rightColumn: right };
+  }, [personaTiles]);
 
   const styles = useMemo(
     () =>
@@ -211,11 +237,13 @@ export function StyleAmbassadorStrip({
           color: colors.textSecondary,
           marginTop: 4,
         },
-        grid: {
+        masonry: {
           flexDirection: 'row',
-          flexWrap: 'wrap',
           justifyContent: 'space-between',
           paddingHorizontal: GRID_PADDING,
+        },
+        column: {
+          width: CARD_WIDTH,
         },
       }),
     [colors]
@@ -229,15 +257,27 @@ export function StyleAmbassadorStrip({
           Each persona includes a headshot; outfit personas include full-body references.
         </Text>
       </View>
-      <View style={styles.grid}>
-        {personaTiles.map((tile) => (
-          <AmbassadorCard
-            key={tile.id}
-            tile={tile}
-            isSelected={selectedPersonaId === tile.persona.id}
-            onPress={() => onSelectPersona({ ...tile.persona, image: tile.image })}
-          />
-        ))}
+      <View style={styles.masonry}>
+        <View style={styles.column}>
+          {leftColumn.map((tile) => (
+            <AmbassadorCard
+              key={tile.id}
+              tile={tile}
+              isSelected={selectedPersonaId === tile.persona.id}
+              onPress={() => onSelectPersona({ ...tile.persona, image: tile.image })}
+            />
+          ))}
+        </View>
+        <View style={styles.column}>
+          {rightColumn.map((tile) => (
+            <AmbassadorCard
+              key={tile.id}
+              tile={tile}
+              isSelected={selectedPersonaId === tile.persona.id}
+              onPress={() => onSelectPersona({ ...tile.persona, image: tile.image })}
+            />
+          ))}
+        </View>
       </View>
     </View>
   );
