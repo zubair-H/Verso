@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View, Text, Pressable } from 'react-native';
+import { StyleSheet, View, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -11,14 +10,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
-import { typography } from '@/constants/typography';
 import { layout, springs } from '@/constants/spacing';
 
 interface TabItem {
   name: string;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
-  iconFilled: keyof typeof Ionicons.glyphMap;
 }
 
 interface CustomTabBarProps {
@@ -28,9 +25,10 @@ interface CustomTabBarProps {
 }
 
 const tabs: TabItem[] = [
-  { name: 'index', label: 'Home', icon: 'home-outline', iconFilled: 'home' },
-  { name: 'saved', label: 'Saved', icon: 'heart-outline', iconFilled: 'heart' },
-  { name: 'settings', label: 'More', icon: 'menu', iconFilled: 'menu' },
+  { name: 'index', label: 'Home', icon: 'home-outline' },
+  { name: 'saved', label: 'Saved', icon: 'heart-outline' },
+  { name: 'live', label: 'Live', icon: 'sparkles-outline' },
+  { name: 'settings', label: 'More', icon: 'menu-outline' },
 ];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -60,25 +58,24 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-around',
-      paddingHorizontal: 20,
+      paddingHorizontal: 14,
       paddingBottom: 20,
     },
     tabButton: {
       alignItems: 'center',
       justifyContent: 'center',
-      minWidth: 64,
+      minWidth: 56,
+    },
+    activeTabButton: {
+      marginTop: -28,
+      zIndex: 3,
     },
     activeTab: {
-      flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      justifyContent: 'center',
     },
     inactiveTab: {
       padding: 10,
-    },
-    labelActive: {
-      ...typography.labelSmall,
-      color: colors.accent,
     },
     createButton: {
       alignItems: 'center',
@@ -105,12 +102,15 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
 
   const handleCreatePress = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push('/create');
+    navigation.navigate('create');
   };
 
-  // Order: Home, Saved, [Create], More
+  const currentRouteName = state.routes[state.index]?.name;
+  const isCreateActive = currentRouteName === 'create';
+
+  // Order: Home, Saved, [Create], Live, More
   const leftTabs = tabs.slice(0, 2);   // Home, Saved
-  const rightTabs = tabs.slice(2);      // More
+  const rightTabs = tabs.slice(2);      // Live, More
 
   return (
     <View style={styles.container}>
@@ -142,6 +142,7 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
               onPress={onPress}
               colors={colors}
               styles={styles}
+              gradientColors={createGradientColors}
             />
           );
         })}
@@ -151,6 +152,8 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
           onPress={handleCreatePress}
           gradientColors={createGradientColors}
           styles={styles}
+          isActive={isCreateActive}
+          colors={colors}
         />
 
         {/* Right tab — More */}
@@ -179,6 +182,7 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
               onPress={onPress}
               colors={colors}
               styles={styles}
+              gradientColors={createGradientColors}
             />
           );
         })}
@@ -191,10 +195,14 @@ function CreateButton({
   onPress,
   gradientColors,
   styles,
+  isActive,
+  colors,
 }: {
   onPress: () => void;
   gradientColors: [string, string];
   styles: any;
+  isActive: boolean;
+  colors: any;
 }) {
   const scale = useSharedValue(1);
 
@@ -215,16 +223,26 @@ function CreateButton({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.createButton, animatedStyle]}
+      style={[
+        styles.createButton,
+        !isActive && { marginTop: 0 },
+        animatedStyle,
+      ]}
     >
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.createGradient}
-      >
-        <Ionicons name="add" size={26} color="#FFFFFF" />
-      </LinearGradient>
+      {isActive ? (
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.createGradient}
+        >
+          <Ionicons name="add" size={26} color="#FFFFFF" />
+        </LinearGradient>
+      ) : (
+        <View style={styles.inactiveTab}>
+          <Ionicons name="add-outline" size={22} color={colors.textTertiary} />
+        </View>
+      )}
     </AnimatedPressable>
   );
 }
@@ -235,12 +253,14 @@ function TabButton({
   onPress,
   colors,
   styles,
+  gradientColors,
 }: {
   tab: TabItem;
   isFocused: boolean;
   onPress: () => void;
   colors: any;
   styles: any;
+  gradientColors: [string, string];
 }) {
   const scale = useSharedValue(1);
 
@@ -261,15 +281,21 @@ function TabButton({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.tabButton, animatedStyle]}
+      style={[styles.tabButton, isFocused && styles.activeTabButton, animatedStyle]}
     >
       {isFocused ? (
         <Animated.View
           entering={FadeIn.duration(150)}
           style={styles.activeTab}
         >
-          <Ionicons name={tab.iconFilled} size={20} color={colors.accent} />
-          <Text style={styles.labelActive}>{tab.label}</Text>
+          <LinearGradient
+            colors={gradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.createGradient}
+          >
+            <Ionicons name={tab.icon} size={26} color="#FFFFFF" />
+          </LinearGradient>
         </Animated.View>
       ) : (
         <View style={styles.inactiveTab}>

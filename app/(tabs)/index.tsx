@@ -30,7 +30,7 @@ export default function HomeScreen() {
 
   const handleSelectPersona = (persona: StylePersona) => {
     router.push({
-      pathname: '/create',
+      pathname: '/(tabs)/create',
       params: { presetImage: persona.image, personaId: persona.id },
     });
   };
@@ -48,7 +48,7 @@ export default function HomeScreen() {
           colors.faceShapeBannerMid,
           colors.faceShapeBannerStart,
         ],
-        onPress: () => router.push('/create'),
+        onPress: () => router.push('/(tabs)/create'),
       },
       {
         id: 'hair-texture',
@@ -57,11 +57,11 @@ export default function HomeScreen() {
         badge: 'AI',
         icon: 'cut',
         gradientColors: [
-          colors.heroBannerEnd,
+          colors.faceShapeBannerStart,
           colors.heroBannerMid,
-          colors.heroBannerStart,
+          colors.colorAnalysisBannerEnd,
         ],
-        onPress: () => router.push('/create'),
+        onPress: () => router.push('/(tabs)/create'),
       },
       {
         id: 'color-analysis',
@@ -74,7 +74,7 @@ export default function HomeScreen() {
           colors.colorAnalysisBannerMid,
           colors.colorAnalysisBannerStart,
         ],
-        onPress: () => router.push('/create'),
+        onPress: () => router.push('/(tabs)/create'),
       },
       {
         id: 'skin-tone',
@@ -83,11 +83,11 @@ export default function HomeScreen() {
         badge: 'Recommended',
         icon: 'color-palette',
         gradientColors: [
-          colors.faceShapeBannerEnd,
+          colors.heroBannerEnd,
           colors.faceShapeBannerMid,
-          colors.faceShapeBannerStart,
+          colors.colorAnalysisBannerStart,
         ],
-        onPress: () => router.push('/create'),
+        onPress: () => router.push('/(tabs)/create'),
       },
       {
         id: 'style-dna',
@@ -96,11 +96,11 @@ export default function HomeScreen() {
         badge: 'New',
         icon: 'sparkles',
         gradientColors: [
-          colors.colorAnalysisBannerEnd,
           colors.colorAnalysisBannerMid,
-          colors.colorAnalysisBannerStart,
+          colors.heroBannerStart,
+          colors.faceShapeBannerEnd,
         ],
-        onPress: () => router.push('/create'),
+        onPress: () => router.push('/(tabs)/create'),
       },
     ],
     [colors]
@@ -189,7 +189,7 @@ export default function HomeScreen() {
             badge="Style Ambassadors"
             badgeIcon="sparkles"
             ctaLabel="Create Your Look"
-            onPress={() => router.push('/create')}
+            onPress={() => router.push('/(tabs)/create')}
             tilt={0}
           />
         </Animated.View>

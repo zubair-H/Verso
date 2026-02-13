@@ -30,7 +30,15 @@ interface AttributeGroup {
   tags: string[];
 }
 
-type AttributeCategory = 'hair' | 'face' | 'color' | 'style';
+type AttributeCategory =
+  | 'hair'
+  | 'face'
+  | 'color'
+  | 'style'
+  | 'makeup'
+  | 'accessories'
+  | 'beard'
+  | 'pose';
 
 const ATTRIBUTE_GROUPS: AttributeGroup[] = [
   {
@@ -56,6 +64,30 @@ const ATTRIBUTE_GROUPS: AttributeGroup[] = [
     title: 'Style',
     icon: 'shirt',
     tags: ['Outfit silhouette', 'Layering style', 'Accessories', 'Entire vibe'],
+  },
+  {
+    id: 'makeup',
+    title: 'Makeup',
+    icon: 'sparkles',
+    tags: ['Blush placement', 'Eyeliner shape', 'Lash style', 'Highlight intensity'],
+  },
+  {
+    id: 'accessories',
+    title: 'Accessories',
+    icon: 'diamond-outline',
+    tags: ['Glasses style', 'Earring shape', 'Necklace layer', 'Hat profile'],
+  },
+  {
+    id: 'beard',
+    title: 'Beard',
+    icon: 'male-outline',
+    tags: ['Beard density', 'Jawline beard shape', 'Mustache style', 'Fade blend'],
+  },
+  {
+    id: 'pose',
+    title: 'Pose',
+    icon: 'body-outline',
+    tags: ['Head tilt', 'Shoulder angle', 'Expression mood', 'Camera framing'],
   },
 ];
 
@@ -227,6 +259,9 @@ export default function CreateScreen() {
           marginTop: 16,
           paddingHorizontal: layout.screenPadding,
         },
+        attributesSection: {
+          marginTop: 32,
+        },
         plannerCard: {
           paddingTop: 2,
         },
@@ -299,11 +334,13 @@ export default function CreateScreen() {
           ...typography.caption,
           color: colors.textPrimary,
         },
-        categoryRow: {
+        categoryScroll: {
           marginTop: 12,
+          marginHorizontal: -layout.screenPadding,
+        },
+        categoryRow: {
           flexDirection: 'row',
-          flexWrap: 'wrap',
-          marginHorizontal: -4,
+          paddingHorizontal: layout.screenPadding,
         },
         categoryButton: {
           flexDirection: 'row',
@@ -418,7 +455,7 @@ export default function CreateScreen() {
           <Animated.View
             entering={FadeInDown.delay(140).duration(320)}
             layout={SOFT_LAYOUT}
-            style={styles.section}
+            style={[styles.section, styles.attributesSection]}
           >
             <Animated.View style={styles.plannerCard} layout={SOFT_LAYOUT}>
               <Animated.View style={styles.plannerHeader} layout={SOFT_LAYOUT}>
@@ -429,6 +466,32 @@ export default function CreateScreen() {
                   </Pressable>
                 )}
               </Animated.View>
+
+              {selectedAttributes.length > 0 && (
+                <Animated.View
+                  style={styles.selectedRow}
+                  layout={SOFT_LAYOUT}
+                  entering={FadeIn.duration(200)}
+                  exiting={FadeOut.duration(140)}
+                >
+                  {selectedAttributes.map((attribute) => (
+                    <Animated.View
+                      key={attribute}
+                      layout={SOFT_LAYOUT}
+                      entering={FadeIn.duration(160)}
+                      exiting={FadeOut.duration(120)}
+                    >
+                      <Pressable
+                        style={styles.selectedChip}
+                        onPress={() => removeAttribute(attribute)}
+                      >
+                        <Text style={styles.selectedChipText}>{attribute}</Text>
+                        <Ionicons name="close" size={12} color={colors.textSecondary} />
+                      </Pressable>
+                    </Animated.View>
+                  ))}
+                </Animated.View>
+              )}
 
               <Animated.View style={styles.customRow} layout={SOFT_LAYOUT}>
                 <View style={styles.customComposer}>
@@ -458,53 +521,34 @@ export default function CreateScreen() {
                 </View>
               </Animated.View>
 
-              {selectedAttributes.length > 0 && (
-                <Animated.View
-                  style={styles.selectedRow}
-                  layout={SOFT_LAYOUT}
-                  entering={FadeIn.duration(200)}
-                  exiting={FadeOut.duration(140)}
+              <Animated.View layout={SOFT_LAYOUT}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.categoryScroll}
+                  contentContainerStyle={styles.categoryRow}
                 >
-                  {selectedAttributes.map((attribute) => (
-                    <Animated.View
-                      key={attribute}
-                      layout={SOFT_LAYOUT}
-                      entering={FadeIn.duration(160)}
-                      exiting={FadeOut.duration(120)}
-                    >
-                      <Pressable
-                        style={styles.selectedChip}
-                        onPress={() => removeAttribute(attribute)}
-                      >
-                        <Text style={styles.selectedChipText}>{attribute}</Text>
-                        <Ionicons name="close" size={12} color={colors.textSecondary} />
-                      </Pressable>
-                    </Animated.View>
-                  ))}
-                </Animated.View>
-              )}
-
-              <Animated.View style={styles.categoryRow} layout={SOFT_LAYOUT}>
-                {ATTRIBUTE_GROUPS.map((group) => {
-                  const active = activeCategory === group.id;
-                  return (
-                    <Animated.View key={group.id} layout={SOFT_LAYOUT}>
-                      <Pressable
-                        style={[styles.categoryButton, active && styles.categoryButtonActive]}
-                        onPress={() => selectCategory(group.id)}
-                      >
-                        <Ionicons
-                          name={group.icon}
-                          size={13}
-                          color={active ? colors.textPrimary : colors.textSecondary}
-                        />
-                        <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
-                          {group.title}
-                        </Text>
-                      </Pressable>
-                    </Animated.View>
-                  );
-                })}
+                  {ATTRIBUTE_GROUPS.map((group) => {
+                    const active = activeCategory === group.id;
+                    return (
+                      <Animated.View key={group.id} layout={SOFT_LAYOUT}>
+                        <Pressable
+                          style={[styles.categoryButton, active && styles.categoryButtonActive]}
+                          onPress={() => selectCategory(group.id)}
+                        >
+                          <Ionicons
+                            name={group.icon}
+                            size={13}
+                            color={active ? colors.textPrimary : colors.textSecondary}
+                          />
+                          <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
+                            {group.title}
+                          </Text>
+                        </Pressable>
+                      </Animated.View>
+                    );
+                  })}
+                </ScrollView>
               </Animated.View>
 
               <Animated.View style={styles.optionsDivider} layout={SOFT_LAYOUT}>
@@ -545,7 +589,7 @@ export default function CreateScreen() {
           </Animated.View>
         </ScrollView>
 
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}> 
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + layout.tabBarHeight + 8 }]}>
           <Animated.View
             key={ctaLabel}
             layout={SOFT_LAYOUT}

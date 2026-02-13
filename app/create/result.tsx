@@ -12,6 +12,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -22,9 +23,8 @@ import Animated, {
   withRepeat,
   runOnJS,
   Easing,
-  interpolate,
 } from 'react-native-reanimated';
-import { PrimaryButton, SecondaryButton } from '@/components/ui';
+import { PrimaryButton } from '@/components/ui';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius, springs } from '@/constants/spacing';
@@ -37,6 +37,8 @@ const IMAGE_WIDTH = width - layout.screenPadding * 2;
 
 interface ColorsType {
   bgPrimary: string;
+  bgSecondary: string;
+  borderLight: string;
   textPrimary: string;
   textSecondary: string;
   textTertiary: string;
@@ -79,9 +81,12 @@ export default function ResultScreen() {
   const subtitleOpacity = useSharedValue(0);
   const subtitleTranslateY = useSharedValue(20);
   const actionsOpacity = useSharedValue(0);
+  const vortexSpin = useSharedValue(0);
+  const ambientPulse = useSharedValue(0);
 
   useEffect(() => {
     startLoadingAnimation();
+    startAmbientAnimation();
     // Simulate AI processing delay
     const timer = setTimeout(() => {
       runSignatureReveal();
@@ -99,6 +104,22 @@ export default function ResultScreen() {
       ),
       -1,
       true
+    );
+  };
+
+  const startAmbientAnimation = () => {
+    vortexSpin.value = withRepeat(
+      withTiming(1, { duration: 7000, easing: Easing.linear }),
+      -1,
+      false
+    );
+    ambientPulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 2400, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
     );
   };
 
@@ -241,6 +262,19 @@ export default function ResultScreen() {
     opacity: actionsOpacity.value,
   }));
 
+  const vortexStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${vortexSpin.value * 360}deg` }],
+  }));
+
+  const counterVortexStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${-vortexSpin.value * 260}deg` }],
+  }));
+
+  const ambientGlowStyle = useAnimatedStyle(() => ({
+    opacity: 0.2 + ambientPulse.value * 0.35,
+    transform: [{ scale: 0.94 + ambientPulse.value * 0.12 }],
+  }));
+
   const elementsText = elements.includes('entire_look')
     ? 'Entire look'
     : elements.map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(' + ');
@@ -249,6 +283,52 @@ export default function ResultScreen() {
     container: {
       flex: 1,
       backgroundColor: colors.bgPrimary,
+    },
+    backgroundGradient: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    topAura: {
+      position: 'absolute' as const,
+      top: 72,
+      left: -40,
+      right: -40,
+      height: 220,
+      borderRadius: 200,
+      backgroundColor: colors.accentMuted,
+    },
+    imageStage: {
+      width: IMAGE_WIDTH,
+      height: IMAGE_WIDTH * 1.3,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    vortexRingOuter: {
+      position: 'absolute' as const,
+      width: IMAGE_WIDTH - 18,
+      height: IMAGE_WIDTH - 18,
+      borderRadius: (IMAGE_WIDTH - 18) / 2,
+      borderWidth: 1,
+      borderColor: colors.border,
+      opacity: 0.65,
+    },
+    vortexRingInner: {
+      position: 'absolute' as const,
+      width: IMAGE_WIDTH - 72,
+      height: IMAGE_WIDTH - 72,
+      borderRadius: (IMAGE_WIDTH - 72) / 2,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      opacity: 0.8,
+    },
+    orbitDot: {
+      position: 'absolute' as const,
+      top: 4,
+      left: IMAGE_WIDTH / 2 - 4,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.accent,
+      opacity: 0.75,
     },
     glow: {
       position: 'absolute' as const,
@@ -262,10 +342,10 @@ export default function ResultScreen() {
     imageCard: {
       width: IMAGE_WIDTH,
       height: IMAGE_WIDTH * 1.3,
-      borderRadius: borderRadius.lg,
-      borderWidth: 2,
-      borderColor: colors.border,
-      backgroundColor: colors.bgTertiary,
+      borderRadius: borderRadius.xl,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      backgroundColor: colors.bgSecondary,
       overflow: 'hidden' as const,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
@@ -305,10 +385,10 @@ export default function ResultScreen() {
       alignItems: 'center' as const,
       paddingVertical: 16,
       paddingHorizontal: 32,
-      backgroundColor: colors.bgTertiary,
-      borderRadius: borderRadius.lg,
+      backgroundColor: colors.bgSecondary,
+      borderRadius: borderRadius.xl,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderLight,
       minWidth: 100,
     },
     actionButtonSaved: {
@@ -337,10 +417,10 @@ export default function ResultScreen() {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       padding: 12,
-      backgroundColor: colors.bgTertiary,
-      borderRadius: borderRadius.md,
+      backgroundColor: colors.bgSecondary,
+      borderRadius: borderRadius.lg,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderLight,
     },
     productName: {
       ...typography.bodyMedium,
@@ -355,6 +435,14 @@ export default function ResultScreen() {
 
   return (
     <View style={[dynamicStyles.container, { paddingTop: insets.top }]}>
+      <LinearGradient
+        colors={[colors.bgSecondary, colors.bgPrimary]}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={dynamicStyles.backgroundGradient}
+      />
+      <Animated.View style={[dynamicStyles.topAura, ambientGlowStyle]} />
+
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -372,28 +460,35 @@ export default function ResultScreen() {
       >
         {/* Result Image Container */}
         <View style={styles.resultContainer}>
-          {/* Mint glow effect */}
-          <Animated.View style={[dynamicStyles.glow, glowStyle]} />
+          <View style={dynamicStyles.imageStage}>
+            <Animated.View style={[dynamicStyles.vortexRingOuter, vortexStyle]}>
+              <View style={dynamicStyles.orbitDot} />
+            </Animated.View>
+            <Animated.View style={[dynamicStyles.vortexRingInner, counterVortexStyle]}>
+              <View style={dynamicStyles.orbitDot} />
+            </Animated.View>
+            <Animated.View style={[dynamicStyles.glow, glowStyle, ambientGlowStyle]} />
 
-          {/* Image container - solid with border */}
-          <View style={dynamicStyles.imageCard}>
-            {/* Pulsing loader */}
-            {isLoading && (
-              <Animated.View style={[styles.loaderContainer, loaderStyle]}>
-                <View style={dynamicStyles.loaderOuter}>
-                  <View style={dynamicStyles.loaderInner}>
-                    <Ionicons name="sparkles" size={32} color={colors.accent} />
+            {/* Image container - solid with border */}
+            <View style={dynamicStyles.imageCard}>
+              {/* Pulsing loader */}
+              {isLoading && (
+                <Animated.View style={[styles.loaderContainer, loaderStyle]}>
+                  <View style={dynamicStyles.loaderOuter}>
+                    <View style={dynamicStyles.loaderInner}>
+                      <Ionicons name="sparkles" size={32} color={colors.accent} />
+                    </View>
                   </View>
-                </View>
-                <Text style={dynamicStyles.loaderText}>Creating your transformation...</Text>
-              </Animated.View>
-            )}
+                  <Text style={dynamicStyles.loaderText}>Creating your transformation...</Text>
+                </Animated.View>
+              )}
 
-            {/* Actual result image */}
-            <Animated.Image
-              source={{ uri: params.look }}
-              style={[styles.resultImage, imageStyle]}
-            />
+              {/* Actual result image */}
+              <Animated.Image
+                source={{ uri: params.look }}
+                style={[styles.resultImage, imageStyle]}
+              />
+            </View>
           </View>
         </View>
 
@@ -488,10 +583,10 @@ function ProductCard({ product, colors }: { product: Product; colors: ColorsType
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       padding: 12,
-      backgroundColor: colors.bgTertiary,
-      borderRadius: borderRadius.md,
+      backgroundColor: colors.bgSecondary,
+      borderRadius: borderRadius.lg,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderLight,
     },
     productName: {
       ...typography.bodyMedium,
