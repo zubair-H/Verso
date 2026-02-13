@@ -27,28 +27,20 @@ interface PresetGridProps {
   animationDelay?: number;
 }
 
-// Alternating tilts for cards — intentionally imperfect but symmetric
-const CARD_TILTS = [-1.8, 1.2, 2, -1.5, -0.8, 1.8];
-
-// Horizontal row card width + per-row heights for masonry stagger
+// Uniform card dimensions for a symmetric layout
 const HORIZONTAL_WIDTH = 120;
-const ROW_HEIGHTS = [150, 120, 165, 130, 140, 110];
+const HORIZONTAL_HEIGHT = 140;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 function HorizontalCard({
   preset,
-  index,
-  rowHeight,
   onPress,
 }: {
   preset: Preset;
-  index: number;
-  rowHeight: number;
   onPress: () => void;
 }) {
-  const tilt = CARD_TILTS[index % CARD_TILTS.length];
-  const cardHeight = rowHeight;
+  const cardHeight = HORIZONTAL_HEIGHT;
   const { colors } = useTheme();
   const scale = useSharedValue(1);
 
@@ -78,7 +70,6 @@ function HorizontalCard({
           borderRadius: borderRadius.lg,
           overflow: 'hidden',
           backgroundColor: colors.bgSecondary,
-          transform: [{ rotate: `${tilt}deg` }],
         },
         image: {
           width: '100%',
@@ -95,7 +86,7 @@ function HorizontalCard({
           borderRadius: 1,
         },
       }),
-    [colors, tilt, cardHeight]
+    [colors, cardHeight]
   );
 
   return (
@@ -130,8 +121,6 @@ function SubCategoryRow({
   const [overlayVisible, setOverlayVisible] = useState(false);
   const category = getPresetsForCategory(categoryId);
   if (!category) return null;
-
-  const rowHeight = ROW_HEIGHTS[rowIndex % ROW_HEIGHTS.length];
 
   const styles = useMemo(
     () =>
@@ -185,12 +174,10 @@ function SubCategoryRow({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {category.presets.map((preset, index) => (
+          {category.presets.map((preset) => (
             <HorizontalCard
               key={preset.id}
               preset={preset}
-              index={index}
-              rowHeight={rowHeight}
               onPress={() => onSelectPreset(preset.image)}
             />
           ))}

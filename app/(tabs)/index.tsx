@@ -70,7 +70,6 @@ export default function HomeScreen() {
       paddingBottom: layout.tabBarHeight + 32,
     },
     heroBannerSection: {
-      paddingHorizontal: layout.screenPadding,
       marginTop: 8,
     },
     sectionSpacing: {
@@ -78,7 +77,6 @@ export default function HomeScreen() {
     },
     upgradeBannerSection: {
       marginTop: 36,
-      paddingHorizontal: layout.screenPadding,
     },
   }), [colors]);
 
@@ -116,7 +114,7 @@ export default function HomeScreen() {
         <Animated.View entering={FadeInDown.delay(100).springify().damping(38).stiffness(200)} style={styles.heroBannerSection}>
           <HeroBanner
             title="Try Any Look"
-            subtitle="Upload your photo, pick Aria, Luna, or Max, and remix any attribute instantly"
+            subtitle="Upload your photo, pick a celeb-inspired persona, and remix any attribute instantly"
             badge="Style Ambassadors"
             badgeIcon="sparkles"
             ctaLabel="Create Your Look"
@@ -152,6 +150,25 @@ export default function HomeScreen() {
           />
         </Animated.View>
 
+        {/* Hair Texture Analysis Banner */}
+        <Animated.View entering={FadeInDown.delay(700)} style={[styles.heroBannerSection, styles.sectionSpacing]}>
+          <HeroBanner
+            title="Hair Texture Analysis"
+            subtitle="Identify your texture profile to generate more natural hair transfers"
+            badge="AI"
+            badgeIcon="cut"
+            ctaLabel="Analyze Hair Texture"
+            onPress={() => router.push('/create')}
+            variant="vertical"
+            tilt={-1.1}
+            gradientColors={[
+              colors.heroBannerEnd,
+              colors.heroBannerMid,
+              colors.heroBannerStart,
+            ]}
+          />
+        </Animated.View>
+
         {/* Upgrade Banner */}
         <Animated.View entering={FadeInDown.delay(900)} style={styles.upgradeBannerSection}>
           <UpgradeBanner onChoosePlan={() => setPaywallVisible(true)} />
@@ -168,6 +185,44 @@ export default function HomeScreen() {
             onPress={() => router.push('/create')}
             variant="vertical"
             tilt={-1.5}
+            gradientColors={[
+              colors.colorAnalysisBannerEnd,
+              colors.colorAnalysisBannerMid,
+              colors.colorAnalysisBannerStart,
+            ]}
+          />
+        </Animated.View>
+
+        {/* Skin Tone Analysis Banner */}
+        <Animated.View entering={FadeInDown.delay(1300)} style={[styles.heroBannerSection, styles.sectionSpacing]}>
+          <HeroBanner
+            title="Skin Tone Analysis"
+            subtitle="Get undertone-aware guidance for makeup, color, and lighting consistency"
+            badge="Recommended"
+            badgeIcon="color-palette"
+            ctaLabel="Analyze Skin Tone"
+            onPress={() => router.push('/create')}
+            variant="vertical"
+            tilt={1.1}
+            gradientColors={[
+              colors.faceShapeBannerEnd,
+              colors.faceShapeBannerMid,
+              colors.faceShapeBannerStart,
+            ]}
+          />
+        </Animated.View>
+
+        {/* Style DNA Analysis Banner */}
+        <Animated.View entering={FadeInDown.delay(1500)} style={[styles.heroBannerSection, styles.sectionSpacing]}>
+          <HeroBanner
+            title="Style DNA Analysis"
+            subtitle="Decode your core aesthetic and generate attribute combinations that fit you"
+            badge="New"
+            badgeIcon="sparkles"
+            ctaLabel="Find My Style DNA"
+            onPress={() => router.push('/create')}
+            variant="vertical"
+            tilt={-0.8}
             gradientColors={[
               colors.colorAnalysisBannerEnd,
               colors.colorAnalysisBannerMid,

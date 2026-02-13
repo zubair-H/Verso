@@ -16,21 +16,28 @@ export interface PresetSection {
 }
 
 function buildPersonaLooks(personaId: string, personaName: string): Preset[] {
+  const persona = stylePersonas.find((p) => p.id === personaId);
+  if (!persona) return [];
+
   return [
     {
       id: `${personaId}-core`,
-      name: `${personaName} Core`,
-      image: `https://api.dicebear.com/9.x/personas/png?seed=${personaName}&backgroundType=gradientLinear&size=512`,
+      name: `${personaName} Headshot`,
+      image: persona.headshotImage,
       personaId,
       personaName,
     },
-    {
-      id: `${personaId}-alt`,
-      name: `${personaName} Alt`,
-      image: `https://api.dicebear.com/9.x/personas/png?seed=${personaName}-alt&backgroundType=gradientLinear&size=512`,
-      personaId,
-      personaName,
-    },
+    ...(persona.outfitImage
+      ? [
+          {
+            id: `${personaId}-outfit`,
+            name: `${personaName} Outfit`,
+            image: persona.outfitImage,
+            personaId,
+            personaName,
+          },
+        ]
+      : []),
   ];
 }
 

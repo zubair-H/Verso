@@ -3,9 +3,9 @@ import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   Pressable,
   Image,
+  Dimensions,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -24,16 +24,25 @@ interface StyleAmbassadorStripProps {
   onSelectPersona: (persona: StylePersona) => void;
 }
 
-const CARD_WIDTH = 220;
-const CARD_IMAGE_HEIGHT = 170;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const GRID_GAP = 8;
+const GRID_PADDING = layout.screenPadding;
+const CARD_WIDTH = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP) / 2;
+const CARD_IMAGE_HEIGHT = 210;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 function AmbassadorCard({
-  persona,
+  tile,
   isSelected,
   onPress,
 }: {
-  persona: StylePersona;
+  tile: {
+    id: string;
+    persona: StylePersona;
+    image: string;
+    tileTitle: string;
+    kind: 'headshot' | 'outfit';
+  };
   isSelected: boolean;
   onPress: () => void;
 }) {
@@ -61,7 +70,8 @@ function AmbassadorCard({
     () =>
       StyleSheet.create({
         wrapper: {
-          marginRight: 12,
+          width: CARD_WIDTH,
+          marginBottom: GRID_GAP,
         },
         card: {
           width: CARD_WIDTH,
@@ -74,7 +84,7 @@ function AmbassadorCard({
         image: {
           width: '100%',
           height: CARD_IMAGE_HEIGHT,
-          resizeMode: 'cover',
+          resizeMode: tile.kind === 'outfit' ? 'contain' : 'cover',
           backgroundColor: colors.bgSecondary,
         },
         content: {
@@ -124,17 +134,19 @@ function AmbassadorCard({
       style={[styles.wrapper, animatedStyle]}
     >
       <View style={styles.card}>
-        <Image source={{ uri: persona.image }} style={styles.image} />
+        <Image source={{ uri: tile.image }} style={styles.image} />
         <View style={styles.content}>
           <View style={styles.nameRow}>
-            <Text style={styles.name}>{persona.name}</Text>
+            <Text style={styles.name}>{tile.persona.name}</Text>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>AI</Text>
+              <Text style={styles.badgeText}>
+                {tile.kind === 'outfit' ? 'OUTFIT' : 'HEADSHOT'}
+              </Text>
             </View>
           </View>
-          <Text style={styles.title}>{persona.title}</Text>
+          <Text style={styles.title}>{tile.tileTitle}</Text>
           <Text style={styles.lore} numberOfLines={2}>
-            {persona.lore}
+            {tile.persona.lore}
           </Text>
         </View>
       </View>
@@ -148,6 +160,37 @@ export function StyleAmbassadorStrip({
   onSelectPersona,
 }: StyleAmbassadorStripProps) {
   const { colors } = useTheme();
+  const personaTiles = useMemo(() => {
+    return personas.flatMap((persona) => {
+      const tiles: Array<{
+        id: string;
+        persona: StylePersona;
+        image: string;
+        tileTitle: string;
+        kind: 'headshot' | 'outfit';
+      }> = [
+        {
+          id: `${persona.id}-headshot`,
+          persona,
+          image: persona.headshotImage,
+          tileTitle: `${persona.title} Headshot`,
+          kind: 'headshot',
+        },
+      ];
+
+      if (persona.outfitImage) {
+        tiles.push({
+          id: `${persona.id}-outfit`,
+          persona,
+          image: persona.outfitImage,
+          tileTitle: `${persona.title} Outfit`,
+          kind: 'outfit',
+        });
+      }
+
+      return tiles;
+    });
+  }, [personas]);
 
   const styles = useMemo(
     () =>
@@ -168,9 +211,11 @@ export function StyleAmbassadorStrip({
           color: colors.textSecondary,
           marginTop: 4,
         },
-        scrollContent: {
-          paddingLeft: layout.screenPadding,
-          paddingRight: 12,
+        grid: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          paddingHorizontal: GRID_PADDING,
         },
       }),
     [colors]
@@ -179,25 +224,21 @@ export function StyleAmbassadorStrip({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Fictional Style Ambassadors</Text>
+        <Text style={styles.title}>Celebrity-Inspired Personas</Text>
         <Text style={styles.subtitle}>
-          Pick Aria, Luna, or Max as your starting style DNA.
+          Each persona includes a headshot; outfit personas include full-body references.
         </Text>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {personas.map((persona) => (
+      <View style={styles.grid}>
+        {personaTiles.map((tile) => (
           <AmbassadorCard
-            key={persona.id}
-            persona={persona}
-            isSelected={selectedPersonaId === persona.id}
-            onPress={() => onSelectPersona(persona)}
+            key={tile.id}
+            tile={tile}
+            isSelected={selectedPersonaId === tile.persona.id}
+            onPress={() => onSelectPersona({ ...tile.persona, image: tile.image })}
           />
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 }

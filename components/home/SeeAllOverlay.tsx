@@ -26,9 +26,7 @@ import type { Preset } from '@/utils/presets';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GAP = 12;
 const MASONRY_COL_WIDTH = (SCREEN_WIDTH - layout.screenPadding * 2 - GAP) / 2;
-
-const CARD_TILTS = [-1.8, 1.2, 2, -1.5, -0.8, 1.8];
-const HEIGHT_RATIOS = [1.3, 1.0, 1.15, 1.35, 0.95, 1.25];
+const CARD_HEIGHT = MASONRY_COL_WIDTH * 1.15;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -41,9 +39,7 @@ function MasonryCard({
   index: number;
   onPress: () => void;
 }) {
-  const tilt = CARD_TILTS[index % CARD_TILTS.length];
-  const heightRatio = HEIGHT_RATIOS[index % HEIGHT_RATIOS.length];
-  const cardHeight = MASONRY_COL_WIDTH * heightRatio;
+  const cardHeight = CARD_HEIGHT;
   const { colors } = useTheme();
   const scale = useSharedValue(1);
 
@@ -73,7 +69,6 @@ function MasonryCard({
           borderRadius: borderRadius.lg,
           overflow: 'hidden',
           backgroundColor: colors.bgSecondary,
-          transform: [{ rotate: `${tilt}deg` }],
           marginBottom: GAP,
         },
         image: {
@@ -91,7 +86,7 @@ function MasonryCard({
           borderRadius: 1,
         },
       }),
-    [colors, tilt, cardHeight]
+    [colors, cardHeight]
   );
 
   return (
@@ -122,19 +117,12 @@ export function MasonryGrid({
   const { leftCol, rightCol } = useMemo(() => {
     const left: { preset: Preset; index: number }[] = [];
     const right: { preset: Preset; index: number }[] = [];
-    let leftHeight = 0;
-    let rightHeight = 0;
 
     presets.forEach((preset, index) => {
-      const ratio = HEIGHT_RATIOS[index % HEIGHT_RATIOS.length];
-      const h = MASONRY_COL_WIDTH * ratio;
-
-      if (leftHeight <= rightHeight) {
+      if (index % 2 === 0) {
         left.push({ preset, index });
-        leftHeight += h + GAP;
       } else {
         right.push({ preset, index });
-        rightHeight += h + GAP;
       }
     });
 
