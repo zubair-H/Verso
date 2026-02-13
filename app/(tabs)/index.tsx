@@ -102,19 +102,6 @@ export default function HomeScreen() {
         ],
         onPress: () => router.push('/create'),
       },
-      {
-        id: 'pro',
-        title: 'Upgrade to PRO',
-        subtitle: 'Unlock unlimited transformations and advanced analysis tools.',
-        badge: 'PRO',
-        icon: 'flash',
-        gradientColors: [
-          colors.heroBannerEnd,
-          colors.heroBannerMid,
-          colors.heroBannerStart,
-        ],
-        onPress: () => setPaywallVisible(true),
-      },
     ],
     [colors]
   );

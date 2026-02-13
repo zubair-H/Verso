@@ -46,7 +46,6 @@ const CARD_WIDTH = Math.floor(
 );
 const GRID_PADDING =
   (SCREEN_WIDTH - CARD_WIDTH * 2 - GRID_HORIZONTAL_GAP) / 2;
-const CONTENT_HEIGHT = 92;
 const SHORT_CARD_HEIGHT = 248;
 const LONG_CARD_HEIGHT = SHORT_CARD_HEIGHT * 2 + GRID_VERTICAL_GAP;
 const ANALYSIS_CARD_HEIGHT = 210;
@@ -136,54 +135,15 @@ function AmbassadorCard({
         card: {
           width: '100%',
           height: tile.cardHeight,
-          borderRadius: borderRadius.lg,
+          borderRadius: borderRadius.xl,
           overflow: 'hidden',
-          borderWidth: 1.5,
-          borderColor: isSelected ? colors.accent : colors.border,
           backgroundColor: colors.bgCard,
         },
         image: {
           width: '100%',
-          height: tile.cardHeight - CONTENT_HEIGHT,
+          height: tile.cardHeight,
           resizeMode: 'cover',
           backgroundColor: colors.bgSecondary,
-        },
-        content: {
-          height: CONTENT_HEIGHT,
-          padding: 12,
-          justifyContent: 'space-between',
-        },
-        nameRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
-        },
-        name: {
-          ...typography.labelLarge,
-          color: colors.textPrimary,
-          flex: 1,
-        },
-        badge: {
-          backgroundColor: isSelected ? colors.accent : colors.accentMuted,
-          borderRadius: borderRadius.full,
-          paddingHorizontal: 8,
-          paddingVertical: 2,
-        },
-        badgeText: {
-          ...typography.caption,
-          fontSize: 11,
-          color: isSelected ? colors.textOnAccent : colors.accent,
-        },
-        title: {
-          ...typography.labelSmall,
-          color: colors.textSecondary,
-          marginTop: 2,
-        },
-        lore: {
-          ...typography.bodySmall,
-          color: colors.textSecondary,
-          marginTop: 8,
         },
       }),
     [colors, isSelected, tile.cardHeight, withBottomGap]
@@ -198,20 +158,6 @@ function AmbassadorCard({
     >
       <View style={styles.card}>
         <Image source={{ uri: tile.image }} style={styles.image} />
-        <View style={styles.content}>
-          <View style={styles.nameRow}>
-            <Text style={styles.name}>{tile.persona.name}</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {tile.kind === 'outfit' ? 'OUTFIT' : 'HEADSHOT'}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.title}>{tile.tileTitle}</Text>
-          <Text style={styles.lore} numberOfLines={2}>
-            {tile.persona.lore}
-          </Text>
-        </View>
       </View>
     </AnimatedPressable>
   );
@@ -340,15 +286,18 @@ export function StyleAmbassadorStrip({
       });
 
       if (persona.outfitImage) {
-        acc.push({
-          id: `${persona.id}-detail`,
-          persona,
-          image: persona.headshotImage,
-          tileTitle: `${persona.title} Detail`,
-          attribute: persona.attribute,
-          kind: 'headshot',
-          cardHeight: SHORT_CARD_HEIGHT,
-        });
+        const detailSource = persona.detailImage;
+        if (detailSource && detailSource !== persona.headshotImage) {
+          acc.push({
+            id: `${persona.id}-detail`,
+            persona,
+            image: detailSource,
+            tileTitle: `${persona.title} Detail`,
+            attribute: persona.attribute,
+            kind: 'headshot',
+            cardHeight: SHORT_CARD_HEIGHT,
+          });
+        }
       }
 
       if (persona.outfitImage) {
@@ -398,6 +347,8 @@ export function StyleAmbassadorStrip({
       if (!categoryTiles.length) {
         return;
       }
+      const attributeBlocks: FeedBlock[] = [];
+      const attributeAnalysis = analysisBuckets[attribute];
       const longTiles = categoryTiles.filter((tile) => tile.kind === 'outfit');
       const shortTiles = categoryTiles.filter((tile) => tile.kind === 'headshot');
       let longIndex = 0;
@@ -408,7 +359,7 @@ export function StyleAmbassadorStrip({
         const shortTop = shortTiles[shortIndex];
         const shortBottom = shortTiles[shortIndex + 1];
 
-        blocks.push({
+        attributeBlocks.push({
           id: `mosaic-${attribute}-${longTile.id}`,
           type: 'mosaic',
           longTile,
@@ -425,7 +376,7 @@ export function StyleAmbassadorStrip({
       while (shortIndex + 1 < shortTiles.length) {
         const left = shortTiles[shortIndex];
         const right = shortTiles[shortIndex + 1];
-        blocks.push({
+        attributeBlocks.push({
           id: `short-row-${attribute}-${left.id}-${right.id}`,
           type: 'short-row',
           left,
@@ -437,7 +388,7 @@ export function StyleAmbassadorStrip({
       while (longIndex + 1 < longTiles.length) {
         const left = longTiles[longIndex];
         const right = longTiles[longIndex + 1];
-        blocks.push({
+        attributeBlocks.push({
           id: `long-row-${attribute}-${left.id}-${right.id}`,
           type: 'long-row',
           left,
@@ -446,14 +397,36 @@ export function StyleAmbassadorStrip({
         longIndex += 2;
       }
 
-      // Place banners exactly at the end of each attribute section.
-      analysisBuckets[attribute].forEach((tile) => {
-        blocks.push({
-          id: `analysis-${attribute}-${tile.id}`,
-          type: 'analysis',
-          tile,
+      if (attributeBlocks.length === 0) {
+        attributeAnalysis.forEach((tile) => {
+          blocks.push({
+            id: `analysis-${attribute}-${tile.id}`,
+            type: 'analysis',
+            tile,
+          });
         });
-      });
+        return;
+      }
+
+      // Keep banners inside each attribute section, but surface the first one early.
+      blocks.push(attributeBlocks[0]);
+      if (attributeAnalysis[0]) {
+        blocks.push({
+          id: `analysis-${attribute}-${attributeAnalysis[0].id}`,
+          type: 'analysis',
+          tile: attributeAnalysis[0],
+        });
+      }
+      for (let i = 1; i < attributeBlocks.length; i += 1) {
+        blocks.push(attributeBlocks[i]);
+      }
+      for (let i = 1; i < attributeAnalysis.length; i += 1) {
+        blocks.push({
+          id: `analysis-${attribute}-${attributeAnalysis[i].id}`,
+          type: 'analysis',
+          tile: attributeAnalysis[i],
+        });
+      }
     });
 
     analysisBuckets.global.forEach((tile) => {
