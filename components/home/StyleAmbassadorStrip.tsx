@@ -18,7 +18,7 @@ import Animated, {
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { borderRadius, layout, springs } from '@/constants/spacing';
-import type { StylePersona } from '@/utils/personas';
+import type { StylePersona, PersonaAttribute } from '@/utils/personas';
 
 interface StyleAmbassadorStripProps {
   personas: StylePersona[];
@@ -57,6 +57,7 @@ interface PersonaGridTile {
   persona: StylePersona;
   image: string;
   tileTitle: string;
+  attribute: PersonaAttribute;
   kind: 'headshot' | 'outfit';
   cardHeight: number;
 }
@@ -71,7 +72,29 @@ type FeedBlock =
       longOnLeft: boolean;
     }
   | { id: string; type: 'short-row'; left: PersonaGridTile; right: PersonaGridTile }
+  | { id: string; type: 'long-row'; left: PersonaGridTile; right: PersonaGridTile }
   | { id: string; type: 'analysis'; tile: AnalysisGridTile };
+
+const ATTRIBUTE_ORDER: PersonaAttribute[] = ['hair', 'face', 'color', 'style'];
+
+function inferAnalysisAttribute(tile: AnalysisGridTile): PersonaAttribute | 'global' {
+  const key = `${tile.id} ${tile.title}`.toLowerCase();
+
+  if (key.includes('hair')) {
+    return 'hair';
+  }
+  if (key.includes('face') || key.includes('skin')) {
+    return 'face';
+  }
+  if (key.includes('color') || key.includes('tone')) {
+    return 'color';
+  }
+  if (key.includes('style')) {
+    return 'style';
+  }
+
+  return 'global';
+}
 
 function AmbassadorCard({
   tile,
@@ -305,28 +328,27 @@ export function StyleAmbassadorStrip({
 }: StyleAmbassadorStripProps) {
   const { colors } = useTheme();
   const personaTiles = useMemo(() => {
-    let extraHeadshotsAdded = 0;
-
     return personas.reduce((acc, persona) => {
       acc.push({
         id: `${persona.id}-headshot`,
         persona,
         image: persona.headshotImage,
         tileTitle: `${persona.title} Headshot`,
+        attribute: persona.attribute,
         kind: 'headshot',
         cardHeight: SHORT_CARD_HEIGHT,
       });
 
-      if (persona.outfitImage && extraHeadshotsAdded < 4) {
+      if (persona.outfitImage) {
         acc.push({
           id: `${persona.id}-detail`,
           persona,
           image: persona.headshotImage,
           tileTitle: `${persona.title} Detail`,
+          attribute: persona.attribute,
           kind: 'headshot',
           cardHeight: SHORT_CARD_HEIGHT,
         });
-        extraHeadshotsAdded += 1;
       }
 
       if (persona.outfitImage) {
@@ -335,6 +357,7 @@ export function StyleAmbassadorStrip({
           persona,
           image: persona.outfitImage,
           tileTitle: `${persona.title} Outfit`,
+          attribute: persona.attribute,
           kind: 'outfit',
           cardHeight: LONG_CARD_HEIGHT,
         });
@@ -345,71 +368,101 @@ export function StyleAmbassadorStrip({
   }, [personas]);
 
   const feedBlocks = useMemo<FeedBlock[]>(() => {
-    const longTiles = personaTiles.filter((tile) => tile.kind === 'outfit');
-    const shortTiles = personaTiles.filter((tile) => tile.kind === 'headshot');
     const blocks: FeedBlock[] = [];
-    let longIndex = 0;
-    let shortIndex = 0;
-    let analysisIndex = 0;
+    const analysisBuckets: Record<PersonaAttribute | 'global', AnalysisGridTile[]> = {
+      hair: [],
+      face: [],
+      color: [],
+      style: [],
+      global: [],
+    };
+    const tilesByAttribute: Record<PersonaAttribute, PersonaGridTile[]> = {
+      hair: [],
+      face: [],
+      color: [],
+      style: [],
+    };
+
+    analysisTiles.forEach((tile) => {
+      analysisBuckets[inferAnalysisAttribute(tile)].push(tile);
+    });
+
+    personaTiles.forEach((tile) => {
+      tilesByAttribute[tile.attribute].push(tile);
+    });
+
     let longOnLeft = true;
 
-    while (longIndex < longTiles.length && shortIndex + 1 < shortTiles.length) {
-      const longTile = longTiles[longIndex];
-      const shortTop = shortTiles[shortIndex];
-      const shortBottom = shortTiles[shortIndex + 1];
-
-      blocks.push({
-        id: `mosaic-${longTile.id}`,
-        type: 'mosaic',
-        longTile,
-        shortTop,
-        shortBottom,
-        longOnLeft,
-      });
-
-      longIndex += 1;
-      shortIndex += 2;
-      longOnLeft = !longOnLeft;
-
-      if (analysisTiles[analysisIndex]) {
-        blocks.push({
-          id: `analysis-${analysisTiles[analysisIndex].id}`,
-          type: 'analysis',
-          tile: analysisTiles[analysisIndex],
-        });
-        analysisIndex += 1;
+    ATTRIBUTE_ORDER.forEach((attribute) => {
+      const categoryTiles = tilesByAttribute[attribute];
+      if (!categoryTiles.length) {
+        return;
       }
-    }
+      const longTiles = categoryTiles.filter((tile) => tile.kind === 'outfit');
+      const shortTiles = categoryTiles.filter((tile) => tile.kind === 'headshot');
+      let longIndex = 0;
+      let shortIndex = 0;
 
-    while (shortIndex + 1 < shortTiles.length) {
-      const left = shortTiles[shortIndex];
-      const right = shortTiles[shortIndex + 1];
-      blocks.push({
-        id: `short-row-${left.id}-${right.id}`,
-        type: 'short-row',
-        left,
-        right,
-      });
-      shortIndex += 2;
+      while (longIndex < longTiles.length && shortIndex + 1 < shortTiles.length) {
+        const longTile = longTiles[longIndex];
+        const shortTop = shortTiles[shortIndex];
+        const shortBottom = shortTiles[shortIndex + 1];
 
-      if (analysisTiles[analysisIndex]) {
         blocks.push({
-          id: `analysis-${analysisTiles[analysisIndex].id}`,
-          type: 'analysis',
-          tile: analysisTiles[analysisIndex],
+          id: `mosaic-${attribute}-${longTile.id}`,
+          type: 'mosaic',
+          longTile,
+          shortTop,
+          shortBottom,
+          longOnLeft,
         });
-        analysisIndex += 1;
-      }
-    }
 
-    while (analysisIndex < analysisTiles.length) {
+        longIndex += 1;
+        shortIndex += 2;
+        longOnLeft = !longOnLeft;
+      }
+
+      while (shortIndex + 1 < shortTiles.length) {
+        const left = shortTiles[shortIndex];
+        const right = shortTiles[shortIndex + 1];
+        blocks.push({
+          id: `short-row-${attribute}-${left.id}-${right.id}`,
+          type: 'short-row',
+          left,
+          right,
+        });
+        shortIndex += 2;
+      }
+
+      while (longIndex + 1 < longTiles.length) {
+        const left = longTiles[longIndex];
+        const right = longTiles[longIndex + 1];
+        blocks.push({
+          id: `long-row-${attribute}-${left.id}-${right.id}`,
+          type: 'long-row',
+          left,
+          right,
+        });
+        longIndex += 2;
+      }
+
+      // Place banners exactly at the end of each attribute section.
+      analysisBuckets[attribute].forEach((tile) => {
+        blocks.push({
+          id: `analysis-${attribute}-${tile.id}`,
+          type: 'analysis',
+          tile,
+        });
+      });
+    });
+
+    analysisBuckets.global.forEach((tile) => {
       blocks.push({
-        id: `analysis-${analysisTiles[analysisIndex].id}`,
+        id: `analysis-global-${tile.id}`,
         type: 'analysis',
-        tile: analysisTiles[analysisIndex],
+        tile,
       });
-      analysisIndex += 1;
-    }
+    });
 
     return blocks;
   }, [personaTiles, analysisTiles]);
@@ -455,7 +508,7 @@ export function StyleAmbassadorStrip({
       <View style={styles.header}>
         <Text style={styles.title}>Celebrity-Inspired Personas</Text>
         <Text style={styles.subtitle}>
-          Each persona includes a headshot; outfit personas include full-body references.
+          Idea starters by attribute. Extract any feature from any celeb image you upload.
         </Text>
       </View>
       <View style={styles.feed}>
@@ -465,6 +518,27 @@ export function StyleAmbassadorStrip({
           }
 
           if (block.type === 'short-row') {
+            return (
+              <View key={block.id} style={styles.masonry}>
+                <View style={[styles.column, styles.columnGap]}>
+                  <AmbassadorCard
+                    tile={block.left}
+                    isSelected={selectedPersonaId === block.left.persona.id}
+                    onPress={() => onSelectPersona({ ...block.left.persona, image: block.left.image })}
+                  />
+                </View>
+                <View style={styles.column}>
+                  <AmbassadorCard
+                    tile={block.right}
+                    isSelected={selectedPersonaId === block.right.persona.id}
+                    onPress={() => onSelectPersona({ ...block.right.persona, image: block.right.image })}
+                  />
+                </View>
+              </View>
+            );
+          }
+
+          if (block.type === 'long-row') {
             return (
               <View key={block.id} style={styles.masonry}>
                 <View style={[styles.column, styles.columnGap]}>

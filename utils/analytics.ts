@@ -10,7 +10,9 @@ type AnalyticsEvent =
   | 'look_favorited'
   | 'paywall_shown'
   | 'paywall_converted'
-  | 'preset_selected';
+  | 'preset_selected'
+  | 'attribute_tag_toggled'
+  | 'custom_attribute_added';
 
 interface EventProperties {
   [key: string]: string | number | boolean | undefined;

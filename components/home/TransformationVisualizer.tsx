@@ -67,18 +67,18 @@ function UploadCard({
 
   useEffect(() => {
     if (image) {
-      imageScale.value = withSpring(1, springs.bouncy);
+      imageScale.value = withSpring(1, springs.smooth);
     } else {
       imageScale.value = 1.1;
     }
   }, [image]);
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.97, springs.snappy);
+    scale.value = withSpring(0.985, springs.smooth);
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, springs.snappy);
+    scale.value = withSpring(1, springs.smooth);
   };
 
   const handlePress = async () => {
@@ -226,17 +226,17 @@ export function TransformationVisualizer({
     if (!bothFilled) {
       pulseScale.value = withRepeat(
         withSequence(
-          withTiming(1.08, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+          withTiming(1.03, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         false
       );
     } else {
       pulseScale.value = withSequence(
-        withSpring(1.2, springs.celebration),
-        withSpring(0.95, springs.snappy),
-        withSpring(1, springs.snappy)
+        withTiming(1.04, { duration: 220, easing: Easing.out(Easing.cubic) }),
+        withTiming(0.99, { duration: 170, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 170, easing: Easing.out(Easing.ease) })
       );
     }
   }, [bothFilled]);
@@ -271,7 +271,7 @@ export function TransformationVisualizer({
       <UploadCard
         image={selfieImage}
         icon="camera-outline"
-        label="You"
+        label="Your Photo"
         onSelect={onSelectSelfie}
         onRemove={onRemoveSelfie}
       />
@@ -281,7 +281,7 @@ export function TransformationVisualizer({
       <UploadCard
         image={lookImage}
         icon="search-outline"
-        label="Ambassador"
+        label="Celebrity Photo"
         onSelect={onSelectLook}
         onRemove={onRemoveLook}
       />
