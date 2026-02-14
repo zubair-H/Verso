@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Gemini API</title>
+  <style>
+    body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+    input, select, button { padding: 10px; margin: 5px 0; width: 100%; }
+    #result { background: #f5f5f5; padding: 15px; margin-top: 20px; white-space: pre-wrap; }
+    img { max-width: 300px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>Test Gemini Attribute Extraction</h1>
+  
+  <label>Image URL:</label>
+  <input type="text" id="imageUrl" value="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1200px-Cat03.jpg">
+  
+  <label>Attribute:</label>
+  <select id="attribute">
+    <option value="eyes">Eyes</option>
+    <option value="eye_color">Eye Color</option>
+    <option value="hair_color">Hair Color</option>
+    <option value="hair_style">Hair Style</option>
+    <option value="skin_tone">Skin Tone</option>
+    <option value="face_shape">Face Shape</option>
+    <option value="lips">Lips</option>
+    <option value="nose">Nose</option>
+    <option value="eyebrows">Eyebrows</option>
+  </select>
+  
+  <button onclick="testExtract()">Extract Attribute</button>
+  
+  <div id="result">Result will appear here...</div>
+
+  <script>
+    async function testExtract() {
+      const imageUrl = document.getElementById('imageUrl').value;
+      const attribute = document.getElementById('attribute').value;
+      const resultDiv = document.getElementById('result');
+      
+      resultDiv.textContent = 'Loading...';
+      
+      try {
+        const response = await fetch('http://localhost:4000/api/extract-attribute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl, attribute })
+        });
+        
+        const data = await response.json();
+        resultDiv.textContent = JSON.stringify(data, null, 2);
+        
+        if (data.success) {
+          alert('Success! Description: ' + data.description.substring(0, 100) + '...');
+        }
+      } catch (error) {
+        resultDiv.textContent = 'Error: ' + error.message;
+      }
+    }
+  </script>
+</body>
+</html>
+```
+
+Open this file in your browser and click the button!
+
+---
+
+## **Test Images You Can Use:**
+
+Try these public image URLs:
+
+**Human faces:**
+```
+https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400
+https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400
+https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400
