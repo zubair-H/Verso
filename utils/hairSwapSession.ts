@@ -9,6 +9,8 @@ export interface HairSwapSession {
   hairColorId: string;
   hairStyleId: string;
   eyeColorId: string;
+  topColorId?: string;
+  bottomColorId?: string;
   swapMode: HairSwapMode;
 }
 

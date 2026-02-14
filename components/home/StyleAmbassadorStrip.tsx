@@ -4,7 +4,6 @@ import {
   Text,
   View,
   Pressable,
-  Image,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,19 +45,121 @@ const CARD_WIDTH = Math.floor(
 );
 const GRID_PADDING =
   (SCREEN_WIDTH - CARD_WIDTH * 2 - GRID_HORIZONTAL_GAP) / 2;
-const SHORT_CARD_HEIGHT = 248;
+const SHORT_CARD_HEIGHT = 188;
 const LONG_CARD_HEIGHT = SHORT_CARD_HEIGHT * 2 + GRID_VERTICAL_GAP;
 const ANALYSIS_CARD_HEIGHT = 210;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const UNIQUE_TILE_ICONS: Array<keyof typeof Ionicons.glyphMap> = [
+  'aperture-outline',
+  'analytics-outline',
+  'at-outline',
+  'bandage-outline',
+  'barbell-outline',
+  'basketball-outline',
+  'beaker-outline',
+  'bicycle-outline',
+  'boat-outline',
+  'bonfire-outline',
+  'book-outline',
+  'bowling-ball-outline',
+  'briefcase-outline',
+  'brush-outline',
+  'build-outline',
+  'bulb-outline',
+  'bus-outline',
+  'cafe-outline',
+  'camera-outline',
+  'car-outline',
+  'card-outline',
+  'chatbubble-outline',
+  'cloud-outline',
+  'compass-outline',
+  'construct-outline',
+  'diamond-outline',
+  'disc-outline',
+  'earth-outline',
+  'extension-puzzle-outline',
+  'flask-outline',
+  'flower-outline',
+  'football-outline',
+  'game-controller-outline',
+  'gift-outline',
+  'glasses-outline',
+  'headset-outline',
+  'heart-outline',
+  'ice-cream-outline',
+  'key-outline',
+  'leaf-outline',
+  'library-outline',
+  'magnet-outline',
+  'medal-outline',
+  'moon-outline',
+  'musical-notes-outline',
+  'navigate-outline',
+  'newspaper-outline',
+  'nutrition-outline',
+  'paw-outline',
+  'planet-outline',
+  'pricetag-outline',
+  'rainy-outline',
+  'ribbon-outline',
+  'rocket-outline',
+  'rose-outline',
+  'school-outline',
+  'send-outline',
+  'shield-outline',
+  'shirt-outline',
+  'sparkles-outline',
+  'star-outline',
+  'sunny-outline',
+  'tennisball-outline',
+  'thumbs-up-outline',
+  'time-outline',
+  'trophy-outline',
+  'umbrella-outline',
+  'wallet-outline',
+  'watch-outline',
+  'wine-outline',
+];
+const LIGHT_TILE_COLORS = [
+  '#8FA8D6',
+  '#D7A6B8',
+  '#93C7B8',
+  '#D9B38C',
+  '#9CA8E8',
+  '#8FBFD2',
+  '#C7A38A',
+  '#A6B6D3',
+  '#C2D29A',
+  '#C7A5D4',
+  '#9DC6AE',
+  '#E1B9A1',
+];
+const DARK_TILE_COLORS = [
+  '#35507A',
+  '#6A3F5E',
+  '#2E6A5A',
+  '#7B5537',
+  '#4B4F86',
+  '#2E637C',
+  '#785542',
+  '#4A5F7B',
+  '#5E6D3A',
+  '#604271',
+  '#3D6A56',
+  '#8A5E48',
+];
 
 interface PersonaGridTile {
   id: string;
   persona: StylePersona;
-  image: string;
+  image?: string;
   tileTitle: string;
   attribute: PersonaAttribute;
   kind: 'headshot' | 'outfit';
   cardHeight: number;
+  icon: keyof typeof Ionicons.glyphMap;
+  visualIndex: number;
 }
 
 type FeedBlock =
@@ -106,7 +207,7 @@ function AmbassadorCard({
   onPress: () => void;
   withBottomGap?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -135,19 +236,25 @@ function AmbassadorCard({
         card: {
           width: '100%',
           height: tile.cardHeight,
-          borderRadius: borderRadius.xl,
+          borderRadius: 30,
+          borderCurve: 'continuous',
           overflow: 'hidden',
           backgroundColor: colors.bgCard,
+          borderWidth: isSelected ? 1 : 0.6,
+          borderColor: isSelected ? colors.accent : colors.border,
         },
-        image: {
-          width: '100%',
-          height: tile.cardHeight,
-          resizeMode: 'cover',
-          backgroundColor: colors.bgSecondary,
+        cardBody: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
         },
       }),
     [colors, isSelected, tile.cardHeight, withBottomGap]
   );
+
+  const palette = isDark ? DARK_TILE_COLORS : LIGHT_TILE_COLORS;
+  const tileColor = palette[tile.visualIndex % palette.length];
+  const icon = tile.icon;
 
   return (
     <AnimatedPressable
@@ -157,7 +264,9 @@ function AmbassadorCard({
       style={[styles.wrapper, animatedStyle]}
     >
       <View style={styles.card}>
-        <Image source={{ uri: tile.image }} style={styles.image} />
+        <View style={[styles.cardBody, { backgroundColor: tileColor }]}>
+          <Ionicons name={icon} size={tile.kind === 'outfit' ? 44 : 36} color="#FFFFFF" />
+        </View>
       </View>
     </AnimatedPressable>
   );
@@ -274,15 +383,16 @@ export function StyleAmbassadorStrip({
 }: StyleAmbassadorStripProps) {
   const { colors } = useTheme();
   const personaTiles = useMemo(() => {
-    return personas.reduce((acc, persona) => {
+    const tiles = personas.reduce((acc, persona) => {
       acc.push({
         id: `${persona.id}-headshot`,
         persona,
-        image: persona.headshotImage,
         tileTitle: `${persona.title} Headshot`,
         attribute: persona.attribute,
         kind: 'headshot',
         cardHeight: SHORT_CARD_HEIGHT,
+        icon: 'sparkles-outline',
+        visualIndex: 0,
       });
 
       if (persona.outfitImage) {
@@ -291,11 +401,12 @@ export function StyleAmbassadorStrip({
           acc.push({
             id: `${persona.id}-detail`,
             persona,
-            image: detailSource,
             tileTitle: `${persona.title} Detail`,
             attribute: persona.attribute,
             kind: 'headshot',
             cardHeight: SHORT_CARD_HEIGHT,
+            icon: 'sparkles-outline',
+            visualIndex: 0,
           });
         }
       }
@@ -304,16 +415,22 @@ export function StyleAmbassadorStrip({
         acc.push({
           id: `${persona.id}-outfit`,
           persona,
-          image: persona.outfitImage,
           tileTitle: `${persona.title} Outfit`,
           attribute: persona.attribute,
           kind: 'outfit',
           cardHeight: LONG_CARD_HEIGHT,
+          icon: 'sparkles-outline',
+          visualIndex: 0,
         });
       }
 
       return acc;
     }, [] as PersonaGridTile[]);
+    return tiles.map((tile, index) => ({
+      ...tile,
+      icon: UNIQUE_TILE_ICONS[index % UNIQUE_TILE_ICONS.length],
+      visualIndex: index,
+    }));
   }, [personas]);
 
   const feedBlocks = useMemo<FeedBlock[]>(() => {
@@ -479,9 +596,9 @@ export function StyleAmbassadorStrip({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Celebrity-Inspired Personas</Text>
+        <Text style={styles.title}>Attribute Style Cards</Text>
         <Text style={styles.subtitle}>
-          Idea starters by attribute. Extract any feature from any celeb image you upload.
+          Pick clean icon cards for hair, eyes, brows, and outfit tone combinations.
         </Text>
       </View>
       <View style={styles.feed}>
@@ -497,14 +614,14 @@ export function StyleAmbassadorStrip({
                   <AmbassadorCard
                     tile={block.left}
                     isSelected={selectedPersonaId === block.left.persona.id}
-                    onPress={() => onSelectPersona({ ...block.left.persona, image: block.left.image })}
+                    onPress={() => onSelectPersona({ ...block.left.persona, image: block.left.image || block.left.persona.image })}
                   />
                 </View>
                 <View style={styles.column}>
                   <AmbassadorCard
                     tile={block.right}
                     isSelected={selectedPersonaId === block.right.persona.id}
-                    onPress={() => onSelectPersona({ ...block.right.persona, image: block.right.image })}
+                    onPress={() => onSelectPersona({ ...block.right.persona, image: block.right.image || block.right.persona.image })}
                   />
                 </View>
               </View>
@@ -518,14 +635,14 @@ export function StyleAmbassadorStrip({
                   <AmbassadorCard
                     tile={block.left}
                     isSelected={selectedPersonaId === block.left.persona.id}
-                    onPress={() => onSelectPersona({ ...block.left.persona, image: block.left.image })}
+                    onPress={() => onSelectPersona({ ...block.left.persona, image: block.left.image || block.left.persona.image })}
                   />
                 </View>
                 <View style={styles.column}>
                   <AmbassadorCard
                     tile={block.right}
                     isSelected={selectedPersonaId === block.right.persona.id}
-                    onPress={() => onSelectPersona({ ...block.right.persona, image: block.right.image })}
+                    onPress={() => onSelectPersona({ ...block.right.persona, image: block.right.image || block.right.persona.image })}
                   />
                 </View>
               </View>
@@ -540,20 +657,20 @@ export function StyleAmbassadorStrip({
                     <AmbassadorCard
                       tile={block.longTile}
                       isSelected={selectedPersonaId === block.longTile.persona.id}
-                      onPress={() => onSelectPersona({ ...block.longTile.persona, image: block.longTile.image })}
+                      onPress={() => onSelectPersona({ ...block.longTile.persona, image: block.longTile.image || block.longTile.persona.image })}
                     />
                   </View>
                   <View style={styles.column}>
                     <AmbassadorCard
                       tile={block.shortTop}
                       isSelected={selectedPersonaId === block.shortTop.persona.id}
-                      onPress={() => onSelectPersona({ ...block.shortTop.persona, image: block.shortTop.image })}
+                      onPress={() => onSelectPersona({ ...block.shortTop.persona, image: block.shortTop.image || block.shortTop.persona.image })}
                       withBottomGap
                     />
                     <AmbassadorCard
                       tile={block.shortBottom}
                       isSelected={selectedPersonaId === block.shortBottom.persona.id}
-                      onPress={() => onSelectPersona({ ...block.shortBottom.persona, image: block.shortBottom.image })}
+                      onPress={() => onSelectPersona({ ...block.shortBottom.persona, image: block.shortBottom.image || block.shortBottom.persona.image })}
                     />
                   </View>
                 </>
@@ -563,20 +680,20 @@ export function StyleAmbassadorStrip({
                     <AmbassadorCard
                       tile={block.shortTop}
                       isSelected={selectedPersonaId === block.shortTop.persona.id}
-                      onPress={() => onSelectPersona({ ...block.shortTop.persona, image: block.shortTop.image })}
+                      onPress={() => onSelectPersona({ ...block.shortTop.persona, image: block.shortTop.image || block.shortTop.persona.image })}
                       withBottomGap
                     />
                     <AmbassadorCard
                       tile={block.shortBottom}
                       isSelected={selectedPersonaId === block.shortBottom.persona.id}
-                      onPress={() => onSelectPersona({ ...block.shortBottom.persona, image: block.shortBottom.image })}
+                      onPress={() => onSelectPersona({ ...block.shortBottom.persona, image: block.shortBottom.image || block.shortBottom.persona.image })}
                     />
                   </View>
                   <View style={styles.column}>
                     <AmbassadorCard
                       tile={block.longTile}
                       isSelected={selectedPersonaId === block.longTile.persona.id}
-                      onPress={() => onSelectPersona({ ...block.longTile.persona, image: block.longTile.image })}
+                      onPress={() => onSelectPersona({ ...block.longTile.persona, image: block.longTile.image || block.longTile.persona.image })}
                     />
                   </View>
                 </>

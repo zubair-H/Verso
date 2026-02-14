@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -59,11 +59,87 @@ const DEFAULT_HAIR_COLOR_PRESETS: HairColorPreset[] = [
   { id: 'lavender', name: 'Lavender', hex: '#9c8bbf', strength: 0.55 },
 ];
 
+type OutfitColorPreset = {
+  id: string;
+  name: string;
+  hex: string;
+};
+
+const OUTFIT_COLORS: OutfitColorPreset[] = [
+  { id: 'no_change', name: 'No Change', hex: '#9AA2B4' },
+  { id: 'ivory', name: 'Ivory', hex: '#ECE8DF' },
+  { id: 'camel', name: 'Camel', hex: '#B38C5E' },
+  { id: 'charcoal', name: 'Charcoal', hex: '#384152' },
+  { id: 'sage', name: 'Sage', hex: '#8CA58A' },
+  { id: 'teal', name: 'Teal', hex: '#2B7280' },
+  { id: 'rust', name: 'Rust', hex: '#A85A3A' },
+  { id: 'navy', name: 'Navy', hex: '#2A3E70' },
+  { id: 'berry', name: 'Berry', hex: '#7F4063' },
+  { id: 'black', name: 'Black', hex: '#191C22' },
+];
+
+const EYE_COLOR_HEX: Record<string, string> = {
+  current: '#9FA6B8',
+  brown: '#6C4B32',
+  hazel: '#9A7A44',
+  green: '#4E7F52',
+  blue: '#456FA0',
+  gray: '#828A96',
+};
+
+const HAIR_STYLE_ICON_OVERRIDES: Record<string, keyof typeof Ionicons.glyphMap> = {
+  no_change: 'remove-circle-outline',
+  straight: 'swap-horizontal-outline',
+  wavy: 'water-outline',
+  soft_waves: 'water-outline',
+  curly: 'sync-outline',
+  bob: 'cut-outline',
+  lob: 'cut-outline',
+  angled_bob: 'cut-outline',
+  a_line_bob: 'cut-outline',
+  pixie_cut: 'cut-outline',
+  shag: 'layers-outline',
+  layered: 'layers-outline',
+  side_parted: 'pause-outline',
+  center_parted: 'pause-outline',
+  blunt_bangs: 'remove-outline',
+  side_swept_bangs: 'remove-outline',
+  slicked_back: 'arrow-up-outline',
+  faux_hawk: 'flame-outline',
+  high_ponytail: 'trending-up-outline',
+  low_ponytail: 'trending-down-outline',
+  messy_bun: 'ellipse-outline',
+  top_knot: 'ellipse-outline',
+  french_braid: 'git-branch-outline',
+  dutch_braid: 'git-branch-outline',
+  fishtail_braid: 'git-branch-outline',
+};
+
+type ExpandableSectionKey = 'hairColor' | 'hairStyle' | 'eyeColor' | 'outfitColors';
+
 function mergePresets(apiPresets: HairColorPreset[]): HairColorPreset[] {
   const byId = new Map<string, HairColorPreset>();
   for (const preset of DEFAULT_HAIR_COLOR_PRESETS) byId.set(preset.id, preset);
   for (const preset of apiPresets) byId.set(preset.id, preset);
   return Array.from(byId.values());
+}
+
+function getHairStyleIcon(styleId: string): keyof typeof Ionicons.glyphMap {
+  const key = styleId.toLowerCase();
+  if (HAIR_STYLE_ICON_OVERRIDES[key]) return HAIR_STYLE_ICON_OVERRIDES[key];
+  if (key.includes('braid')) return 'git-branch-outline';
+  if (key.includes('bun') || key.includes('knot')) return 'ellipse-outline';
+  if (key.includes('pony')) return 'trending-up-outline';
+  if (key.includes('bang')) return 'remove-outline';
+  if (key.includes('part')) return 'pause-outline';
+  if (key.includes('bob') || key.includes('pixie') || key.includes('cut')) return 'cut-outline';
+  if (key.includes('curly') || key.includes('wavy')) return 'water-outline';
+  if (key.includes('layer')) return 'layers-outline';
+  return 'sparkles-outline';
+}
+
+function getEyeColorHex(eyeColorId: string): string {
+  return EYE_COLOR_HEX[eyeColorId] || '#7082A0';
 }
 
 function UploadTile({
@@ -151,6 +227,76 @@ function UploadTile({
   );
 }
 
+function ExpandableSection({
+  title,
+  expanded,
+  onToggle,
+  onExpand,
+  children,
+}: {
+  title: string;
+  expanded: boolean;
+  onToggle: () => void;
+  onExpand: () => void;
+  children: ReactNode;
+}) {
+  const { colors } = useTheme();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        wrapper: {
+          marginTop: 16,
+        },
+        header: {
+          borderRadius: borderRadius.lg,
+          backgroundColor: colors.bgCard,
+          borderWidth: 1,
+          borderColor: colors.borderLight,
+          paddingHorizontal: 12,
+          paddingVertical: 11,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        },
+        title: {
+          ...typography.labelLarge,
+          color: colors.textPrimary,
+        },
+        actions: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+        },
+        expandText: {
+          ...typography.caption,
+          color: colors.accent,
+        },
+        body: {
+          paddingTop: 10,
+        },
+      }),
+    [colors]
+  );
+
+  return (
+    <View style={styles.wrapper}>
+      <View style={styles.header}>
+        <Text style={styles.title}>{title}</Text>
+        <View style={styles.actions}>
+          <Pressable onPress={onExpand}>
+            <Text style={styles.expandText}>Expand</Text>
+          </Pressable>
+          <Pressable onPress={onToggle}>
+            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+      </View>
+      {expanded ? <View style={styles.body}>{children}</View> : null}
+    </View>
+  );
+}
+
 export default function CreateScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -195,7 +341,16 @@ export default function CreateScreen() {
   ]);
   const [selectedEyeColorId, setSelectedEyeColorId] = useState('current');
   const [selectedHairStyleId, setSelectedHairStyleId] = useState('no_change');
+  const [selectedTopColorId, setSelectedTopColorId] = useState('no_change');
+  const [selectedBottomColorId, setSelectedBottomColorId] = useState('no_change');
   const [loadingColors, setLoadingColors] = useState(true);
+  const [focusedCategory, setFocusedCategory] = useState<ExpandableSectionKey | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Record<ExpandableSectionKey, boolean>>({
+    hairColor: true,
+    hairStyle: true,
+    eyeColor: true,
+    outfitColors: true,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -295,15 +450,40 @@ export default function CreateScreen() {
     ]);
   };
 
-  const canGenerate = Boolean(selfieImage && selectedHairColorId);
+  const toggleSection = (key: ExpandableSectionKey) => {
+    setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const selectedAttributeCount = useMemo(() => {
+    let count = 0;
+    if (selectedHairColorId && selectedHairColorId !== 'current') count += 1;
+    if (selectedHairStyleId && selectedHairStyleId !== 'no_change') count += 1;
+    if (selectedEyeColorId && selectedEyeColorId !== 'current') count += 1;
+    if (selectedTopColorId && selectedTopColorId !== 'no_change') count += 1;
+    if (selectedBottomColorId && selectedBottomColorId !== 'no_change') count += 1;
+    return count;
+  }, [selectedBottomColorId, selectedEyeColorId, selectedHairColorId, selectedHairStyleId, selectedTopColorId]);
+
+  const canGenerate = Boolean(selfieImage && selectedAttributeCount > 0);
 
   const ctaLabel = useMemo(() => {
     if (!selfieImage) return 'Upload your photo';
-    if (!selectedHairColorId) return 'Pick a hair color';
-    return 'Apply Hair Color';
-  }, [selectedHairColorId, selfieImage]);
+    if (selectedAttributeCount === 0) return 'Select at least one attribute';
+    if (selectedAttributeCount === 1) return 'Apply this attribute';
+    return 'Apply selected attributes';
+  }, [selectedAttributeCount, selfieImage]);
 
   const selectedPreset = hairColorPresets.find((item) => item.id === selectedHairColorId) || null;
+
+  const selectedElementLabels = useMemo(() => {
+    const labels: string[] = [];
+    if (selectedHairColorId !== 'current') labels.push('Hair Color');
+    if (selectedHairStyleId !== 'no_change') labels.push('Hair Style');
+    if (selectedEyeColorId !== 'current') labels.push('Eye Color');
+    if (selectedTopColorId !== 'no_change') labels.push('Top Color');
+    if (selectedBottomColorId !== 'no_change') labels.push('Bottom Color');
+    return labels;
+  }, [selectedBottomColorId, selectedEyeColorId, selectedHairColorId, selectedHairStyleId, selectedTopColorId]);
 
   const handleGenerate = async () => {
     if (!canGenerate || !selfieImage) {
@@ -313,18 +493,23 @@ export default function CreateScreen() {
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     trackEvent('elements_selected', {
-      colorId: selectedHairColorId || 'custom',
+      attributeCount: selectedAttributeCount,
+      colorId: selectedHairColorId || 'current',
       mode: 'hair_color_fast',
+      topColorId: selectedTopColorId,
+      bottomColorId: selectedBottomColorId,
     });
 
     const session = createHairSwapSession({
       selfie: selfieImage,
       look: selfieImage,
-      elements: 'Hair Color',
+      elements: selectedElementLabels.join(', ') || 'Hair Color',
       swapMode: 'fast',
-      hairColorId: selectedHairColorId || '',
+      hairColorId: selectedHairColorId || 'current',
       hairStyleId: selectedHairStyleId || 'no_change',
       eyeColorId: selectedEyeColorId || 'current',
+      topColorId: selectedTopColorId,
+      bottomColorId: selectedBottomColorId,
     });
 
     router.push({
@@ -383,9 +568,6 @@ export default function CreateScreen() {
           ...typography.bodySmall,
           color: colors.textSecondary,
         },
-        section: {
-          marginTop: 16,
-        },
         sectionTitle: {
           ...typography.labelLarge,
           color: colors.textPrimary,
@@ -429,6 +611,104 @@ export default function CreateScreen() {
           ...typography.caption,
           color: colors.textTertiary,
         },
+        iconRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          paddingRight: 6,
+        },
+        iconChip: {
+          width: 46,
+          height: 46,
+          borderRadius: 15,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.bgCard,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        iconChipActive: {
+          borderColor: colors.accent,
+          backgroundColor: colors.accentMuted,
+        },
+        eyeChip: {
+          width: 52,
+          height: 52,
+          borderRadius: 16,
+          borderWidth: 0,
+          backgroundColor: colors.bgSecondary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+        },
+        eyeChipActive: {
+          backgroundColor: colors.accentMuted,
+        },
+        eyeDot: {
+          position: 'absolute',
+          bottom: 10,
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+        },
+        outfitRowTitleWrap: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 10,
+        },
+        outfitRowTitle: {
+          ...typography.caption,
+          color: colors.textSecondary,
+        },
+        swatchChip: {
+          width: 44,
+          height: 44,
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: colors.border,
+          padding: 8,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.bgCard,
+          marginRight: 8,
+        },
+        swatchChipActive: {
+          borderColor: colors.accent,
+          backgroundColor: colors.accentMuted,
+        },
+        swatchFill: {
+          width: 22,
+          height: 22,
+          borderRadius: 11,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        focusedOverlay: {
+          position: 'absolute',
+          top: layout.headerHeight,
+          left: 0,
+          right: 0,
+          bottom: insets.bottom + layout.tabBarHeight + 4,
+          backgroundColor: colors.bgPrimary,
+          zIndex: 20,
+          paddingHorizontal: layout.screenPadding,
+          paddingTop: 12,
+        },
+        focusedHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 10,
+        },
+        focusedTitle: {
+          ...typography.labelLarge,
+          color: colors.textPrimary,
+        },
+        shrinkText: {
+          ...typography.caption,
+          color: colors.accent,
+        },
         bottomBar: {
           backgroundColor: colors.bgPrimary,
           paddingHorizontal: layout.screenPadding,
@@ -437,8 +717,144 @@ export default function CreateScreen() {
           borderTopColor: colors.borderLight,
         },
       }),
-    [colors]
+    [colors, insets.bottom]
   );
+
+  const renderHairColor = () => (
+    <>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorRow}>
+        {hairColorPresets.map((preset) => {
+          const active = selectedHairColorId === preset.id;
+          return (
+            <Pressable
+              key={preset.id}
+              onPress={() => setSelectedHairColorId(preset.id)}
+              style={[styles.colorChip, active && styles.colorChipActive]}
+            >
+              <View style={[styles.colorDot, { backgroundColor: preset.hex }]} />
+              <Text style={[styles.colorChipText, active && styles.colorChipTextActive]}>
+                {preset.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      <Text style={styles.hint}>
+        {loadingColors
+          ? 'Loading preset colors...'
+          : selectedPreset
+            ? `${selectedPreset.name} selected`
+            : 'Pick a preset color.'}
+      </Text>
+    </>
+  );
+
+  const renderHairStyle = () => (
+    <>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.iconRow}>
+        {hairStylePresets.map((style) => {
+          const active = selectedHairStyleId === style.id;
+          const icon = getHairStyleIcon(style.id);
+          return (
+            <Pressable
+              key={style.id}
+              accessibilityLabel={style.name}
+              onPress={() => setSelectedHairStyleId(style.id)}
+              style={[styles.iconChip, active && styles.iconChipActive]}
+            >
+              <Ionicons
+                name={icon}
+                size={20}
+                color={active ? colors.textPrimary : colors.textSecondary}
+              />
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      <Text style={styles.hint}>Each style has its own icon mapping.</Text>
+    </>
+  );
+
+  const renderEyeColor = () => (
+    <>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.iconRow}>
+        {eyeColorPresets.map((eye) => {
+          const active = selectedEyeColorId === eye.id;
+          const eyeHex = getEyeColorHex(eye.id);
+          return (
+            <Pressable
+              key={eye.id}
+              accessibilityLabel={eye.name}
+              onPress={() => setSelectedEyeColorId(eye.id)}
+              style={[styles.eyeChip, active && styles.eyeChipActive]}
+            >
+              <Ionicons name="eye-outline" size={22} color={eyeHex} />
+              <View style={[styles.eyeDot, { backgroundColor: eyeHex }]} />
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      <Text style={styles.hint}>Eye icon color previews the selected eye tone.</Text>
+    </>
+  );
+
+  const renderOutfitColors = () => (
+    <>
+      <View style={styles.outfitRowTitleWrap}>
+        <Ionicons name="shirt-outline" size={16} color={colors.textSecondary} />
+        <Text style={styles.outfitRowTitle}>Top</Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorRow}>
+        {OUTFIT_COLORS.map((preset) => {
+          const active = selectedTopColorId === preset.id;
+          return (
+            <Pressable
+              key={`top-${preset.id}`}
+              accessibilityLabel={`Top ${preset.name}`}
+              onPress={() => setSelectedTopColorId(preset.id)}
+              style={[styles.swatchChip, active && styles.swatchChipActive]}
+            >
+              <View style={[styles.swatchFill, { backgroundColor: preset.hex }]} />
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <View style={[styles.outfitRowTitleWrap, { marginTop: 12 }]}>
+        <Ionicons name="walk-outline" size={16} color={colors.textSecondary} />
+        <Text style={styles.outfitRowTitle}>Bottom</Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorRow}>
+        {OUTFIT_COLORS.map((preset) => {
+          const active = selectedBottomColorId === preset.id;
+          return (
+            <Pressable
+              key={`bottom-${preset.id}`}
+              accessibilityLabel={`Bottom ${preset.name}`}
+              onPress={() => setSelectedBottomColorId(preset.id)}
+              style={[styles.swatchChip, active && styles.swatchChipActive]}
+            >
+              <View style={[styles.swatchFill, { backgroundColor: preset.hex }]} />
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </>
+  );
+
+  const getFocusedTitle = (key: ExpandableSectionKey): string => {
+    if (key === 'hairColor') return 'Hair Color';
+    if (key === 'hairStyle') return 'Hair Style';
+    if (key === 'eyeColor') return 'Eye Color';
+    return 'Outfit Colors';
+  };
+
+  const renderCategoryContent = (key: ExpandableSectionKey): ReactNode => {
+    if (key === 'hairColor') return renderHairColor();
+    if (key === 'hairStyle') return renderHairStyle();
+    if (key === 'eyeColor') return renderEyeColor();
+    return renderOutfitColors();
+  };
 
   return (
     <KeyboardAvoidingView
@@ -459,13 +875,13 @@ export default function CreateScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Animated.View entering={FadeInDown.delay(60).duration(280)} style={styles.leadCard}>
-            <Text style={styles.leadTitle}>Hair Color Swap</Text>
+            <Text style={styles.leadTitle}>Attribute Mixer</Text>
             <Text style={styles.leadText}>
-              Upload one photo, choose a shade, and apply realistic color without changing your face.
+              Combine hair, eyes, hairstyle, and outfit tones. Expand a category into full page, then shrink back.
             </Text>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.section}>
+          <Animated.View entering={FadeInDown.delay(120).duration(280)}>
             <Text style={styles.sectionTitle}>Your Photo</Text>
             <UploadTile
               image={selfieImage}
@@ -474,84 +890,64 @@ export default function CreateScreen() {
             />
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(180).duration(280)} style={styles.section}>
-            <Text style={styles.sectionTitle}>Hair Color</Text>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorRow}>
-              {hairColorPresets.map((preset) => {
-                const active = selectedHairColorId === preset.id;
-                return (
-                  <Pressable
-                    key={preset.id}
-                    onPress={() => setSelectedHairColorId(preset.id)}
-                    style={[styles.colorChip, active && styles.colorChipActive]}
-                  >
-                    <View style={[styles.colorDot, { backgroundColor: preset.hex }]} />
-                    <Text style={[styles.colorChipText, active && styles.colorChipTextActive]}>
-                      {preset.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            <Text style={styles.hint}>
-              {loadingColors
-                ? 'Loading preset colors...'
-                : selectedPreset
-                  ? `${selectedPreset.name} selected`
-                  : 'Pick a preset color.'}
-            </Text>
+          <Animated.View entering={FadeInDown.delay(180).duration(280)}>
+            <ExpandableSection
+              title="Hair Color"
+              expanded={expandedSections.hairColor}
+              onToggle={() => toggleSection('hairColor')}
+              onExpand={() => setFocusedCategory('hairColor')}
+            >
+              {renderHairColor()}
+            </ExpandableSection>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(220).duration(280)} style={styles.section}>
-            <Text style={styles.sectionTitle}>Hair Style</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorRow}>
-              {hairStylePresets.map((style) => {
-                const active = selectedHairStyleId === style.id;
-                return (
-                  <Pressable
-                    key={style.id}
-                    onPress={() => setSelectedHairStyleId(style.id)}
-                    style={[styles.colorChip, active && styles.colorChipActive]}
-                  >
-                    <Text style={[styles.colorChipText, active && styles.colorChipTextActive]}>
-                      {style.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <Text style={styles.hint}>
-              Hairstyle and color are applied together.
-            </Text>
+          <Animated.View entering={FadeInDown.delay(220).duration(280)}>
+            <ExpandableSection
+              title="Hair Style"
+              expanded={expandedSections.hairStyle}
+              onToggle={() => toggleSection('hairStyle')}
+              onExpand={() => setFocusedCategory('hairStyle')}
+            >
+              {renderHairStyle()}
+            </ExpandableSection>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(300).duration(280)} style={styles.section}>
-            <Text style={styles.sectionTitle}>Eye Color</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorRow}>
-              {eyeColorPresets.map((eye) => {
-                const active = selectedEyeColorId === eye.id;
-                return (
-                  <Pressable
-                    key={eye.id}
-                    onPress={() => setSelectedEyeColorId(eye.id)}
-                    style={[styles.colorChip, active && styles.colorChipActive]}
-                  >
-                    <Text style={[styles.colorChipText, active && styles.colorChipTextActive]}>
-                      {eye.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <Text style={styles.hint}>
-              {selectedEyeColorId === 'current'
-                ? 'Current eye color selected.'
-                : 'Eye color change will be applied after hair transformation.'}
-            </Text>
+          <Animated.View entering={FadeInDown.delay(260).duration(280)}>
+            <ExpandableSection
+              title="Eye Color"
+              expanded={expandedSections.eyeColor}
+              onToggle={() => toggleSection('eyeColor')}
+              onExpand={() => setFocusedCategory('eyeColor')}
+            >
+              {renderEyeColor()}
+            </ExpandableSection>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(300).duration(280)}>
+            <ExpandableSection
+              title="Outfit Colors"
+              expanded={expandedSections.outfitColors}
+              onToggle={() => toggleSection('outfitColors')}
+              onExpand={() => setFocusedCategory('outfitColors')}
+            >
+              {renderOutfitColors()}
+            </ExpandableSection>
           </Animated.View>
         </ScrollView>
+
+        {focusedCategory ? (
+          <View style={styles.focusedOverlay}>
+            <View style={styles.focusedHeader}>
+              <Text style={styles.focusedTitle}>{getFocusedTitle(focusedCategory)}</Text>
+              <Pressable onPress={() => setFocusedCategory(null)}>
+                <Text style={styles.shrinkText}>Shrink</Text>
+              </Pressable>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {renderCategoryContent(focusedCategory)}
+            </ScrollView>
+          </View>
+        ) : null}
 
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + layout.tabBarHeight + 8 }]}> 
           <PrimaryButton
