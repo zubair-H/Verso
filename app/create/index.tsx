@@ -5,10 +5,10 @@ import {
   View,
   ScrollView,
   Pressable,
-  TextInput,
   Image,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -31,6 +31,15 @@ interface AttributeGroup {
   tags: string[];
 }
 
+type ConfidenceTier = 'high' | 'medium' | 'low';
+
+interface CreateAnalysisResult {
+  confidence: number;
+  tier: ConfidenceTier;
+  groups: AttributeGroup[];
+  warning?: string;
+}
+
 type CreateMode = 'create' | 'face' | 'hair' | 'color' | 'skin' | 'style';
 
 interface ModeConfig {
@@ -49,52 +58,16 @@ const MODE_CONFIGS: ModeConfig[] = [
     singleUpload: false,
     groups: [
       {
-        id: 'hair',
-        title: 'Hair',
-        icon: 'cut',
-        tags: ['Hair volume', 'Hairline shape', 'Hair texture', 'Parting direction'],
-      },
-      {
         id: 'face',
         title: 'Face',
         icon: 'scan',
-        tags: ['Face shape', 'Jawline contour', 'Eyebrow shape', 'Eye makeup'],
-      },
-      {
-        id: 'color',
-        title: 'Color',
-        icon: 'color-palette',
-        tags: ['Lip tone', 'Skin finish', 'Undertone palette', 'Contrast level'],
+        tags: ['Eyebrows', 'Eyes', 'Lips', 'Nose', 'Makeup', 'Full Face'],
       },
       {
         id: 'style',
         title: 'Style',
         icon: 'shirt',
-        tags: ['Outfit silhouette', 'Layering style', 'Accessories', 'Entire vibe'],
-      },
-      {
-        id: 'makeup',
-        title: 'Makeup',
-        icon: 'sparkles',
-        tags: ['Blush placement', 'Eyeliner shape', 'Lash style', 'Highlight intensity'],
-      },
-      {
-        id: 'accessories',
-        title: 'Accessories',
-        icon: 'diamond-outline',
-        tags: ['Glasses style', 'Earring shape', 'Necklace layer', 'Hat profile'],
-      },
-      {
-        id: 'beard',
-        title: 'Beard',
-        icon: 'male-outline',
-        tags: ['Beard density', 'Jawline beard shape', 'Mustache style', 'Fade blend'],
-      },
-      {
-        id: 'pose',
-        title: 'Pose',
-        icon: 'body-outline',
-        tags: ['Head tilt', 'Shoulder angle', 'Expression mood', 'Camera framing'],
+        tags: ['Jacket', 'Dress', 'Shoes', 'Accessories', 'Entire Outfit'],
       },
     ],
   },
@@ -231,9 +204,71 @@ const MODE_CONFIGS: ModeConfig[] = [
 ];
 
 const SOFT_LAYOUT = Layout.duration(180);
+const CREATE_BASE_GROUPS = MODE_CONFIGS.find((mode) => mode.id === 'create')?.groups ?? [];
 
-function normalizeAttribute(input: string) {
-  return input.trim().replace(/,+/g, ' ').replace(/\s+/g, ' ');
+function hashSeed(input: string) {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function buildCreateAnalysis(selfieUri: string, lookUri: string): CreateAnalysisResult {
+  const seed = hashSeed(`${selfieUri}|${lookUri}`);
+  const confidence = 45 + (seed % 52);
+
+  if (confidence < 60) {
+    const warnings = [
+      'The inspiration photo looks too blurry to extract reliable attributes.',
+      'The person in the inspiration photo appears too far from the camera.',
+      'Key facial or outfit details are partially occluded in the inspiration photo.',
+      'Lighting is too uneven to confidently isolate attributes.',
+    ];
+    return {
+      confidence,
+      tier: 'low',
+      groups: [],
+      warning: warnings[seed % warnings.length],
+    };
+  }
+
+  if (confidence <= 85) {
+    return {
+      confidence,
+      tier: 'medium',
+      groups: [
+        {
+          id: 'face-grouped',
+          title: 'Face (Grouped)',
+          icon: 'scan',
+          tags: ['Full Face', 'Makeup Style Bundle'],
+        },
+        {
+          id: 'outfit-grouped',
+          title: 'Outfit (Grouped)',
+          icon: 'shirt',
+          tags: ['Entire Outfit', 'Top + Bottom Set', 'Accessories Set'],
+        },
+      ],
+      warning:
+        'Detail confidence is moderate, so grouped swaps are recommended for cleaner results.',
+    };
+  }
+
+  const subsetCount = 3 + (seed % 3);
+  const groups = CREATE_BASE_GROUPS.map((group) => {
+    const offset = seed % group.tags.length;
+    const rotated = [...group.tags.slice(offset), ...group.tags.slice(0, offset)];
+    return { ...group, tags: rotated.slice(0, subsetCount) };
+  });
+
+  return {
+    confidence,
+    tier: 'high',
+    groups,
+  };
 }
 
 function SingleUploadTile({
@@ -339,7 +374,6 @@ export default function CreateScreen() {
   const [lookImage, setLookImage] = useState<string | null>(null);
   const [analysisImage, setAnalysisImage] = useState<string | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<string[]>([]);
-  const [customAttribute, setCustomAttribute] = useState('');
   const [activeMode, setActiveMode] = useState<CreateMode>('create');
   const [activeCategory, setActiveCategory] = useState<string>(MODE_CONFIGS[0].groups[0].id);
 
@@ -370,7 +404,17 @@ export default function CreateScreen() {
     setActiveCategory(matchedCategory ? matchedCategory.id : matchedMode.groups[0].id);
   }, [params.mode, params.category]);
 
-  const pickImage = async (type: 'selfie' | 'look' | 'analysis') => {
+  const setImageForType = (type: 'selfie' | 'look' | 'analysis', uri: string) => {
+    if (type === 'selfie') {
+      setSelfieImage(uri);
+    } else if (type === 'look') {
+      setLookImage(uri);
+    } else {
+      setAnalysisImage(uri);
+    }
+  };
+
+  const pickImageFromLibrary = async (type: 'selfie' | 'look' | 'analysis') => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -380,15 +424,51 @@ export default function CreateScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
-      if (type === 'selfie') {
-        setSelfieImage(uri);
-      } else if (type === 'look') {
-        setLookImage(uri);
-      } else {
-        setAnalysisImage(uri);
-      }
-      trackEvent('photo_uploaded', { type });
+      setImageForType(type, uri);
+      trackEvent('photo_uploaded', { type, source: 'library' });
     }
+  };
+
+  const pickImageFromCamera = async (type: 'selfie' | 'look' | 'analysis') => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Camera access needed', 'Please allow camera access in Settings.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const uri = result.assets[0].uri;
+      setImageForType(type, uri);
+      trackEvent('photo_uploaded', { type, source: 'camera' });
+    }
+  };
+
+  const pickImage = (type: 'selfie' | 'look' | 'analysis') => {
+    Alert.alert('Upload photo', 'Choose how you want to upload.', [
+      {
+        text: 'Camera',
+        onPress: () => {
+          void pickImageFromCamera(type);
+        },
+      },
+      {
+        text: 'Photo Library',
+        onPress: () => {
+          void pickImageFromLibrary(type);
+        },
+      },
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+    ]);
   };
 
   const toggleAttribute = async (attribute: string) => {
@@ -398,24 +478,6 @@ export default function CreateScreen() {
       trackEvent('attribute_tag_toggled', { attribute, selected: !active });
       return active ? prev.filter((item) => item !== attribute) : [...prev, attribute];
     });
-  };
-
-  const addCustomAttribute = async () => {
-    const normalized = normalizeAttribute(customAttribute);
-    if (!normalized) {
-      return;
-    }
-
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSelectedAttributes((prev) => {
-      const exists = prev.some((item) => item.toLowerCase() === normalized.toLowerCase());
-      if (exists) {
-        return prev;
-      }
-      return [...prev, normalized];
-    });
-    setCustomAttribute('');
-    trackEvent('custom_attribute_added', { attribute: normalized });
   };
 
   const removeAttribute = async (attribute: string) => {
@@ -443,7 +505,6 @@ export default function CreateScreen() {
     setActiveMode(nextMode.id);
     setActiveCategory(nextMode.groups[0].id);
     setSelectedAttributes([]);
-    setCustomAttribute('');
   };
 
   const clearAttributes = async () => {
@@ -607,36 +668,9 @@ export default function CreateScreen() {
           ...typography.caption,
           color: colors.textSecondary,
         },
-        customRow: {
+        categorySpacer: {
           marginTop: 10,
-        },
-        customComposer: {
-          minHeight: 56,
-          borderRadius: borderRadius.lg,
-          backgroundColor: colors.bgCard,
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-        },
-        customInput: {
-          flex: 1,
-          minHeight: 40,
-          color: colors.textPrimary,
-          paddingHorizontal: 8,
-          paddingVertical: 8,
-          ...typography.bodyMedium,
-        },
-        composerAddButton: {
-          width: 34,
-          height: 34,
-          borderRadius: 17,
-          backgroundColor: colors.accentMuted,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        composerAddButtonActive: {
-          backgroundColor: colors.accent,
+          minHeight: 24,
         },
         selectedRow: {
           marginTop: 10,
@@ -856,33 +890,7 @@ export default function CreateScreen() {
                 </Animated.View>
               )}
 
-              <Animated.View style={styles.customRow} layout={SOFT_LAYOUT}>
-                <View style={styles.customComposer}>
-                  <Ionicons name="create-outline" size={16} color={colors.textTertiary} />
-                  <TextInput
-                    style={styles.customInput}
-                    value={customAttribute}
-                    onChangeText={setCustomAttribute}
-                    placeholder="Type your own attribute"
-                    placeholderTextColor={colors.textTertiary}
-                    returnKeyType="done"
-                    onSubmitEditing={addCustomAttribute}
-                  />
-                  <Pressable
-                    style={[
-                      styles.composerAddButton,
-                      customAttribute.trim().length > 0 && styles.composerAddButtonActive,
-                    ]}
-                    onPress={addCustomAttribute}
-                  >
-                    <Ionicons
-                      name="add"
-                      size={16}
-                      color={customAttribute.trim().length > 0 ? colors.textOnAccent : colors.textSecondary}
-                    />
-                  </Pressable>
-                </View>
-              </Animated.View>
+              <Animated.View style={styles.categorySpacer} layout={SOFT_LAYOUT} />
 
               <Animated.View layout={SOFT_LAYOUT}>
                 <ScrollView
