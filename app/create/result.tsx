@@ -7,6 +7,7 @@ import {
   Pressable,
   Image,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -31,7 +32,8 @@ import { layout, borderRadius, springs } from '@/constants/spacing';
 import { useStorage } from '@/hooks/useStorage';
 import { trackEvent } from '@/utils/analytics';
 import { getProductsForElements, Product } from '@/utils/mockProducts';
-import { generateLook } from '@/utils/api';
+import { generateLook, recolorHair, recolorHairFast } from '@/utils/api';
+import { getHairSwapSession } from '@/utils/hairSwapSession';
 
 const { width } = Dimensions.get('window');
 const IMAGE_WIDTH = width - layout.screenPadding * 2;
@@ -57,6 +59,16 @@ export default function ResultScreen() {
     selfie: string;
     look: string;
     elements: string;
+    hairColorMode?: string;
+    sessionId?: string;
+    hairColorId?: string;
+    hairStyleId?: string;
+    swapMode?: string;
+    hairHex?: string;
+    hairStrength?: string;
+    precomputedImage?: string;
+    maskUrl?: string;
+    debugSummary?: string;
   }>();
   const { saveLook, useFreeTry } = useStorage();
 
@@ -68,9 +80,31 @@ export default function ResultScreen() {
   const [showActions, setShowActions] = useState(false);
   const [showProducts, setShowProducts] = useState(false);
   const [resultImageUri, setResultImageUri] = useState(params.look || '');
+  const [hairMaskUrl, setHairMaskUrl] = useState<string>('');
+  const [generationError, setGenerationError] = useState<string>('');
+  const [usedPrecomputed, setUsedPrecomputed] = useState(false);
 
-  const elements = params.elements?.split(',') || [];
+  const session = useMemo(
+    () => (params.sessionId ? getHairSwapSession(params.sessionId) : null),
+    [params.sessionId]
+  );
+  const sourceSelfie = session?.selfie || params.selfie || '';
+  const sourceLook = session?.look || params.look || '';
+  const sourceElementsRaw = session?.elements || params.elements || '';
+  const sourceColorId = session?.hairColorId || params.hairColorId || '';
+  const sourceStyleId = session?.hairStyleId || params.hairStyleId || 'no_change';
+  const sourceMode = session?.swapMode || params.swapMode || 'stable';
+
+  const elements = sourceElementsRaw ? sourceElementsRaw.split(',') : [];
   const products = getProductsForElements(elements);
+  const isHairColorMode = params.hairColorMode === '1';
+
+  const ensureDataUri = useCallback(async (uri: string): Promise<string> => {
+    if (!uri) return uri;
+    if (uri.startsWith('data:')) return uri;
+    if (uri.startsWith('http://') || uri.startsWith('https://')) return uri;
+    throw new Error('Local file URI is not supported here. Please re-upload your photo.');
+  }, []);
 
   // Animation values - THE SIGNATURE REVEAL
   const loaderScale = useSharedValue(1);
@@ -177,21 +211,73 @@ export default function ResultScreen() {
 
   const runGenerationAndReveal = useCallback(async () => {
     try {
-      const job = await generateLook({
-        selfie: params.selfie || '',
-        look: params.look || '',
-        elements,
-      });
-      setResultImageUri(job.resultUrl || params.look || '');
-    } catch {
-      setResultImageUri(params.look || '');
+      setGenerationError('');
+      if (isHairColorMode) {
+        const mode = sourceMode === 'fast' ? 'fast' : 'stable';
+        if (params.precomputedImage && !usedPrecomputed) {
+          setResultImageUri(params.precomputedImage);
+          setHairMaskUrl(params.maskUrl || '');
+          setUsedPrecomputed(true);
+          return;
+        }
+
+        const userImageUrl = await ensureDataUri(sourceSelfie);
+        if (mode === 'fast') {
+          const response = await recolorHairFast({
+            userImageUrl,
+            colorId: sourceColorId,
+            hairStyleId: sourceStyleId,
+          });
+          setResultImageUri(response.editedImageUrl || sourceSelfie || sourceLook || '');
+          setHairMaskUrl('');
+        } else {
+          const parsedStrength = Number(params.hairStrength);
+          const response = await recolorHair({
+            userImageUrl,
+            colorId: sourceColorId || undefined,
+            hex: params.hairHex || undefined,
+            strength: Number.isFinite(parsedStrength) ? parsedStrength : undefined,
+          });
+
+          setResultImageUri(response.editedImageDataUri || sourceSelfie || sourceLook || '');
+          setHairMaskUrl(response.maskUrl || '');
+        }
+      } else {
+        const job = await generateLook({
+          selfie: sourceSelfie,
+          look: sourceLook,
+          elements,
+        });
+        setResultImageUri(job.resultUrl || sourceLook || '');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Generation failed';
+      setGenerationError(message);
+      Alert.alert('Hair color swap failed', message);
+      setResultImageUri(sourceLook || '');
+      setHairMaskUrl('');
     } finally {
       runSignatureReveal();
     }
-  }, [params.selfie, params.look, elements, runSignatureReveal]);
+  }, [
+    elements,
+    ensureDataUri,
+    isHairColorMode,
+    sourceColorId,
+    params.hairHex,
+    sourceStyleId,
+    params.hairStrength,
+    sourceLook,
+    params.maskUrl,
+    params.precomputedImage,
+    sourceMode,
+    sourceSelfie,
+    runSignatureReveal,
+    usedPrecomputed,
+  ]);
 
   const trackEventWrapper = () => {
-    trackEvent('look_generated', { elements: params.elements });
+    trackEvent('look_generated', { elements: sourceElementsRaw });
   };
 
   const decrementTry = async () => {
@@ -203,9 +289,9 @@ export default function ResultScreen() {
     setIsSaved(true);
 
     await saveLook({
-      selfie: params.selfie || '',
-      reference: params.look || '',
-      result: resultImageUri || params.look || '',
+      selfie: sourceSelfie,
+      reference: isHairColorMode ? sourceSelfie : sourceLook,
+      result: resultImageUri || sourceLook || '',
       elements,
     });
 
@@ -515,6 +601,16 @@ export default function ResultScreen() {
         {showSubtitle && (
           <Animated.View style={[styles.subtitleContainer, subtitleStyle]}>
             <Text style={dynamicStyles.resultSubtitle}>{elementsText}</Text>
+            {isHairColorMode && Boolean(hairMaskUrl) && (
+              <Text style={[dynamicStyles.resultSubtitle, { marginTop: 6 }]}>
+                Hair mask applied
+              </Text>
+            )}
+            {Boolean(generationError) && (
+              <Text style={[dynamicStyles.resultSubtitle, { marginTop: 6 }]}>
+                {generationError}
+              </Text>
+            )}
           </Animated.View>
         )}
 

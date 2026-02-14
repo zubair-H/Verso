@@ -1,286 +1,79 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  StyleSheet,
-  Text,
-  View,
-  ScrollView,
-  Pressable,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeInDown, FadeOut, Layout } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { PrimaryButton } from '@/components/ui';
-import { TransformationVisualizer } from '@/components/home';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
-import { layout, borderRadius } from '@/constants/spacing';
+import { borderRadius, layout } from '@/constants/spacing';
+import {
+  fetchEyeColors,
+  fetchHairColors,
+  fetchHairStyles,
+  EyeColorPreset,
+  HairColorPreset,
+  HairStylePreset,
+} from '@/utils/api';
 import { trackEvent } from '@/utils/analytics';
+import { createHairSwapSession } from '@/utils/hairSwapSession';
 
-interface AttributeGroup {
-  id: string;
-  title: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  tags: string[];
-}
-
-type ConfidenceTier = 'high' | 'medium' | 'low';
-
-interface CreateAnalysisResult {
-  confidence: number;
-  tier: ConfidenceTier;
-  groups: AttributeGroup[];
-  warning?: string;
-}
-
-type CreateMode = 'create' | 'face' | 'hair' | 'color' | 'skin' | 'style';
-
-interface ModeConfig {
-  id: CreateMode;
-  title: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  singleUpload: boolean;
-  groups: AttributeGroup[];
-}
-
-const MODE_CONFIGS: ModeConfig[] = [
-  {
-    id: 'create',
-    title: 'Create Your Look',
-    icon: 'sparkles',
-    singleUpload: false,
-    groups: [
-      {
-        id: 'face',
-        title: 'Face',
-        icon: 'scan',
-        tags: ['Eyebrows', 'Eyes', 'Lips', 'Nose', 'Makeup', 'Full Face'],
-      },
-      {
-        id: 'style',
-        title: 'Style',
-        icon: 'shirt',
-        tags: ['Jacket', 'Dress', 'Shoes', 'Accessories', 'Entire Outfit'],
-      },
-    ],
-  },
-  {
-    id: 'face',
-    title: 'Face Shape Analysis',
-    icon: 'scan',
-    singleUpload: true,
-    groups: [
-      {
-        id: 'face-structure',
-        title: 'Structure',
-        icon: 'square-outline',
-        tags: ['Forehead width', 'Cheekbone width', 'Jaw taper', 'Chin shape'],
-      },
-      {
-        id: 'face-balance',
-        title: 'Balance',
-        icon: 'resize-outline',
-        tags: ['Facial symmetry', 'Feature spacing', 'Vertical thirds', 'Profile depth'],
-      },
-      {
-        id: 'face-enhance',
-        title: 'Enhance',
-        icon: 'sparkles-outline',
-        tags: ['Contour placement', 'Brow shaping', 'Framing haircut', 'Ideal neckline'],
-      },
-    ],
-  },
-  {
-    id: 'hair',
-    title: 'Hair Texture Analysis',
-    icon: 'cut',
-    singleUpload: true,
-    groups: [
-      {
-        id: 'hair-texture',
-        title: 'Texture',
-        icon: 'water-outline',
-        tags: ['Wave pattern', 'Curl definition', 'Frizz level', 'Density mapping'],
-      },
-      {
-        id: 'hair-shape',
-        title: 'Shape',
-        icon: 'ellipse-outline',
-        tags: ['Top volume', 'Side weight', 'Back silhouette', 'Part direction'],
-      },
-      {
-        id: 'hair-finish',
-        title: 'Finish',
-        icon: 'color-wand-outline',
-        tags: ['Shine level', 'Root lift', 'Hold strength', 'Style longevity'],
-      },
-    ],
-  },
-  {
-    id: 'color',
-    title: 'Color Analysis',
-    icon: 'color-palette',
-    singleUpload: true,
-    groups: [
-      {
-        id: 'color-undertone',
-        title: 'Undertone',
-        icon: 'contrast-outline',
-        tags: ['Warm undertone', 'Cool undertone', 'Neutral undertone', 'Olive undertone'],
-      },
-      {
-        id: 'color-contrast',
-        title: 'Contrast',
-        icon: 'swap-horizontal-outline',
-        tags: ['Low contrast palette', 'Medium contrast palette', 'High contrast palette', 'Monochrome range'],
-      },
-      {
-        id: 'color-palette',
-        title: 'Palette',
-        icon: 'apps-outline',
-        tags: ['Best neutrals', 'Statement colors', 'Makeup tones', 'Hair color direction'],
-      },
-    ],
-  },
-  {
-    id: 'skin',
-    title: 'Skin Tone Analysis',
-    icon: 'sunny-outline',
-    singleUpload: true,
-    groups: [
-      {
-        id: 'skin-tone',
-        title: 'Tone',
-        icon: 'radio-button-on-outline',
-        tags: ['Light-medium tone', 'Medium-deep tone', 'Evenness map', 'Surface redness'],
-      },
-      {
-        id: 'skin-finish',
-        title: 'Finish',
-        icon: 'sparkles-outline',
-        tags: ['Matte finish', 'Natural finish', 'Dewy finish', 'Soft-blur finish'],
-      },
-      {
-        id: 'skin-match',
-        title: 'Match',
-        icon: 'flask-outline',
-        tags: ['Foundation depth', 'Concealer lift', 'Bronzer tone', 'Blush harmony'],
-      },
-    ],
-  },
-  {
-    id: 'style',
-    title: 'Style DNA Analysis',
-    icon: 'shirt-outline',
-    singleUpload: true,
-    groups: [
-      {
-        id: 'style-vibe',
-        title: 'Vibe',
-        icon: 'sparkles-outline',
-        tags: ['Old money', 'Street luxury', 'Minimal chic', 'Editorial bold'],
-      },
-      {
-        id: 'style-fit',
-        title: 'Fit',
-        icon: 'expand-outline',
-        tags: ['Structured fit', 'Relaxed fit', 'Cropped proportions', 'Layer hierarchy'],
-      },
-      {
-        id: 'style-signature',
-        title: 'Signature',
-        icon: 'diamond-outline',
-        tags: ['Statement accessory', 'Hero piece', 'Texture mix', 'Color blocking'],
-      },
-    ],
-  },
+const DEFAULT_HAIR_COLOR_PRESETS: HairColorPreset[] = [
+  { id: 'current', name: 'Current', hex: '#9b9b9b', strength: 0 },
+  { id: 'jet_black', name: 'Jet Black', hex: '#111111', strength: 0.75 },
+  { id: 'dark_brown', name: 'Dark Brown', hex: '#2a1b12', strength: 0.7 },
+  { id: 'light_brown', name: 'Light Brown', hex: '#6b4a2f', strength: 0.65 },
+  { id: 'blonde', name: 'Blonde', hex: '#d8c07a', strength: 0.6 },
+  { id: 'platinum', name: 'Platinum', hex: '#e8e4da', strength: 0.55 },
+  { id: 'auburn', name: 'Auburn', hex: '#8b3a2b', strength: 0.65 },
+  { id: 'silver', name: 'Silver', hex: '#c8c8c8', strength: 0.55 },
+  { id: 'ash_brown', name: 'Ash Brown', hex: '#5f544b', strength: 0.62 },
+  { id: 'chestnut', name: 'Chestnut', hex: '#7b3f2a', strength: 0.66 },
+  { id: 'copper', name: 'Copper', hex: '#b4663a', strength: 0.68 },
+  { id: 'rose_gold', name: 'Rose Gold', hex: '#c98a86', strength: 0.58 },
+  { id: 'mahogany', name: 'Mahogany', hex: '#4b1f1f', strength: 0.7 },
+  { id: 'burgundy', name: 'Burgundy', hex: '#5b1f35', strength: 0.68 },
+  { id: 'blue_black', name: 'Blue Black', hex: '#1a1f2c', strength: 0.74 },
+  { id: 'honey_blonde', name: 'Honey Blonde', hex: '#cfa55f', strength: 0.6 },
+  { id: 'caramel', name: 'Caramel', hex: '#a06a3e', strength: 0.63 },
+  { id: 'chocolate', name: 'Chocolate', hex: '#4a2f23', strength: 0.69 },
+  { id: 'ginger', name: 'Ginger', hex: '#b65d2b', strength: 0.67 },
+  { id: 'purple_plum', name: 'Plum', hex: '#4b325f', strength: 0.62 },
+  { id: 'navy_tint', name: 'Navy Tint', hex: '#273b6a', strength: 0.6 },
+  { id: 'emerald_tint', name: 'Emerald Tint', hex: '#2e6a56', strength: 0.58 },
+  { id: 'pastel_pink', name: 'Pastel Pink', hex: '#d9a4b2', strength: 0.52 },
+  { id: 'lavender', name: 'Lavender', hex: '#9c8bbf', strength: 0.55 },
 ];
 
-const SOFT_LAYOUT = Layout.duration(180);
-const CREATE_BASE_GROUPS = MODE_CONFIGS.find((mode) => mode.id === 'create')?.groups ?? [];
-
-function hashSeed(input: string) {
-  let hash = 0;
-  for (let i = 0; i < input.length; i += 1) {
-    hash = (hash << 5) - hash + input.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
+function mergePresets(apiPresets: HairColorPreset[]): HairColorPreset[] {
+  const byId = new Map<string, HairColorPreset>();
+  for (const preset of DEFAULT_HAIR_COLOR_PRESETS) byId.set(preset.id, preset);
+  for (const preset of apiPresets) byId.set(preset.id, preset);
+  return Array.from(byId.values());
 }
 
-function buildCreateAnalysis(selfieUri: string, lookUri: string): CreateAnalysisResult {
-  const seed = hashSeed(`${selfieUri}|${lookUri}`);
-  const confidence = 45 + (seed % 52);
-
-  if (confidence < 60) {
-    const warnings = [
-      'The inspiration photo looks too blurry to extract reliable attributes.',
-      'The person in the inspiration photo appears too far from the camera.',
-      'Key facial or outfit details are partially occluded in the inspiration photo.',
-      'Lighting is too uneven to confidently isolate attributes.',
-    ];
-    return {
-      confidence,
-      tier: 'low',
-      groups: [],
-      warning: warnings[seed % warnings.length],
-    };
-  }
-
-  if (confidence <= 85) {
-    return {
-      confidence,
-      tier: 'medium',
-      groups: [
-        {
-          id: 'face-grouped',
-          title: 'Face (Grouped)',
-          icon: 'scan',
-          tags: ['Full Face', 'Makeup Style Bundle'],
-        },
-        {
-          id: 'outfit-grouped',
-          title: 'Outfit (Grouped)',
-          icon: 'shirt',
-          tags: ['Entire Outfit', 'Top + Bottom Set', 'Accessories Set'],
-        },
-      ],
-      warning:
-        'Detail confidence is moderate, so grouped swaps are recommended for cleaner results.',
-    };
-  }
-
-  const subsetCount = 3 + (seed % 3);
-  const groups = CREATE_BASE_GROUPS.map((group) => {
-    const offset = seed % group.tags.length;
-    const rotated = [...group.tags.slice(offset), ...group.tags.slice(0, offset)];
-    return { ...group, tags: rotated.slice(0, subsetCount) };
-  });
-
-  return {
-    confidence,
-    tier: 'high',
-    groups,
-  };
-}
-
-function SingleUploadTile({
+function UploadTile({
   image,
   onSelect,
   onRemove,
-  title,
 }: {
   image: string | null;
   onSelect: () => void;
   onRemove: () => void;
-  title: string;
 }) {
   const { colors } = useTheme();
 
@@ -289,7 +82,7 @@ function SingleUploadTile({
       StyleSheet.create({
         card: {
           width: '100%',
-          height: 300,
+          height: 340,
           borderRadius: borderRadius.xl,
           overflow: 'hidden',
           backgroundColor: colors.bgCard,
@@ -306,11 +99,11 @@ function SingleUploadTile({
         },
         placeholder: {
           alignItems: 'center',
-          gap: 10,
+          gap: 12,
         },
         iconWrap: {
-          width: 52,
-          height: 52,
+          width: 58,
+          height: 58,
           borderRadius: 16,
           backgroundColor: colors.accentMuted,
           alignItems: 'center',
@@ -322,20 +115,14 @@ function SingleUploadTile({
         },
         removeButton: {
           position: 'absolute',
-          top: 10,
-          right: 10,
-          width: 28,
-          height: 28,
-          borderRadius: 14,
+          top: 12,
+          right: 12,
+          width: 30,
+          height: 30,
+          borderRadius: 15,
+          backgroundColor: colors.overlay,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.overlay,
-        },
-        caption: {
-          ...typography.labelSmall,
-          color: colors.textPrimary,
-          marginTop: 10,
-          textAlign: 'center',
         },
       }),
     [colors, image]
@@ -347,20 +134,19 @@ function SingleUploadTile({
         {image ? (
           <>
             <Image source={{ uri: image }} style={styles.preview} />
-            <Pressable style={styles.removeButton} onPress={onRemove}>
-              <Ionicons name="close" size={13} color="#FFFFFF" />
+            <Pressable onPress={onRemove} style={styles.removeButton}>
+              <Ionicons name="close" size={14} color="#fff" />
             </Pressable>
           </>
         ) : (
           <View style={styles.placeholder}>
             <View style={styles.iconWrap}>
-              <Ionicons name="image-outline" size={24} color={colors.accent} />
+              <Ionicons name="image-outline" size={28} color={colors.accent} />
             </View>
-            <Text style={styles.placeholderText}>Upload image</Text>
+            <Text style={styles.placeholderText}>Upload your selfie</Text>
           </View>
         )}
       </View>
-      <Text style={styles.caption}>{title}</Text>
     </Pressable>
   );
 }
@@ -368,68 +154,106 @@ function SingleUploadTile({
 export default function CreateScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ presetImage?: string; mode?: string | string[]; category?: string | string[] }>();
 
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
-  const [lookImage, setLookImage] = useState<string | null>(null);
-  const [analysisImage, setAnalysisImage] = useState<string | null>(null);
-  const [selectedAttributes, setSelectedAttributes] = useState<string[]>([]);
-  const [activeMode, setActiveMode] = useState<CreateMode>('create');
-  const [activeCategory, setActiveCategory] = useState<string>(MODE_CONFIGS[0].groups[0].id);
-
-  const activeModeConfig = useMemo(
-    () => MODE_CONFIGS.find((mode) => mode.id === activeMode) ?? MODE_CONFIGS[0],
-    [activeMode]
-  );
-  const activeGroups = activeModeConfig.groups;
+  const [hairColorPresets, setHairColorPresets] = useState<HairColorPreset[]>(DEFAULT_HAIR_COLOR_PRESETS);
+  const [selectedHairColorId, setSelectedHairColorId] = useState(DEFAULT_HAIR_COLOR_PRESETS[0]?.id || '');
+  const [hairStylePresets, setHairStylePresets] = useState<HairStylePreset[]>([
+    { id: 'no_change', name: 'Keep Current' },
+    { id: 'straight', name: 'Straight' },
+    { id: 'wavy', name: 'Wavy' },
+    { id: 'curly', name: 'Curly' },
+    { id: 'bob', name: 'Bob' },
+    { id: 'pixie_cut', name: 'Pixie Cut' },
+    { id: 'layered', name: 'Layered' },
+    { id: 'soft_waves', name: 'Soft Waves' },
+    { id: 'side_parted', name: 'Side-Parted' },
+    { id: 'center_parted', name: 'Center-Parted' },
+    { id: 'blunt_bangs', name: 'Blunt Bangs' },
+    { id: 'side_swept_bangs', name: 'Side-Swept Bangs' },
+    { id: 'slicked_back', name: 'Slicked Back' },
+    { id: 'shag', name: 'Shag' },
+    { id: 'lob', name: 'Lob' },
+    { id: 'angled_bob', name: 'Angled Bob' },
+    { id: 'a_line_bob', name: 'A-Line Bob' },
+    { id: 'faux_hawk', name: 'Faux Hawk' },
+    { id: 'high_ponytail', name: 'High Ponytail' },
+    { id: 'low_ponytail', name: 'Low Ponytail' },
+    { id: 'messy_bun', name: 'Messy Bun' },
+    { id: 'top_knot', name: 'Top Knot' },
+    { id: 'french_braid', name: 'French Braid' },
+    { id: 'dutch_braid', name: 'Dutch Braid' },
+    { id: 'fishtail_braid', name: 'Fishtail Braid' },
+  ]);
+  const [eyeColorPresets, setEyeColorPresets] = useState<EyeColorPreset[]>([
+    { id: 'current', name: 'Current' },
+    { id: 'brown', name: 'Brown' },
+    { id: 'hazel', name: 'Hazel' },
+    { id: 'green', name: 'Green' },
+    { id: 'blue', name: 'Blue' },
+    { id: 'gray', name: 'Gray' },
+  ]);
+  const [selectedEyeColorId, setSelectedEyeColorId] = useState('current');
+  const [selectedHairStyleId, setSelectedHairStyleId] = useState('no_change');
+  const [loadingColors, setLoadingColors] = useState(true);
 
   useEffect(() => {
-    if (params.presetImage) {
-      setLookImage(params.presetImage);
-    }
-  }, [params.presetImage]);
+    let cancelled = false;
 
-  useEffect(() => {
-    const requestedMode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
-    const requestedCategory = Array.isArray(params.category) ? params.category[0] : params.category;
-    if (!requestedMode) {
-      return;
-    }
-    const matchedMode = MODE_CONFIGS.find((mode) => mode.id === requestedMode);
-    if (!matchedMode) {
-      return;
-    }
-    setActiveMode(matchedMode.id);
-    const matchedCategory = matchedMode.groups.find((group) => group.id === requestedCategory);
-    setActiveCategory(matchedCategory ? matchedCategory.id : matchedMode.groups[0].id);
-  }, [params.mode, params.category]);
+    const loadColors = async () => {
+      setLoadingColors(true);
+      try {
+        const presets = await fetchHairColors();
+        const styles = await fetchHairStyles();
+        const eyes = await fetchEyeColors();
+        if (cancelled) return;
+        const merged = mergePresets(presets);
+        setHairColorPresets(merged);
+        if (styles.length > 0) {
+          setHairStylePresets(styles);
+          setSelectedHairStyleId((prev) => prev || styles[0].id);
+        }
+        if (eyes.length > 0) {
+          setEyeColorPresets(eyes);
+          setSelectedEyeColorId((prev) => prev || eyes[0].id);
+        }
+        if (merged[0]) {
+          setSelectedHairColorId((prev) => prev || merged[0].id);
+        }
+      } catch {
+        if (cancelled) return;
+        setHairColorPresets(DEFAULT_HAIR_COLOR_PRESETS);
+      } finally {
+        if (!cancelled) setLoadingColors(false);
+      }
+    };
 
-  const setImageForType = (type: 'selfie' | 'look' | 'analysis', uri: string) => {
-    if (type === 'selfie') {
-      setSelfieImage(uri);
-    } else if (type === 'look') {
-      setLookImage(uri);
-    } else {
-      setAnalysisImage(uri);
-    }
-  };
+    void loadColors();
 
-  const pickImageFromLibrary = async (type: 'selfie' | 'look' | 'analysis') => {
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pickImageFromLibrary = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [3, 4],
-      quality: 0.8,
+      quality: 0.85,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
-      const uri = result.assets[0].uri;
-      setImageForType(type, uri);
-      trackEvent('photo_uploaded', { type, source: 'library' });
+      const asset = result.assets[0];
+      const mimeType = asset.mimeType || 'image/jpeg';
+      const dataUri = asset.base64 ? `data:${mimeType};base64,${asset.base64}` : asset.uri;
+      setSelfieImage(dataUri);
+      trackEvent('photo_uploaded', { source: 'library', flow: 'hair_color' });
     }
   };
 
-  const pickImageFromCamera = async (type: 'selfie' | 'look' | 'analysis') => {
+  const pickImageFromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Camera access needed', 'Please allow camera access in Settings.');
@@ -440,142 +264,73 @@ export default function CreateScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [3, 4],
-      quality: 0.8,
+      quality: 0.85,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
-      const uri = result.assets[0].uri;
-      setImageForType(type, uri);
-      trackEvent('photo_uploaded', { type, source: 'camera' });
+      const asset = result.assets[0];
+      const mimeType = asset.mimeType || 'image/jpeg';
+      const dataUri = asset.base64 ? `data:${mimeType};base64,${asset.base64}` : asset.uri;
+      setSelfieImage(dataUri);
+      trackEvent('photo_uploaded', { source: 'camera', flow: 'hair_color' });
     }
   };
 
-  const pickImage = (type: 'selfie' | 'look' | 'analysis') => {
+  const pickImage = () => {
     Alert.alert('Upload photo', 'Choose how you want to upload.', [
       {
         text: 'Camera',
         onPress: () => {
-          void pickImageFromCamera(type);
+          void pickImageFromCamera();
         },
       },
       {
         text: 'Photo Library',
         onPress: () => {
-          void pickImageFromLibrary(type);
+          void pickImageFromLibrary();
         },
       },
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
+      { text: 'Cancel', style: 'cancel' },
     ]);
   };
 
-  const toggleAttribute = async (attribute: string) => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedAttributes((prev) => {
-      const active = prev.includes(attribute);
-      trackEvent('attribute_tag_toggled', { attribute, selected: !active });
-      return active ? prev.filter((item) => item !== attribute) : [...prev, attribute];
-    });
-  };
+  const canGenerate = Boolean(selfieImage && selectedHairColorId);
 
-  const removeAttribute = async (attribute: string) => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedAttributes((prev) => prev.filter((item) => item !== attribute));
-  };
-
-  const selectCategory = async (category: string) => {
-    if (category === activeCategory) {
-      return;
-    }
-    await Haptics.selectionAsync();
-    setActiveCategory(category);
-  };
-
-  const selectMode = async (modeId: CreateMode) => {
-    if (modeId === activeMode) {
-      return;
-    }
-    const nextMode = MODE_CONFIGS.find((mode) => mode.id === modeId);
-    if (!nextMode) {
-      return;
-    }
-    await Haptics.selectionAsync();
-    setActiveMode(nextMode.id);
-    setActiveCategory(nextMode.groups[0].id);
-    setSelectedAttributes([]);
-  };
-
-  const clearAttributes = async () => {
-    if (selectedAttributes.length === 0) {
-      return;
-    }
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedAttributes([]);
-  };
-
-  const activeGroup = useMemo(
-    () => activeGroups.find((group) => group.id === activeCategory) ?? activeGroups[0],
-    [activeCategory, activeGroups]
-  );
-
-  const hasRequiredUpload = activeModeConfig.singleUpload
-    ? Boolean(analysisImage)
-    : Boolean(selfieImage && lookImage);
-  const canGenerate = Boolean(hasRequiredUpload && selectedAttributes.length > 0);
   const ctaLabel = useMemo(() => {
-    if (activeModeConfig.singleUpload) {
-      if (!analysisImage) {
-        return `Upload photo for ${activeModeConfig.title}`;
-      }
-      if (selectedAttributes.length === 0) {
-        return 'Select at least one attribute';
-      }
-      return `Run ${activeModeConfig.title} (${selectedAttributes.length})`;
-    }
+    if (!selfieImage) return 'Upload your photo';
+    if (!selectedHairColorId) return 'Pick a hair color';
+    return 'Apply Hair Color';
+  }, [selectedHairColorId, selfieImage]);
 
-    if (!selfieImage && !lookImage) {
-      return 'Upload both photos';
-    }
-    if (!selfieImage) {
-      return 'Upload your photo';
-    }
-    if (!lookImage) {
-      return 'Upload celebrity photo';
-    }
-    if (selectedAttributes.length === 0) {
-      return 'Select at least one attribute';
-    }
-    return `Generate Look (${selectedAttributes.length})`;
-  }, [activeModeConfig, analysisImage, selfieImage, lookImage, selectedAttributes.length]);
+  const selectedPreset = hairColorPresets.find((item) => item.id === selectedHairColorId) || null;
 
   const handleGenerate = async () => {
-    if (!canGenerate) {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      return;
-    }
-
-    const selfieParam = activeModeConfig.singleUpload ? analysisImage : selfieImage;
-    const lookParam = activeModeConfig.singleUpload ? analysisImage : lookImage;
-    if (!selfieParam || !lookParam) {
+    if (!canGenerate || !selfieImage) {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       return;
     }
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     trackEvent('elements_selected', {
-      elements: selectedAttributes.join(','),
-      count: selectedAttributes.length,
-      mode: activeModeConfig.id,
+      colorId: selectedHairColorId || 'custom',
+      mode: 'hair_color_fast',
+    });
+
+    const session = createHairSwapSession({
+      selfie: selfieImage,
+      look: selfieImage,
+      elements: 'Hair Color',
+      swapMode: 'fast',
+      hairColorId: selectedHairColorId || '',
+      hairStyleId: selectedHairStyleId || 'no_change',
+      eyeColorId: selectedEyeColorId || 'current',
     });
 
     router.push({
-      pathname: '/create/result',
+      pathname: '/create/loading',
       params: {
-        selfie: selfieParam,
-        look: lookParam,
-        elements: selectedAttributes.join(','),
+        sessionId: session.id,
       },
     });
   };
@@ -608,160 +363,71 @@ export default function CreateScreen() {
           flex: 1,
         },
         scrollContent: {
-          paddingBottom: 32,
-        },
-        modeScroll: {
-          marginTop: 4,
-        },
-        modeRow: {
-          flexDirection: 'row',
           paddingHorizontal: layout.screenPadding,
-          paddingRight: layout.screenPadding + 8,
+          paddingBottom: 24,
         },
-        modeChip: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-          borderRadius: borderRadius.full,
+        leadCard: {
+          marginTop: 12,
+          borderRadius: borderRadius.xl,
           backgroundColor: colors.bgCard,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          marginRight: 8,
+          borderWidth: 1,
+          borderColor: colors.borderLight,
+          padding: 14,
+          gap: 8,
         },
-        modeChipActive: {
-          backgroundColor: colors.accentMuted,
-        },
-        modeChipText: {
-          ...typography.caption,
-          color: colors.textSecondary,
-        },
-        modeChipTextActive: {
-          color: colors.textPrimary,
-        },
-        section: {
-          marginTop: 16,
-          paddingHorizontal: layout.screenPadding,
-        },
-        uploadSection: {
-          marginTop: 14,
-        },
-        attributesSection: {
-          marginTop: 32,
-        },
-        plannerCard: {
-          paddingTop: 2,
-        },
-        plannerHeader: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        },
-        plannerTitle: {
+        leadTitle: {
           ...typography.labelLarge,
           color: colors.textPrimary,
         },
-        clearButton: {
-          paddingHorizontal: 6,
-          paddingVertical: 4,
-        },
-        clearText: {
-          ...typography.caption,
+        leadText: {
+          ...typography.bodySmall,
           color: colors.textSecondary,
         },
-        categorySpacer: {
-          marginTop: 10,
-          minHeight: 24,
+        section: {
+          marginTop: 16,
         },
-        selectedRow: {
-          marginTop: 10,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          marginHorizontal: -4,
-        },
-        selectedChip: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          borderRadius: borderRadius.full,
-          backgroundColor: colors.bgTertiary,
-          paddingVertical: 6,
-          paddingHorizontal: 10,
-          marginHorizontal: 4,
-          marginBottom: 8,
-          gap: 8,
-        },
-        selectedChipText: {
-          ...typography.caption,
+        sectionTitle: {
+          ...typography.labelLarge,
           color: colors.textPrimary,
+          marginBottom: 10,
         },
-        categoryScroll: {
-          marginTop: 12,
+        colorRow: {
+          paddingRight: 6,
         },
-        categoryRow: {
-          flexDirection: 'row',
-          paddingHorizontal: layout.screenPadding,
-          paddingRight: layout.screenPadding + 8,
-        },
-        categoryButton: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
+        colorChip: {
           borderRadius: borderRadius.full,
           backgroundColor: colors.bgCard,
+          borderWidth: 1,
+          borderColor: colors.border,
           paddingVertical: 8,
           paddingHorizontal: 12,
-          marginHorizontal: 4,
-          marginBottom: 8,
-        },
-        categoryButtonActive: {
-          backgroundColor: colors.accentMuted,
-        },
-        categoryText: {
-          ...typography.caption,
-          color: colors.textSecondary,
-        },
-        categoryTextActive: {
-          color: colors.textPrimary,
-        },
-        optionsDivider: {
-          marginTop: 4,
-          marginBottom: 2,
+          marginRight: 8,
           flexDirection: 'row',
           alignItems: 'center',
           gap: 8,
         },
-        optionsDividerLine: {
-          flex: 1,
-          height: 1,
-          backgroundColor: colors.borderLight,
-          opacity: 0.7,
+        colorChipActive: {
+          backgroundColor: colors.accentMuted,
+          borderColor: colors.accent,
         },
-        optionsDividerText: {
+        colorDot: {
+          width: 14,
+          height: 14,
+          borderRadius: 7,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        colorChipText: {
+          ...typography.caption,
+          color: colors.textSecondary,
+        },
+        colorChipTextActive: {
+          color: colors.textPrimary,
+        },
+        hint: {
+          marginTop: 8,
           ...typography.caption,
           color: colors.textTertiary,
-        },
-        tagsWrap: {
-          marginTop: 10,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          marginHorizontal: -4,
-        },
-        tag: {
-          borderRadius: borderRadius.full,
-          backgroundColor: colors.bgCard,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          marginHorizontal: 4,
-          marginBottom: 8,
-        },
-        tagActive: {
-          backgroundColor: colors.accentMuted,
-        },
-        tagText: {
-          ...typography.caption,
-          color: colors.textSecondary,
-        },
-        tagTextActive: {
-          color: colors.textPrimary,
         },
         bottomBar: {
           backgroundColor: colors.bgPrimary,
@@ -769,9 +435,6 @@ export default function CreateScreen() {
           paddingTop: 12,
           borderTopWidth: 1,
           borderTopColor: colors.borderLight,
-        },
-        bottomButton: {
-          width: '100%',
         },
       }),
     [colors]
@@ -792,189 +455,112 @@ export default function CreateScreen() {
 
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: insets.bottom + 150 },
-          ]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
           showsVerticalScrollIndicator={false}
         >
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.modeScroll}
-            contentContainerStyle={styles.modeRow}
-          >
-            {MODE_CONFIGS.map((mode) => {
-              const active = mode.id === activeMode;
-              return (
-                <Pressable
-                  key={mode.id}
-                  style={[styles.modeChip, active && styles.modeChipActive]}
-                  onPress={() => selectMode(mode.id)}
-                >
-                  <Ionicons
-                    name={mode.icon}
-                    size={13}
-                    color={active ? colors.textPrimary : colors.textSecondary}
-                  />
-                  <Text style={[styles.modeChipText, active && styles.modeChipTextActive]}>
-                    {mode.title}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          <Animated.View
-            entering={FadeInDown.delay(80).duration(320)}
-            layout={SOFT_LAYOUT}
-            style={[styles.section, styles.uploadSection]}
-          >
-            {activeModeConfig.singleUpload ? (
-              <SingleUploadTile
-                image={analysisImage}
-                onSelect={() => pickImage('analysis')}
-                onRemove={() => setAnalysisImage(null)}
-                title={`${activeModeConfig.title} photo`}
-              />
-            ) : (
-              <TransformationVisualizer
-                selfieImage={selfieImage}
-                lookImage={lookImage}
-                onSelectSelfie={() => pickImage('selfie')}
-                onSelectLook={() => pickImage('look')}
-                onRemoveSelfie={() => setSelfieImage(null)}
-                onRemoveLook={() => setLookImage(null)}
-              />
-            )}
+          <Animated.View entering={FadeInDown.delay(60).duration(280)} style={styles.leadCard}>
+            <Text style={styles.leadTitle}>Hair Color Swap</Text>
+            <Text style={styles.leadText}>
+              Upload one photo, choose a shade, and apply realistic color without changing your face.
+            </Text>
           </Animated.View>
 
-          <Animated.View
-            entering={FadeInDown.delay(140).duration(320)}
-            layout={SOFT_LAYOUT}
-            style={[styles.section, styles.attributesSection]}
-          >
-            <Animated.View style={styles.plannerCard} layout={SOFT_LAYOUT}>
-              <Animated.View style={styles.plannerHeader} layout={SOFT_LAYOUT}>
-                <Text style={styles.plannerTitle}>Attributes</Text>
-                {selectedAttributes.length > 0 && (
-                  <Pressable onPress={clearAttributes} style={styles.clearButton}>
-                    <Text style={styles.clearText}>Clear</Text>
+          <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.section}>
+            <Text style={styles.sectionTitle}>Your Photo</Text>
+            <UploadTile
+              image={selfieImage}
+              onSelect={pickImage}
+              onRemove={() => setSelfieImage(null)}
+            />
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(180).duration(280)} style={styles.section}>
+            <Text style={styles.sectionTitle}>Hair Color</Text>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorRow}>
+              {hairColorPresets.map((preset) => {
+                const active = selectedHairColorId === preset.id;
+                return (
+                  <Pressable
+                    key={preset.id}
+                    onPress={() => setSelectedHairColorId(preset.id)}
+                    style={[styles.colorChip, active && styles.colorChipActive]}
+                  >
+                    <View style={[styles.colorDot, { backgroundColor: preset.hex }]} />
+                    <Text style={[styles.colorChipText, active && styles.colorChipTextActive]}>
+                      {preset.name}
+                    </Text>
                   </Pressable>
-                )}
-              </Animated.View>
+                );
+              })}
+            </ScrollView>
 
-              {selectedAttributes.length > 0 && (
-                <Animated.View
-                  style={styles.selectedRow}
-                  layout={SOFT_LAYOUT}
-                  entering={FadeIn.duration(200)}
-                  exiting={FadeOut.duration(140)}
-                >
-                  {selectedAttributes.map((attribute) => (
-                    <Animated.View
-                      key={attribute}
-                      layout={SOFT_LAYOUT}
-                      entering={FadeIn.duration(160)}
-                      exiting={FadeOut.duration(120)}
-                    >
-                      <Pressable
-                        style={styles.selectedChip}
-                        onPress={() => removeAttribute(attribute)}
-                      >
-                        <Text style={styles.selectedChipText}>{attribute}</Text>
-                        <Ionicons name="close" size={12} color={colors.textSecondary} />
-                      </Pressable>
-                    </Animated.View>
-                  ))}
-                </Animated.View>
-              )}
+            <Text style={styles.hint}>
+              {loadingColors
+                ? 'Loading preset colors...'
+                : selectedPreset
+                  ? `${selectedPreset.name} selected`
+                  : 'Pick a preset color.'}
+            </Text>
+          </Animated.View>
 
-              <Animated.View style={styles.categorySpacer} layout={SOFT_LAYOUT} />
+          <Animated.View entering={FadeInDown.delay(220).duration(280)} style={styles.section}>
+            <Text style={styles.sectionTitle}>Hair Style</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorRow}>
+              {hairStylePresets.map((style) => {
+                const active = selectedHairStyleId === style.id;
+                return (
+                  <Pressable
+                    key={style.id}
+                    onPress={() => setSelectedHairStyleId(style.id)}
+                    style={[styles.colorChip, active && styles.colorChipActive]}
+                  >
+                    <Text style={[styles.colorChipText, active && styles.colorChipTextActive]}>
+                      {style.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <Text style={styles.hint}>
+              Hairstyle and color are applied together.
+            </Text>
+          </Animated.View>
 
-              <Animated.View layout={SOFT_LAYOUT}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.categoryScroll}
-                  contentContainerStyle={styles.categoryRow}
-                >
-                  {activeGroups.map((group) => {
-                    const active = activeCategory === group.id;
-                    return (
-                      <Animated.View key={group.id} layout={SOFT_LAYOUT}>
-                        <Pressable
-                          style={[styles.categoryButton, active && styles.categoryButtonActive]}
-                          onPress={() => selectCategory(group.id)}
-                        >
-                          <Ionicons
-                            name={group.icon}
-                            size={13}
-                            color={active ? colors.textPrimary : colors.textSecondary}
-                          />
-                          <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
-                            {group.title}
-                          </Text>
-                        </Pressable>
-                      </Animated.View>
-                    );
-                  })}
-                </ScrollView>
-              </Animated.View>
-
-              <Animated.View style={styles.optionsDivider} layout={SOFT_LAYOUT}>
-                <View style={styles.optionsDividerLine} />
-                <Text style={styles.optionsDividerText}>{activeGroup.title} options</Text>
-                <View style={styles.optionsDividerLine} />
-              </Animated.View>
-
-              <Animated.View
-                key={activeGroup.id}
-                style={styles.tagsWrap}
-                layout={SOFT_LAYOUT}
-                entering={FadeIn.duration(180)}
-                exiting={FadeOut.duration(140)}
-              >
-                {activeGroup.tags.map((tag) => {
-                  const active = selectedAttributes.includes(tag);
-                  return (
-                    <Animated.View
-                      key={`${activeGroup.id}-${tag}`}
-                      layout={SOFT_LAYOUT}
-                      entering={FadeIn.duration(160)}
-                      exiting={FadeOut.duration(120)}
-                    >
-                      <Pressable
-                        style={[styles.tag, active && styles.tagActive]}
-                        onPress={() => toggleAttribute(tag)}
-                      >
-                        <Text style={[styles.tagText, active && styles.tagTextActive]}>
-                          {tag}
-                        </Text>
-                      </Pressable>
-                    </Animated.View>
-                  );
-                })}
-              </Animated.View>
-            </Animated.View>
+          <Animated.View entering={FadeInDown.delay(300).duration(280)} style={styles.section}>
+            <Text style={styles.sectionTitle}>Eye Color</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorRow}>
+              {eyeColorPresets.map((eye) => {
+                const active = selectedEyeColorId === eye.id;
+                return (
+                  <Pressable
+                    key={eye.id}
+                    onPress={() => setSelectedEyeColorId(eye.id)}
+                    style={[styles.colorChip, active && styles.colorChipActive]}
+                  >
+                    <Text style={[styles.colorChipText, active && styles.colorChipTextActive]}>
+                      {eye.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <Text style={styles.hint}>
+              {selectedEyeColorId === 'current'
+                ? 'Current eye color selected.'
+                : 'Eye color change will be applied after hair transformation.'}
+            </Text>
           </Animated.View>
         </ScrollView>
 
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + layout.tabBarHeight + 8 }]}>
-          <Animated.View
-            key={ctaLabel}
-            layout={SOFT_LAYOUT}
-            entering={FadeIn.duration(180)}
-            exiting={FadeOut.duration(120)}
-          >
-            <PrimaryButton
-              label={ctaLabel}
-              onPress={handleGenerate}
-              disabled={!canGenerate}
-              icon={canGenerate ? 'sparkles' : undefined}
-              style={styles.bottomButton}
-            />
-          </Animated.View>
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + layout.tabBarHeight + 8 }]}> 
+          <PrimaryButton
+            label={ctaLabel}
+            onPress={handleGenerate}
+            disabled={!canGenerate}
+            icon={canGenerate ? 'sparkles' : undefined}
+            style={{ width: '100%' }}
+          />
         </View>
       </View>
     </KeyboardAvoidingView>

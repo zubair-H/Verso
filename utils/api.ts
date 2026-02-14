@@ -23,6 +23,84 @@ export interface GenerateJob {
   completedAt?: number;
 }
 
+export interface HairColorPreset {
+  id: string;
+  name: string;
+  hex: string;
+  strength: number;
+}
+
+export interface HairStylePreset {
+  id: string;
+  name: string;
+}
+
+export interface EyeColorPreset {
+  id: string;
+  name: string;
+}
+
+export interface RecolorHairResponse {
+  success: boolean;
+  editedImageDataUri: string;
+  maskUrl: string;
+  debug?: {
+    traceId?: string;
+    startedAt?: string;
+    finishedAt?: string;
+    elapsedMs?: number;
+    steps?: Array<{ atMs?: number; message?: string }>;
+  };
+  chosenColor: {
+    id: string;
+    name: string;
+    hex: string;
+    strength: number;
+    isCustomHex: boolean;
+  };
+}
+
+export interface RecolorHairFastResponse {
+  success: boolean;
+  mode: 'fast';
+  editedImageUrl: string;
+  chosenStyle: {
+    id: string;
+    name: string;
+  };
+  debug?: {
+    traceId?: string;
+    startedAt?: string;
+    finishedAt?: string;
+    elapsedMs?: number;
+    steps?: Array<{ atMs?: number; message?: string }>;
+  };
+  chosenColor: {
+    id: string;
+    name: string;
+    hex: string;
+    strength: number;
+    isCustomHex: boolean;
+  };
+}
+
+export interface RecolorEyesFastResponse {
+  success: boolean;
+  mode: 'eyes-fast';
+  editedImageUrl: string;
+  chosenEyeColor: {
+    id: string;
+    name: string;
+  };
+  debug?: {
+    traceId?: string;
+    startedAt?: string;
+    finishedAt?: string;
+    elapsedMs?: number;
+    steps?: Array<{ atMs?: number; message?: string }>;
+  };
+}
+
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/$/, '');
 }
@@ -53,9 +131,9 @@ function inferApiBaseUrl(): string {
 
 export const API_BASE_URL = inferApiBaseUrl();
 
-async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+async function apiRequest<T>(path: string, init?: RequestInit, timeoutMs = 8000): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -72,7 +150,10 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
     if (!response.ok) {
       const message = (data && data.error) || `Request failed (${response.status})`;
-      throw new Error(message);
+      const error = new Error(message) as Error & { details?: unknown; status?: number };
+      error.details = data;
+      error.status = response.status;
+      throw error;
     }
 
     return data as T;
@@ -129,4 +210,64 @@ export async function generateLook(payload: {
 export async function fetchJob(id: string): Promise<GenerateJob> {
   const data = await apiRequest<{ job: GenerateJob }>(`/v1/jobs/${encodeURIComponent(id)}`);
   return data.job;
+}
+
+export async function fetchHairColors(): Promise<HairColorPreset[]> {
+  const data = await apiRequest<{ success: boolean; colors: HairColorPreset[] }>('/api/hair-colors');
+  return data.colors || [];
+}
+
+export async function fetchHairStyles(): Promise<HairStylePreset[]> {
+  const data = await apiRequest<{ success: boolean; styles: HairStylePreset[] }>('/api/hair-styles');
+  return data.styles || [];
+}
+
+export async function fetchEyeColors(): Promise<EyeColorPreset[]> {
+  const data = await apiRequest<{ success: boolean; colors: EyeColorPreset[] }>('/api/eye-colors');
+  return data.colors || [];
+}
+
+export async function recolorHair(payload: {
+  userImageUrl: string;
+  colorId?: string;
+  hex?: string;
+  strength?: number;
+}): Promise<RecolorHairResponse> {
+  return apiRequest<RecolorHairResponse>(
+    '/api/recolor-hair',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    270000
+  );
+}
+
+export async function recolorHairFast(payload: {
+  userImageUrl: string;
+  colorId: string;
+  hairStyleId?: string;
+}): Promise<RecolorHairFastResponse> {
+  return apiRequest<RecolorHairFastResponse>(
+    '/api/recolor-hair-fast',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    270000
+  );
+}
+
+export async function recolorEyesFast(payload: {
+  userImageUrl: string;
+  eyeColorId: string;
+}): Promise<RecolorEyesFastResponse> {
+  return apiRequest<RecolorEyesFastResponse>(
+    '/api/recolor-eyes-fast',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    270000
+  );
 }

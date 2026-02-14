@@ -8,7 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "api:start": "node backend/src/server.js"
+    "api:start": "node backend/server.js"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
