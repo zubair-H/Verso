@@ -1,11 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  fetchLooks,
+  createLook as apiCreateLook,
+  patchLookFavorite,
+  removeLook as apiRemoveLook,
+} from '@/utils/api';
 
 const STORAGE_KEYS = {
   SAVED_LOOKS: '@lookr/saved_looks',
   ONBOARDING_COMPLETE: '@lookr/onboarding_complete',
   FREE_TRIES: '@lookr/free_tries',
   SETTINGS: '@lookr/settings',
+  DEVICE_ID: '@lookr/device_id',
 } as const;
 
 export interface SavedLook {
@@ -29,12 +36,32 @@ const DEFAULT_SETTINGS: Settings = {
   soundEnabled: false,
 };
 
+function safeParseLooks(raw: string | null): SavedLook[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function getOrCreateDeviceId() {
+  const existing = await AsyncStorage.getItem(STORAGE_KEYS.DEVICE_ID);
+  if (existing) return existing;
+
+  const generated = `device_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ID, generated);
+  return generated;
+}
+
 export function useStorage() {
   const [isLoading, setIsLoading] = useState(true);
   const [savedLooks, setSavedLooks] = useState<SavedLook[]>([]);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [freeTries, setFreeTries] = useState(DEFAULT_FREE_TRIES);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
 
   // Load all data on mount
   useEffect(() => {
@@ -43,14 +70,24 @@ export function useStorage() {
 
   const loadAllData = async () => {
     try {
-      const [looks, onboarding, tries, settingsData] = await Promise.all([
+      const [looksCache, onboarding, tries, settingsData] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.SAVED_LOOKS),
         AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETE),
         AsyncStorage.getItem(STORAGE_KEYS.FREE_TRIES),
         AsyncStorage.getItem(STORAGE_KEYS.SETTINGS),
       ]);
 
-      if (looks) setSavedLooks(JSON.parse(looks));
+      const resolvedDeviceId = await getOrCreateDeviceId();
+      setDeviceId(resolvedDeviceId);
+
+      try {
+        const remoteLooks = await fetchLooks(resolvedDeviceId);
+        setSavedLooks(remoteLooks);
+        await AsyncStorage.setItem(STORAGE_KEYS.SAVED_LOOKS, JSON.stringify(remoteLooks));
+      } catch {
+        setSavedLooks(safeParseLooks(looksCache));
+      }
+
       if (onboarding) setOnboardingComplete(JSON.parse(onboarding));
       if (tries) setFreeTries(JSON.parse(tries));
       if (settingsData) setSettings(JSON.parse(settingsData));
@@ -63,26 +100,55 @@ export function useStorage() {
 
   // Save a new look
   const saveLook = useCallback(async (look: Omit<SavedLook, 'id' | 'createdAt' | 'isFavorite'>) => {
-    const newLook: SavedLook = {
+    const resolvedDeviceId = deviceId || (await getOrCreateDeviceId());
+    if (!deviceId) setDeviceId(resolvedDeviceId);
+
+    const localLook: SavedLook = {
       ...look,
       id: Date.now().toString(),
       createdAt: Date.now(),
       isFavorite: false,
     };
 
-    const updated = [newLook, ...savedLooks];
+    let finalLook = localLook;
+
+    try {
+      const remoteLook = await apiCreateLook({
+        ...look,
+        deviceId: resolvedDeviceId,
+      });
+      finalLook = remoteLook;
+    } catch {
+      // Fall back to local persistence while offline/unreachable.
+    }
+
+    const updated = [finalLook, ...savedLooks.filter((item) => item.id !== finalLook.id)];
     setSavedLooks(updated);
     await AsyncStorage.setItem(STORAGE_KEYS.SAVED_LOOKS, JSON.stringify(updated));
-    return newLook;
-  }, [savedLooks]);
+    return finalLook;
+  }, [savedLooks, deviceId]);
 
   // Toggle favorite
   const toggleFavorite = useCallback(async (id: string) => {
-    const updated = savedLooks.map((look) =>
-      look.id === id ? { ...look, isFavorite: !look.isFavorite } : look
-    );
+    const target = savedLooks.find((look) => look.id === id);
+    if (!target) return;
+
+    const nextFavorite = !target.isFavorite;
+    const updated = savedLooks.map((look) => (
+      look.id === id ? { ...look, isFavorite: nextFavorite } : look
+    ));
+
     setSavedLooks(updated);
     await AsyncStorage.setItem(STORAGE_KEYS.SAVED_LOOKS, JSON.stringify(updated));
+
+    try {
+      const remoteLook = await patchLookFavorite(id, nextFavorite);
+      const merged = updated.map((look) => (look.id === id ? remoteLook : look));
+      setSavedLooks(merged);
+      await AsyncStorage.setItem(STORAGE_KEYS.SAVED_LOOKS, JSON.stringify(merged));
+    } catch {
+      // Keep optimistic local state when API is unavailable.
+    }
   }, [savedLooks]);
 
   // Delete a look
@@ -90,6 +156,12 @@ export function useStorage() {
     const updated = savedLooks.filter((look) => look.id !== id);
     setSavedLooks(updated);
     await AsyncStorage.setItem(STORAGE_KEYS.SAVED_LOOKS, JSON.stringify(updated));
+
+    try {
+      await apiRemoveLook(id);
+    } catch {
+      // Keep local deletion if API fails.
+    }
   }, [savedLooks]);
 
   // Complete onboarding

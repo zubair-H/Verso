@@ -33,10 +33,9 @@ interface TransformationVisualizerProps {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CONNECTOR_SIZE = 40;
-const GAP = 12;
-const CARD_WIDTH = (SCREEN_WIDTH - 48 - CONNECTOR_SIZE - GAP * 2) / 2;
-const CARD_HEIGHT = CARD_WIDTH * 1.25;
+const CONNECTOR_SIZE = 34;
+const GAP = 8;
+const MIN_CARD_WIDTH = Math.min(140, (SCREEN_WIDTH - 48 - CONNECTOR_SIZE - GAP * 2) / 2);
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -95,20 +94,20 @@ function UploadCard({
     () =>
       StyleSheet.create({
         container: {
-          width: CARD_WIDTH,
+          flex: 1,
+          minWidth: MIN_CARD_WIDTH,
           alignItems: 'center',
         },
         card: {
-          width: CARD_WIDTH,
-          height: CARD_HEIGHT,
+          width: '100%',
+          aspectRatio: 0.78,
           borderRadius: borderRadius.xl,
           overflow: 'hidden',
         },
         cardEmpty: {
-          backgroundColor: colors.glassBg,
-          borderWidth: 2,
-          borderColor: colors.border,
-          borderStyle: 'dashed',
+          backgroundColor: colors.bgCard,
+          borderWidth: 1,
+          borderColor: colors.borderLight,
         },
         cardFilled: {
           backgroundColor: colors.bgCard,
@@ -164,7 +163,7 @@ function UploadCard({
         label: {
           ...typography.labelSmall,
           color: colors.textPrimary,
-          marginTop: 10,
+          marginTop: 8,
         },
       }),
     [colors]
@@ -200,11 +199,11 @@ function UploadCard({
             <View style={styles.iconContainer}>
               <Ionicons name={icon} size={24} color={colors.accent} />
             </View>
-            <Text style={styles.placeholderLabel}>{label}</Text>
+            <Text style={styles.placeholderLabel}>Tap to upload</Text>
           </View>
         )}
       </View>
-      <Text style={styles.label}>{label}</Text>
+      {!image ? <Text style={styles.label}>{label}</Text> : null}
     </AnimatedPressable>
   );
 }
@@ -249,6 +248,7 @@ export function TransformationVisualizer({
     () =>
       StyleSheet.create({
         container: {
+          width: '100%',
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',

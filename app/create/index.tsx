@@ -612,11 +612,11 @@ export default function CreateScreen() {
         },
         modeScroll: {
           marginTop: 4,
-          marginHorizontal: -layout.screenPadding,
         },
         modeRow: {
           flexDirection: 'row',
           paddingHorizontal: layout.screenPadding,
+          paddingRight: layout.screenPadding + 8,
         },
         modeChip: {
           flexDirection: 'row',
@@ -695,11 +695,11 @@ export default function CreateScreen() {
         },
         categoryScroll: {
           marginTop: 12,
-          marginHorizontal: -layout.screenPadding,
         },
         categoryRow: {
           flexDirection: 'row',
           paddingHorizontal: layout.screenPadding,
+          paddingRight: layout.screenPadding + 8,
         },
         categoryButton: {
           flexDirection: 'row',
@@ -767,6 +767,8 @@ export default function CreateScreen() {
           backgroundColor: colors.bgPrimary,
           paddingHorizontal: layout.screenPadding,
           paddingTop: 12,
+          borderTopWidth: 1,
+          borderTopColor: colors.borderLight,
         },
         bottomButton: {
           width: '100%',

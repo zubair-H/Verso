@@ -31,6 +31,7 @@ import { layout, borderRadius, springs } from '@/constants/spacing';
 import { useStorage } from '@/hooks/useStorage';
 import { trackEvent } from '@/utils/analytics';
 import { getProductsForElements, Product } from '@/utils/mockProducts';
+import { generateLook } from '@/utils/api';
 
 const { width } = Dimensions.get('window');
 const IMAGE_WIDTH = width - layout.screenPadding * 2;
@@ -66,6 +67,7 @@ export default function ResultScreen() {
   const [showSubtitle, setShowSubtitle] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [showProducts, setShowProducts] = useState(false);
+  const [resultImageUri, setResultImageUri] = useState(params.look || '');
 
   const elements = params.elements?.split(',') || [];
   const products = getProductsForElements(elements);
@@ -87,12 +89,7 @@ export default function ResultScreen() {
   useEffect(() => {
     startLoadingAnimation();
     startAmbientAnimation();
-    // Simulate AI processing delay
-    const timer = setTimeout(() => {
-      runSignatureReveal();
-    }, 2000);
-
-    return () => clearTimeout(timer);
+    runGenerationAndReveal();
   }, []);
 
   // Phase 1: Anticipation - Pulsing loader
@@ -178,6 +175,21 @@ export default function ResultScreen() {
     }, 1300);
   }, []);
 
+  const runGenerationAndReveal = useCallback(async () => {
+    try {
+      const job = await generateLook({
+        selfie: params.selfie || '',
+        look: params.look || '',
+        elements,
+      });
+      setResultImageUri(job.resultUrl || params.look || '');
+    } catch {
+      setResultImageUri(params.look || '');
+    } finally {
+      runSignatureReveal();
+    }
+  }, [params.selfie, params.look, elements, runSignatureReveal]);
+
   const trackEventWrapper = () => {
     trackEvent('look_generated', { elements: params.elements });
   };
@@ -193,7 +205,7 @@ export default function ResultScreen() {
     await saveLook({
       selfie: params.selfie || '',
       reference: params.look || '',
-      result: params.look || '',
+      result: resultImageUri || params.look || '',
       elements,
     });
 
@@ -223,10 +235,7 @@ export default function ResultScreen() {
     loaderOpacity.value = 1;
 
     startLoadingAnimation();
-
-    setTimeout(() => {
-      runSignatureReveal();
-    }, 2000);
+    await runGenerationAndReveal();
   };
 
   const handleTryAnother = () => {
@@ -485,7 +494,7 @@ export default function ResultScreen() {
 
               {/* Actual result image */}
               <Animated.Image
-                source={{ uri: params.look }}
+                source={{ uri: resultImageUri || params.look }}
                 style={[styles.resultImage, imageStyle]}
               />
             </View>
