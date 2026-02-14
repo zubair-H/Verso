@@ -9,6 +9,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -409,7 +410,17 @@ export default function CreateScreen() {
     setActiveCategory(matchedCategory ? matchedCategory.id : matchedMode.groups[0].id);
   }, [params.mode, params.category]);
 
-  const pickImage = async (type: 'selfie' | 'look' | 'analysis') => {
+  const setImageForType = (type: 'selfie' | 'look' | 'analysis', uri: string) => {
+    if (type === 'selfie') {
+      setSelfieImage(uri);
+    } else if (type === 'look') {
+      setLookImage(uri);
+    } else {
+      setAnalysisImage(uri);
+    }
+  };
+
+  const pickImageFromLibrary = async (type: 'selfie' | 'look' | 'analysis') => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -419,15 +430,51 @@ export default function CreateScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
-      if (type === 'selfie') {
-        setSelfieImage(uri);
-      } else if (type === 'look') {
-        setLookImage(uri);
-      } else {
-        setAnalysisImage(uri);
-      }
-      trackEvent('photo_uploaded', { type });
+      setImageForType(type, uri);
+      trackEvent('photo_uploaded', { type, source: 'library' });
     }
+  };
+
+  const pickImageFromCamera = async (type: 'selfie' | 'look' | 'analysis') => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Camera access needed', 'Please allow camera access in Settings.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const uri = result.assets[0].uri;
+      setImageForType(type, uri);
+      trackEvent('photo_uploaded', { type, source: 'camera' });
+    }
+  };
+
+  const pickImage = (type: 'selfie' | 'look' | 'analysis') => {
+    Alert.alert('Upload photo', 'Choose how you want to upload.', [
+      {
+        text: 'Camera',
+        onPress: () => {
+          void pickImageFromCamera(type);
+        },
+      },
+      {
+        text: 'Photo Library',
+        onPress: () => {
+          void pickImageFromLibrary(type);
+        },
+      },
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+    ]);
   };
 
   const toggleAttribute = async (attribute: string) => {
