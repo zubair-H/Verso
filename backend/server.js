@@ -1,9 +1,13 @@
+// server.js
+'use strict';
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const sharp = require('sharp'); // ✅ NEW
 
 // ============================================================================
-// ENVIRONMENT VARIABLE LOADER
+// ENV LOADER
 // ============================================================================
 function loadEnvFile() {
   const envPath = path.join(__dirname, '.env');
@@ -20,23 +24,73 @@ function loadEnvFile() {
     const key = trimmed.slice(0, idx).trim();
     const value = trimmed.slice(idx + 1).trim().replace(/^['"]|['"]$/g, '');
 
-    if (key && process.env[key] === undefined) {
-      process.env[key] = value;
-    }
+    if (key && process.env[key] === undefined) process.env[key] = value;
   }
 }
-
 loadEnvFile();
 
 // ============================================================================
-// CONFIGURATION
+// CONFIG
 // ============================================================================
 const PORT = Number(process.env.PORT || 4000);
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
 
+if (!globalThis.fetch) throw new Error('This server requires Node 18+ (fetch not found).');
+
+const REPLICATE_HAIR_MASK_VERSION =
+  'b335dc1b693b2de88040736eb426702adfc2f0c869ae9dba3569bac1beb9c0f6'; // hadilq/hair-segment
+
+const REPLICATE_SDXL_INPAINT_VERSION =
+  'aca001c8b137114d5e594c68f7084ae6d82f364758aab8d997b233e8ef3c4d93'; // sepal/sdxl-inpainting
+
 // ============================================================================
-// HELPER FUNCTIONS
+// PRESETS
+// ============================================================================
+const PRESETS = [
+  {
+    id: 'buzz',
+    name: 'Buzz Cut',
+    prompt:
+      'photorealistic buzz cut hairstyle, natural scalp texture, realistic short stubble hair, match head shape, preserve lighting and skin tone',
+  },
+  {
+    id: 'taper-fade',
+    name: 'Low Taper Fade',
+    prompt:
+      'photorealistic low taper fade haircut, clean lineup, natural hair texture, realistic fade gradient, preserve identity and lighting',
+  },
+  {
+    id: 'curly-top',
+    name: 'Curly Top',
+    prompt:
+      'photorealistic short curly hair on top, natural curls, slightly textured, realistic strand detail, preserve face and lighting',
+  },
+  {
+    id: 'blonde-dye',
+    name: 'Blonde Dye (Natural)',
+    prompt:
+      'photorealistic hair recolor to natural blonde, preserve original hair texture, keep realistic highlights and shadows, no flat color fill',
+  },
+  {
+    id: 'jet-black',
+    name: 'Jet Black',
+    prompt:
+      'photorealistic hair recolor to jet black, preserve original hair texture, realistic shine and shadows, no artifacts',
+  },
+];
+
+function buildHairPrompt(presetPrompt) {
+  return [
+    presetPrompt,
+    'ONLY modify hair in the masked region.',
+    'Do NOT change the face, eyes, eyebrows, nose, lips, teeth, skin, background, or clothing.',
+    'Keep the same identity, head angle, lighting, and camera perspective.',
+    'Photorealistic, seamless hairline blending.',
+  ].join(' ');
+}
+
+// ============================================================================
+// HELPERS
 // ============================================================================
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -51,289 +105,200 @@ function sendJson(res, statusCode, payload) {
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
-
     req.on('data', (chunk) => {
       data += chunk;
-      if (data.length > 12_000_000) {
-        reject(new Error('Payload too large'));
-      }
+      if (data.length > 12_000_000) reject(new Error('Payload too large'));
     });
-
     req.on('end', () => {
-      if (!data) {
-        resolve({});
-        return;
-      }
-
+      if (!data) return resolve({});
       try {
         resolve(JSON.parse(data));
       } catch {
         reject(new Error('Invalid JSON'));
       }
     });
-
     req.on('error', reject);
   });
 }
 
-function extensionToMime(url) {
-  const lowered = url.toLowerCase();
-  if (lowered.endsWith('.png')) return 'image/png';
-  if (lowered.endsWith('.webp')) return 'image/webp';
-  if (lowered.endsWith('.gif')) return 'image/gif';
-  return 'image/jpeg';
+function serveStatic(req, res) {
+  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  let pathname = url.pathname;
+  if (pathname === '/') pathname = '/index.html';
+
+  const safeBase = path.join(__dirname, 'public');
+  const filePath = path.normalize(path.join(safeBase, pathname));
+  if (!filePath.startsWith(safeBase)) {
+    res.writeHead(403);
+    return res.end('Forbidden');
+  }
+  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    res.writeHead(404);
+    return res.end('Not found');
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+  const mime =
+    ext === '.html'
+      ? 'text/html; charset=utf-8'
+      : ext === '.js'
+        ? 'application/javascript; charset=utf-8'
+        : ext === '.css'
+          ? 'text/css; charset=utf-8'
+          : 'application/octet-stream';
+
+  res.writeHead(200, { 'Content-Type': mime });
+  fs.createReadStream(filePath).pipe(res);
 }
 
-async function imageUrlToBase64(imageUrl) {
-  const response = await fetch(imageUrl);
-  if (!response.ok) {
-    throw new Error(`Image fetch failed (${response.status})`);
-  }
-
-  const contentType = response.headers.get('content-type') || extensionToMime(imageUrl);
-  const arr = await response.arrayBuffer();
-  const buffer = Buffer.from(arr);
-  return { 
-    mimeType: contentType.split(';')[0], 
-    base64: buffer.toString('base64') 
-  };
+function isDataUri(s) {
+  return typeof s === 'string' && s.startsWith('data:');
 }
 
-function extractJsonFromText(text) {
-  if (!text) return null;
+// ✅ URL -> Data URI (reliable for Unsplash/Pinterest/CDNs)
+async function urlToDataUri(imageUrl) {
+  let finalUrl = imageUrl;
 
-  // Try to extract from markdown code fence
-  const fenced = text.match(/```json\s*([\s\S]*?)```/i);
-  if (fenced && fenced[1]) {
-    try {
-      return JSON.parse(fenced[1].trim());
-    } catch {
-      // continue
-    }
+  if (finalUrl.includes('images.unsplash.com')) {
+    const u = new URL(finalUrl);
+    // cap size for speed & reliability
+    u.searchParams.set('w', u.searchParams.get('w') || '768');
+    finalUrl = u.toString();
   }
 
-  // Try to extract from first { to last }
-  const firstBrace = text.indexOf('{');
-  const lastBrace = text.lastIndexOf('}');
-  if (firstBrace >= 0 && lastBrace > firstBrace) {
-    try {
-      return JSON.parse(text.slice(firstBrace, lastBrace + 1));
-    } catch {
-      // continue
-    }
-  }
+  const resp = await fetch(finalUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
+  });
+  if (!resp.ok) throw new Error(`Image fetch failed (${resp.status})`);
 
-  return null;
+  const contentType = (resp.headers.get('content-type') || 'image/jpeg').split(';')[0];
+  const arr = await resp.arrayBuffer();
+  const buf = Buffer.from(arr);
+  const base64 = buf.toString('base64');
+
+  return `data:${contentType};base64,${base64}`;
 }
 
-// ============================================================================
-// GEMINI VISION API - STEP 1: EXTRACT ATTRIBUTE DESCRIPTION
-// ============================================================================
-async function extractAttributeDescription({ imageBase64, imageMimeType, imageUrl, attribute }) {
-  if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY is not configured');
+// ✅ Fetch buffers for mask cleanup
+async function fetchBuffer(urlOrDataUri) {
+  if (isDataUri(urlOrDataUri)) {
+    const base64 = urlOrDataUri.split(',')[1] || '';
+    return Buffer.from(base64, 'base64');
   }
-
-  // Convert image URL to base64 if needed
-  let inlineData = imageBase64;
-  let mimeType = imageMimeType || 'image/jpeg';
-
-  if (!inlineData && imageUrl) {
-    const converted = await imageUrlToBase64(imageUrl);
-    inlineData = converted.base64;
-    mimeType = converted.mimeType;
-  }
-
-  if (!inlineData) {
-    throw new Error('Provide imageBase64 or imageUrl');
-  }
-
-  // Build attribute-specific prompt
-  const attributePrompts = {
-    eyes: 'Describe the eye shape, color (including any flecks or variations), eyelid type, eyelash characteristics, and any distinctive features in extreme detail.',
-    eye_color: 'Describe the eye color in extreme detail, including base color, any flecks, patterns, rings, or color variations from center to edge.',
-    hair_color: 'Describe the hair color including base tone, highlights, lowlights, undertones, and any color variations in extreme detail.',
-    hair_style: 'Describe the hairstyle including cut, length, texture, volume, layers, parting, and styling in extreme detail.',
-    skin_tone: 'Describe the skin tone including undertones, texture, and any distinctive characteristics in extreme detail.',
-    face_shape: 'Describe the face shape, jawline, cheekbones, and overall facial structure in extreme detail.',
-    lips: 'Describe the lip shape, fullness, color, and distinctive features in extreme detail.',
-    nose: 'Describe the nose shape, bridge, tip, and distinctive features in extreme detail.',
-    eyebrows: 'Describe the eyebrow shape, thickness, arch, and color in extreme detail.',
-  };
-
-  const specificPrompt = attributePrompts[attribute] || `Describe the ${attribute} in extreme detail.`;
-
-  const prompt = [
-    'You are a professional image analyst specializing in detailed visual descriptions.',
-    `Analyze this image and focus on: ${attribute}.`,
-    '',
-    specificPrompt,
-    '',
-    'Provide a detailed, precise description that could be used to recreate this visual characteristic.',
-    'Be specific about colors, shapes, textures, and any unique features.',
-    'Write 3-5 sentences of pure description.',
-  ].join('\n');
-
-  const payload = {
-    contents: [
-      {
-        parts: [
-          { text: prompt },
-          { 
-            inline_data: { 
-              mime_type: mimeType, 
-              data: inlineData 
-            } 
-          },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.3,
-      maxOutputTokens: 500,
-    },
-  };
-
-  // Try multiple Gemini models
-  const modelCandidates = [
-   'gemini-3-flash-preview'
-  ];
-
-  let description = null;
-  let lastError = null;
-
-  for (const model of modelCandidates) {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-    
-    try {
-      const resp = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const rawText = await resp.text();
-      
-      if (!resp.ok) {
-        lastError = `Model ${model} failed (${resp.status}): ${rawText.slice(0, 200)}`;
-        continue;
-      }
-
-      const parsed = JSON.parse(rawText);
-      const modelText = (parsed?.candidates || [])
-        .flatMap((c) => c?.content?.parts || [])
-        .map((p) => p?.text)
-        .filter(Boolean)
-        .join('\n');
-
-      if (modelText) {
-        description = modelText.trim();
-        break;
-      }
-    } catch (err) {
-      lastError = `Model ${model} error: ${err.message}`;
-    }
-  }
-
-  if (!description) {
-    throw new Error(lastError || 'All Gemini models failed');
-  }
-
-  return {
-    attribute,
-    description,
-    model: 'gemini-vision',
-  };
+  const resp = await fetch(urlOrDataUri, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!resp.ok) throw new Error(`Fetch failed (${resp.status})`);
+  const arr = await resp.arrayBuffer();
+  return Buffer.from(arr);
 }
 
-// ============================================================================
-// REPLICATE IMAGEN API - STEP 2: EDIT USER IMAGE
-// ============================================================================
-async function editImageWithImagen({ userImage, userImageMimeType, userImageUrl, attributeDescription, attribute }) {
-  if (!REPLICATE_API_TOKEN) {
-    throw new Error('REPLICATE_API_TOKEN is not configured');
-  }
+// ✅ QUICK FIX: clean mask so it cannot repaint face
+// - threshold to pure B/W
+// - keep only top 60% (hair lives there for most portraits)
+// - blur slightly to feather hairline
+async function cleanHairMaskToDataUri(maskUrl, { keepTop = 0.60 } = {}) {
+  const maskBuf = await fetchBuffer(maskUrl);
+  const img = sharp(maskBuf);
+  const meta = await img.metadata();
+  const w = meta.width || 1024;
+  const h = meta.height || 1024;
 
-  // Convert user image to base64 if needed
-  let imageData = userImage;
-  if (!imageData && userImageUrl) {
-    const converted = await imageUrlToBase64(userImageUrl);
-    imageData = `data:${converted.mimeType};base64,${converted.base64}`;
-  }
+  const cutY = Math.floor(h * keepTop);
+  const bottomH = h - cutY;
 
-  if (!imageData) {
-    throw new Error('Provide userImage (base64 with data URI) or userImageUrl');
-  }
+  // black rectangle to cover lower region of mask
+  const bottomBlack = await sharp({
+    create: { width: w, height: bottomH, channels: 1, background: { r: 0, g: 0, b: 0 } },
+  })
+    .png()
+    .toBuffer();
 
-  // Build the editing prompt based on attribute
-  const editPrompt = `Transform the ${attribute} to match this description: ${attributeDescription}. Keep the rest of the face and image unchanged. Maintain natural appearance and lighting.`;
+  const cleaned = await sharp(maskBuf)
+    .ensureAlpha()
+    .grayscale()
+    .threshold(160) // stricter threshold prevents gray bleed into face
+    .composite([{ input: bottomBlack, top: cutY, left: 0, blend: 'over' }])
+    .blur(1.2) // feather edges so hairline blends better
+    .png()
+    .toBuffer();
 
-  // Replicate Imagen model (you'll need to verify the exact model version)
-  // Example model - UPDATE THIS with the actual Imagen 4 model you found
-  const model = 'google-deepmind/imagen-3'; // UPDATE THIS!
-  const version = 'latest'; // Or specific version hash
+  return `data:image/png;base64,${cleaned.toString('base64')}`;
+}
 
-  // Start the prediction
-  const createResponse = await fetch('https://api.replicate.com/v1/predictions', {
+async function createReplicatePrediction({ version, input }) {
+  const resp = await fetch('https://api.replicate.com/v1/predictions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
+      Authorization: `Bearer ${REPLICATE_API_TOKEN}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      version: version,
-      input: {
-        image: imageData,
-        prompt: editPrompt,
-        // Add any other Imagen-specific parameters here
-        // Examples: strength, guidance_scale, etc.
-      },
-    }),
+    body: JSON.stringify({ version, input }),
   });
 
-  if (!createResponse.ok) {
-    const errorText = await createResponse.text();
-    throw new Error(`Replicate API failed (${createResponse.status}): ${errorText}`);
-  }
+  const text = await resp.text();
+  if (!resp.ok) throw new Error(`Replicate create failed (${resp.status}): ${text}`);
+  return JSON.parse(text);
+}
 
-  const prediction = await createResponse.json();
-  const predictionId = prediction.id;
-
-  // Poll for completion
-  let result = prediction;
+async function pollReplicatePrediction(predictionId, { maxAttempts = 120, intervalMs = 1500 } = {}) {
   let attempts = 0;
-  const maxAttempts = 60; // 60 attempts * 2 seconds = 2 minutes max
-
-  while (result.status !== 'succeeded' && result.status !== 'failed' && attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
-    
-    const pollResponse = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
-      headers: {
-        'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
-      },
+  while (attempts < maxAttempts) {
+    const poll = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+      headers: { Authorization: `Bearer ${REPLICATE_API_TOKEN}` },
     });
 
-    if (!pollResponse.ok) {
-      throw new Error(`Polling failed (${pollResponse.status})`);
+    const text = await poll.text();
+    if (!poll.ok) throw new Error(`Replicate poll failed (${poll.status}): ${text}`);
+
+    const data = JSON.parse(text);
+
+    if (attempts === 0 || attempts % 10 === 0) {
+      console.log(`Replicate poll ${predictionId}: status=${data.status} (attempt ${attempts}/${maxAttempts})`);
     }
 
-    result = await pollResponse.json();
-    attempts++;
+    if (data.status === 'succeeded') return { data, attempts };
+    if (data.status === 'failed') throw new Error(`Prediction failed: ${data.error || 'Unknown error'}`);
+
+    await new Promise((r) => setTimeout(r, intervalMs));
+    attempts += 1;
   }
 
-  if (result.status === 'failed') {
-    throw new Error(`Image generation failed: ${result.error || 'Unknown error'}`);
-  }
+  throw new Error(`Prediction timed out after ${Math.round((maxAttempts * intervalMs) / 1000)}s`);
+}
 
-  if (result.status !== 'succeeded') {
-    throw new Error('Image generation timed out');
-  }
+function normalizeOutputToUrl(output) {
+  if (Array.isArray(output)) return output[0];
+  return output;
+}
 
-  return {
-    editedImageUrl: result.output, // Replicate returns image URL(s) in output
-    attribute,
-    processingTime: attempts * 2, // Approximate seconds
-  };
+// ============================================================================
+// CORE PIPELINE: mask -> clean mask -> inpaint
+// ============================================================================
+async function generateHairMask(imageUrlOrDataUri) {
+  const prediction = await createReplicatePrediction({
+    version: REPLICATE_HAIR_MASK_VERSION,
+    input: { image: imageUrlOrDataUri },
+  });
+
+  const { data } = await pollReplicatePrediction(prediction.id, { maxAttempts: 180, intervalMs: 1500 });
+  return normalizeOutputToUrl(data.output);
+}
+
+async function inpaintHair({ imageUrlOrDataUri, maskUrlOrDataUri, prompt }) {
+  const prediction = await createReplicatePrediction({
+    version: REPLICATE_SDXL_INPAINT_VERSION,
+    input: {
+      image: imageUrlOrDataUri,
+      mask: maskUrlOrDataUri,
+      prompt,
+      negative_prompt:
+        'face, eyes, eyebrows, nose, mouth, teeth, skin, identity change, deformed face, extra facial features, cartoon, painting, blurry, artifacts, watermark, text',
+      num_inference_steps: 25,  // ✅ less aggressive
+      guidance_scale: 5.5,      // ✅ less aggressive
+    },
+  });
+
+  const { data, attempts } = await pollReplicatePrediction(prediction.id, { maxAttempts: 140, intervalMs: 2000 });
+  return { imageUrl: normalizeOutputToUrl(data.output), attempts };
 }
 
 // ============================================================================
@@ -341,156 +306,86 @@ async function editImageWithImagen({ userImage, userImageMimeType, userImageUrl,
 // ============================================================================
 const server = http.createServer(async (req, res) => {
   const method = req.method || 'GET';
+
+  if (method === 'OPTIONS') return sendJson(res, 204, {});
+
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
 
-  // Handle CORS preflight
-  if (method === 'OPTIONS') {
-    sendJson(res, 204, {});
-    return;
+  if (
+    method === 'GET' &&
+    (pathname === '/' || pathname.startsWith('/index.html') || pathname.startsWith('/assets') || pathname.startsWith('/public'))
+  ) {
+    return serveStatic(req, res);
   }
+  if (method === 'GET' && pathname.endsWith('.html')) return serveStatic(req, res);
 
-  // Health check
   if (method === 'GET' && pathname === '/health') {
-    sendJson(res, 200, {
+    return sendJson(res, 200, {
       ok: true,
-      service: 'celebrity-attribute-transfer',
-      timestamp: new Date().toISOString(),
-      geminiConfigured: !!GEMINI_API_KEY,
+      service: 'preset-hair-tryon',
       replicateConfigured: !!REPLICATE_API_TOKEN,
+      presets: PRESETS.length,
+      timestamp: new Date().toISOString(),
     });
-    return;
   }
 
-  // Root endpoint
-  if (method === 'GET' && pathname === '/') {
-    sendJson(res, 200, {
-      ok: true,
-      message: 'Celebrity Attribute Transfer API',
-      endpoints: [
-        'GET /health - Check API status',
-        'POST /api/extract-attribute - Extract attribute description from celebrity image',
-        'POST /api/edit-image - Apply attribute to user image',
-      ],
+  if (method === 'GET' && pathname === '/api/presets') {
+    return sendJson(res, 200, {
+      success: true,
+      presets: PRESETS.map(({ id, name }) => ({ id, name })),
     });
-    return;
   }
 
-  // ========================================================================
-  // ENDPOINT 1: Extract Attribute Description
-  // ========================================================================
-  if (method === 'POST' && pathname === '/api/extract-attribute') {
+  if (method === 'POST' && pathname === '/api/try-on') {
     try {
+      if (!REPLICATE_API_TOKEN) throw new Error('REPLICATE_API_TOKEN is not configured');
+
       const body = await parseBody(req);
-      const { imageUrl, imageBase64, imageMimeType, attribute } = body;
+      const { userImageUrl, presetId } = body;
 
-      if (!imageUrl && !imageBase64) {
-        sendJson(res, 400, { 
-          error: 'Missing required field: imageUrl or imageBase64' 
-        });
-        return;
-      }
+      if (!userImageUrl) return sendJson(res, 400, { error: 'Missing required field: userImageUrl' });
+      if (!presetId) return sendJson(res, 400, { error: 'Missing required field: presetId' });
 
-      if (!attribute) {
-        sendJson(res, 400, { 
-          error: 'Missing required field: attribute (e.g., "eyes", "hair_color")' 
-        });
-        return;
-      }
+      const preset = PRESETS.find((p) => p.id === presetId);
+      if (!preset) return sendJson(res, 400, { error: `Unknown presetId: ${presetId}` });
 
-      const result = await extractAttributeDescription({
-        imageBase64,
-        imageMimeType,
-        imageUrl,
-        attribute,
+      const userImageData = isDataUri(userImageUrl) ? userImageUrl : await urlToDataUri(userImageUrl);
+
+      // 1) raw hair mask from model
+      const rawMaskUrl = await generateHairMask(userImageData);
+
+      // 2) ✅ cleaned mask (prevents face repaint)
+      const cleanedMaskDataUri = await cleanHairMaskToDataUri(rawMaskUrl, { keepTop: 0.60 });
+
+      // 3) inpaint using cleaned mask
+      const prompt = buildHairPrompt(preset.prompt);
+      const { imageUrl, attempts } = await inpaintHair({
+        imageUrlOrDataUri: userImageData,
+        maskUrlOrDataUri: cleanedMaskDataUri,
+        prompt,
       });
 
-      sendJson(res, 200, {
+      return sendJson(res, 200, {
         success: true,
-        ...result,
+        preset: { id: preset.id, name: preset.name },
+        rawMaskUrl,
+        // for debugging: you can paste this into browser console to preview, or just keep it for now
+        cleanedMaskPreview: cleanedMaskDataUri,
+        editedImageUrl: imageUrl,
+        processingTimeApproxSeconds: attempts * 2,
       });
     } catch (err) {
-      console.error('Extract attribute error:', err);
-      sendJson(res, 500, { 
-        error: err.message || 'Failed to extract attribute description' 
-      });
+      console.error('Try-on error:', err);
+      return sendJson(res, 500, { error: err.message || 'Try-on failed' });
     }
-    return;
   }
 
-  // ========================================================================
-  // ENDPOINT 2: Edit User Image
-  // ========================================================================
-  if (method === 'POST' && pathname === '/api/edit-image') {
-    try {
-      const body = await parseBody(req);
-      const { 
-        userImage, 
-        userImageMimeType, 
-        userImageUrl, 
-        attributeDescription, 
-        attribute 
-      } = body;
-
-      if (!userImage && !userImageUrl) {
-        sendJson(res, 400, { 
-          error: 'Missing required field: userImage or userImageUrl' 
-        });
-        return;
-      }
-
-      if (!attributeDescription) {
-        sendJson(res, 400, { 
-          error: 'Missing required field: attributeDescription' 
-        });
-        return;
-      }
-
-      if (!attribute) {
-        sendJson(res, 400, { 
-          error: 'Missing required field: attribute' 
-        });
-        return;
-      }
-
-      const result = await editImageWithImagen({
-        userImage,
-        userImageMimeType,
-        userImageUrl,
-        attributeDescription,
-        attribute,
-      });
-
-      sendJson(res, 200, {
-        success: true,
-        ...result,
-      });
-    } catch (err) {
-      console.error('Edit image error:', err);
-      sendJson(res, 500, { 
-        error: err.message || 'Failed to edit image' 
-      });
-    }
-    return;
-  }
-
-  // 404 for unknown routes
-  sendJson(res, 404, { error: 'Not found' });
+  return sendJson(res, 404, { error: 'Not found' });
 });
 
-// ============================================================================
-// START SERVER
-// ============================================================================
 server.listen(PORT, () => {
-  console.log(`
-🚀 Celebrity Attribute Transfer API running on http://localhost:${PORT}
-
-Configuration:
-  - Gemini API: ${GEMINI_API_KEY ? '✓ Configured' : '✗ Missing GEMINI_API_KEY'}
-  - Replicate API: ${REPLICATE_API_TOKEN ? '✓ Configured' : '✗ Missing REPLICATE_API_TOKEN'}
-
-Endpoints:
-  - POST /api/extract-attribute
-  - POST /api/edit-image
-  `);
+  console.log(`✅ Preset Hair Try-on running at http://localhost:${PORT}`);
+  console.log(`   Replicate token: ${REPLICATE_API_TOKEN ? '✓ set' : '✗ missing'}`);
+  console.log(`   Presets: ${PRESETS.length}`);
 });
