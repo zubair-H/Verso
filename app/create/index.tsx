@@ -5,7 +5,6 @@ import {
   View,
   ScrollView,
   Pressable,
-  TextInput,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -272,10 +271,6 @@ function buildCreateAnalysis(selfieUri: string, lookUri: string): CreateAnalysis
   };
 }
 
-function normalizeAttribute(input: string) {
-  return input.trim().replace(/,+/g, ' ').replace(/\s+/g, ' ');
-}
-
 function SingleUploadTile({
   image,
   onSelect,
@@ -379,7 +374,6 @@ export default function CreateScreen() {
   const [lookImage, setLookImage] = useState<string | null>(null);
   const [analysisImage, setAnalysisImage] = useState<string | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<string[]>([]);
-  const [customAttribute, setCustomAttribute] = useState('');
   const [activeMode, setActiveMode] = useState<CreateMode>('create');
   const [activeCategory, setActiveCategory] = useState<string>(MODE_CONFIGS[0].groups[0].id);
 
@@ -486,24 +480,6 @@ export default function CreateScreen() {
     });
   };
 
-  const addCustomAttribute = async () => {
-    const normalized = normalizeAttribute(customAttribute);
-    if (!normalized) {
-      return;
-    }
-
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSelectedAttributes((prev) => {
-      const exists = prev.some((item) => item.toLowerCase() === normalized.toLowerCase());
-      if (exists) {
-        return prev;
-      }
-      return [...prev, normalized];
-    });
-    setCustomAttribute('');
-    trackEvent('custom_attribute_added', { attribute: normalized });
-  };
-
   const removeAttribute = async (attribute: string) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedAttributes((prev) => prev.filter((item) => item !== attribute));
@@ -529,7 +505,6 @@ export default function CreateScreen() {
     setActiveMode(nextMode.id);
     setActiveCategory(nextMode.groups[0].id);
     setSelectedAttributes([]);
-    setCustomAttribute('');
   };
 
   const clearAttributes = async () => {
@@ -693,36 +668,9 @@ export default function CreateScreen() {
           ...typography.caption,
           color: colors.textSecondary,
         },
-        customRow: {
+        categorySpacer: {
           marginTop: 10,
-        },
-        customComposer: {
-          minHeight: 56,
-          borderRadius: borderRadius.lg,
-          backgroundColor: colors.bgCard,
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-        },
-        customInput: {
-          flex: 1,
-          minHeight: 40,
-          color: colors.textPrimary,
-          paddingHorizontal: 8,
-          paddingVertical: 8,
-          ...typography.bodyMedium,
-        },
-        composerAddButton: {
-          width: 34,
-          height: 34,
-          borderRadius: 17,
-          backgroundColor: colors.accentMuted,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        composerAddButtonActive: {
-          backgroundColor: colors.accent,
+          minHeight: 24,
         },
         selectedRow: {
           marginTop: 10,
@@ -940,33 +888,7 @@ export default function CreateScreen() {
                 </Animated.View>
               )}
 
-              <Animated.View style={styles.customRow} layout={SOFT_LAYOUT}>
-                <View style={styles.customComposer}>
-                  <Ionicons name="create-outline" size={16} color={colors.textTertiary} />
-                  <TextInput
-                    style={styles.customInput}
-                    value={customAttribute}
-                    onChangeText={setCustomAttribute}
-                    placeholder="Type your own attribute"
-                    placeholderTextColor={colors.textTertiary}
-                    returnKeyType="done"
-                    onSubmitEditing={addCustomAttribute}
-                  />
-                  <Pressable
-                    style={[
-                      styles.composerAddButton,
-                      customAttribute.trim().length > 0 && styles.composerAddButtonActive,
-                    ]}
-                    onPress={addCustomAttribute}
-                  >
-                    <Ionicons
-                      name="add"
-                      size={16}
-                      color={customAttribute.trim().length > 0 ? colors.textOnAccent : colors.textSecondary}
-                    />
-                  </Pressable>
-                </View>
-              </Animated.View>
+              <Animated.View style={styles.categorySpacer} layout={SOFT_LAYOUT} />
 
               <Animated.View layout={SOFT_LAYOUT}>
                 <ScrollView
