@@ -207,10 +207,16 @@ async function cleanHairMaskToDataUri(maskUrl, { keepTop = 0.60 } = {}) {
 
   // black rectangle to cover lower region of mask
   const bottomBlack = await sharp({
-    create: { width: w, height: bottomH, channels: 1, background: { r: 0, g: 0, b: 0 } },
-  })
-    .png()
-    .toBuffer();
+  create: {
+    width: w,
+    height: bottomH,
+    channels: 4, // ✅ must be 3 or 4
+    background: { r: 0, g: 0, b: 0, alpha: 1 },
+  },
+})
+  .png()
+  .toBuffer();
+
 
   const cleaned = await sharp(maskBuf)
     .ensureAlpha()
