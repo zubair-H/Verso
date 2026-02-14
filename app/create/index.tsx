@@ -31,6 +31,15 @@ interface AttributeGroup {
   tags: string[];
 }
 
+type ConfidenceTier = 'high' | 'medium' | 'low';
+
+interface CreateAnalysisResult {
+  confidence: number;
+  tier: ConfidenceTier;
+  groups: AttributeGroup[];
+  warning?: string;
+}
+
 type CreateMode = 'create' | 'face' | 'hair' | 'color' | 'skin' | 'style';
 
 interface ModeConfig {
@@ -49,52 +58,16 @@ const MODE_CONFIGS: ModeConfig[] = [
     singleUpload: false,
     groups: [
       {
-        id: 'hair',
-        title: 'Hair',
-        icon: 'cut',
-        tags: ['Hair volume', 'Hairline shape', 'Hair texture', 'Parting direction'],
-      },
-      {
         id: 'face',
         title: 'Face',
         icon: 'scan',
-        tags: ['Face shape', 'Jawline contour', 'Eyebrow shape', 'Eye makeup'],
-      },
-      {
-        id: 'color',
-        title: 'Color',
-        icon: 'color-palette',
-        tags: ['Lip tone', 'Skin finish', 'Undertone palette', 'Contrast level'],
+        tags: ['Eyebrows', 'Eyes', 'Lips', 'Nose', 'Makeup', 'Full Face'],
       },
       {
         id: 'style',
         title: 'Style',
         icon: 'shirt',
-        tags: ['Outfit silhouette', 'Layering style', 'Accessories', 'Entire vibe'],
-      },
-      {
-        id: 'makeup',
-        title: 'Makeup',
-        icon: 'sparkles',
-        tags: ['Blush placement', 'Eyeliner shape', 'Lash style', 'Highlight intensity'],
-      },
-      {
-        id: 'accessories',
-        title: 'Accessories',
-        icon: 'diamond-outline',
-        tags: ['Glasses style', 'Earring shape', 'Necklace layer', 'Hat profile'],
-      },
-      {
-        id: 'beard',
-        title: 'Beard',
-        icon: 'male-outline',
-        tags: ['Beard density', 'Jawline beard shape', 'Mustache style', 'Fade blend'],
-      },
-      {
-        id: 'pose',
-        title: 'Pose',
-        icon: 'body-outline',
-        tags: ['Head tilt', 'Shoulder angle', 'Expression mood', 'Camera framing'],
+        tags: ['Jacket', 'Dress', 'Shoes', 'Accessories', 'Entire Outfit'],
       },
     ],
   },
@@ -231,6 +204,72 @@ const MODE_CONFIGS: ModeConfig[] = [
 ];
 
 const SOFT_LAYOUT = Layout.duration(180);
+const CREATE_BASE_GROUPS = MODE_CONFIGS.find((mode) => mode.id === 'create')?.groups ?? [];
+
+function hashSeed(input: string) {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function buildCreateAnalysis(selfieUri: string, lookUri: string): CreateAnalysisResult {
+  const seed = hashSeed(`${selfieUri}|${lookUri}`);
+  const confidence = 45 + (seed % 52);
+
+  if (confidence < 60) {
+    const warnings = [
+      'The inspiration photo looks too blurry to extract reliable attributes.',
+      'The person in the inspiration photo appears too far from the camera.',
+      'Key facial or outfit details are partially occluded in the inspiration photo.',
+      'Lighting is too uneven to confidently isolate attributes.',
+    ];
+    return {
+      confidence,
+      tier: 'low',
+      groups: [],
+      warning: warnings[seed % warnings.length],
+    };
+  }
+
+  if (confidence <= 85) {
+    return {
+      confidence,
+      tier: 'medium',
+      groups: [
+        {
+          id: 'face-grouped',
+          title: 'Face (Grouped)',
+          icon: 'scan',
+          tags: ['Full Face', 'Makeup Style Bundle'],
+        },
+        {
+          id: 'outfit-grouped',
+          title: 'Outfit (Grouped)',
+          icon: 'shirt',
+          tags: ['Entire Outfit', 'Top + Bottom Set', 'Accessories Set'],
+        },
+      ],
+      warning:
+        'Detail confidence is moderate, so grouped swaps are recommended for cleaner results.',
+    };
+  }
+
+  const subsetCount = 3 + (seed % 3);
+  const groups = CREATE_BASE_GROUPS.map((group) => {
+    const offset = seed % group.tags.length;
+    const rotated = [...group.tags.slice(offset), ...group.tags.slice(0, offset)];
+    return { ...group, tags: rotated.slice(0, subsetCount) };
+  });
+
+  return {
+    confidence,
+    tier: 'high',
+    groups,
+  };
+}
 
 function normalizeAttribute(input: string) {
   return input.trim().replace(/,+/g, ' ').replace(/\s+/g, ' ');
