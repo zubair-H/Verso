@@ -1,0 +1,17 @@
+{
+  "looks": [],
+  "jobs": [
+    {
+      "id": "78129727-dce9-44fa-9942-4213cb7e6db1",
+      "status": "completed",
+      "selfie": "file://a.jpg",
+      "look": "https://img.example/look.jpg",
+      "elements": [
+        "Hair texture"
+      ],
+      "resultUrl": "https://img.example/look.jpg",
+      "createdAt": 1771052300842,
+      "completedAt": 1771052300842
+    }
+  ]
+}
