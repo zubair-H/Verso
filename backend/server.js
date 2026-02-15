@@ -44,6 +44,11 @@ const REPLICATE_HAIR_MASK_VERSION =
   'b335dc1b693b2de88040736eb426702adfc2f0c869ae9dba3569bac1beb9c0f6';
 const REPLICATE_SDXL_INPAINT_VERSION =
   'aca001c8b137114d5e594c68f7084ae6d82f364758aab8d997b233e8ef3c4d93';
+const REPLICATE_FAST_HAIR_VERSION =
+  process.env.REPLICATE_FAST_HAIR_VERSION ||
+  '3c68f21745b553cc6de2c8b487d6620cde4435e927740547d89e970689902c03';
+const REPLICATE_EYE_EDIT_MODEL =
+  process.env.REPLICATE_EYE_EDIT_MODEL || 'black-forest-labs/flux-kontext-pro';
 
 const HAIR_COLOR_PRESETS = [
   { id: 'current', name: 'Current', hex: '#9b9b9b', strength: 0.0 },
@@ -92,13 +97,45 @@ const EYE_COLOR_PRESETS = [
   { id: 'gray', name: 'Gray' },
 ];
 
-const EYE_COLOR_TARGET_HEX = {
-  brown: '#5C3A22',
-  hazel: '#7C6A3C',
-  green: '#4A7A46',
-  blue: '#4D72A8',
-  gray: '#7E8794',
+const FAST_HAIR_COLOR_BY_PRESET_ID = {
+  current: 'No change',
+  jet_black: 'Jet Black',
+  dark_brown: 'Dark Brown',
+  light_brown: 'Light Brown',
+  blonde: 'Blonde',
+  platinum: 'Platinum Blonde',
+  auburn: 'Auburn',
+  silver: 'Silver',
 };
+
+const FAST_HAIRCUT_BY_STYLE_ID = {
+  no_change: 'No change',
+  buzz: 'Buzz Cut',
+  'taper-fade': 'Crew Cut',
+  straight: 'Straight',
+  wavy: 'Wavy',
+  curly: 'Curly',
+  bob: 'Bob',
+  pixie_cut: 'Pixie Cut',
+  layered: 'Layered',
+  soft_waves: 'Soft Waves',
+  side_parted: 'Side-Parted',
+  center_parted: 'Center-Parted',
+  blunt_bangs: 'Blunt Bangs',
+  side_swept_bangs: 'Side-Swept Bangs',
+  slicked_back: 'Slicked Back',
+  shag: 'Shag',
+  lob: 'Lob',
+  high_ponytail: 'High Ponytail',
+  low_ponytail: 'Low Ponytail',
+  messy_bun: 'Messy Bun',
+  top_knot: 'Top Knot',
+  french_braid: 'French Braid',
+  dutch_braid: 'Dutch Braid',
+  fishtail_braid: 'Fishtail Braid',
+};
+
+const MODEL_VERSION_CACHE = new Map();
 
 const OUTFIT_COLOR_PRESETS = {
   black: { name: 'Black', hex: '#111111' },
@@ -448,6 +485,103 @@ async function pollReplicatePrediction(
 
 function normalizeOutputToUrl(output) {
   return Array.isArray(output) ? output[0] : output;
+}
+
+async function getReplicateLatestVersionId(modelSlug) {
+  const cached = MODEL_VERSION_CACHE.get(modelSlug);
+  if (cached && Date.now() - cached.at < 10 * 60 * 1000) return cached.versionId;
+
+  const [owner, name] = String(modelSlug || '').split('/');
+  if (!owner || !name) throw new Error(`Invalid model slug: ${modelSlug}`);
+
+  const response = await fetch(`https://api.replicate.com/v1/models/${owner}/${name}`, {
+    headers: { Authorization: `Bearer ${REPLICATE_API_TOKEN}` },
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Replicate model lookup failed (${response.status}): ${text}`);
+  }
+  const model = JSON.parse(text);
+  const versionId = model?.latest_version?.id;
+  if (!versionId) throw new Error(`No latest version available for model ${modelSlug}`);
+
+  MODEL_VERSION_CACHE.set(modelSlug, { versionId, at: Date.now() });
+  return versionId;
+}
+
+function resolveFastHairColorName(colorId, colorName) {
+  if (FAST_HAIR_COLOR_BY_PRESET_ID[colorId]) return FAST_HAIR_COLOR_BY_PRESET_ID[colorId];
+  const byName = {
+    'Jet Black': 'Jet Black',
+    'Dark Brown': 'Dark Brown',
+    'Light Brown': 'Light Brown',
+    Blonde: 'Blonde',
+    Platinum: 'Platinum Blonde',
+    Auburn: 'Auburn',
+    Silver: 'Silver',
+  };
+  return byName[colorName] || 'Dark Brown';
+}
+
+function resolveFastHaircut(styleId) {
+  return FAST_HAIRCUT_BY_STYLE_ID[styleId] || 'No change';
+}
+
+async function generateFastHairEditUrl({ imageDataUri, hairColorName, haircutProviderValue, cancelCtx }) {
+  const input = {
+    input_image: imageDataUri,
+    hair_color: hairColorName,
+    output_format: 'png',
+    aspect_ratio: 'match_input_image',
+    safety_tolerance: 2,
+  };
+  if (haircutProviderValue && haircutProviderValue !== 'No change') {
+    input.haircut = haircutProviderValue;
+  }
+
+  const created = await createReplicatePrediction({
+    version: REPLICATE_FAST_HAIR_VERSION,
+    input,
+    signal: cancelCtx?.signal,
+    sessionId: cancelCtx?.sessionId,
+  });
+
+  const { data } = await pollReplicatePrediction(created.id, {
+    maxAttempts: 180,
+    intervalMs: 1500,
+    signal: cancelCtx?.signal,
+    sessionId: cancelCtx?.sessionId,
+  });
+  const outputUrl = normalizeOutputToUrl(data.output);
+  if (!outputUrl) throw new Error('Fast hair model returned empty output');
+  return outputUrl;
+}
+
+async function generateFastEyeEditUrl({ imageDataUri, eyeColorName, cancelCtx }) {
+  const prompt = `Change only the iris color of both eyes to ${eyeColorName}. Keep face identity, hair, skin tone, lighting, and background unchanged. Photorealistic.`;
+  const version = await getReplicateLatestVersionId(REPLICATE_EYE_EDIT_MODEL);
+  const created = await createReplicatePrediction({
+    version,
+    input: {
+      input_image: imageDataUri,
+      prompt,
+      output_format: 'png',
+      aspect_ratio: 'match_input_image',
+      safety_tolerance: 2,
+      prompt_upsampling: false,
+    },
+    signal: cancelCtx?.signal,
+    sessionId: cancelCtx?.sessionId,
+  });
+  const { data } = await pollReplicatePrediction(created.id, {
+    maxAttempts: 180,
+    intervalMs: 1300,
+    signal: cancelCtx?.signal,
+    sessionId: cancelCtx?.sessionId,
+  });
+  const outputUrl = normalizeOutputToUrl(data.output);
+  if (!outputUrl) throw new Error('Eye color model returned empty output');
+  return outputUrl;
 }
 
 function parseDataUriParts(dataUri) {
@@ -1009,21 +1143,24 @@ const server = http.createServer(async (req, res) => {
 
       const color = HAIR_COLOR_PRESETS.find((c) => c.id === colorId) || HAIR_COLOR_PRESETS[0];
       const source = isDataUri(userImageUrl) ? userImageUrl : await urlToDataUri(userImageUrl);
-      const rawMaskUrl = await generateHairMask(source, cancelCtx);
-      const hasExplicitColor = typeof colorId === 'string' && colorId.trim() !== '' && colorId !== 'current';
-      const prompt = buildHairPrompt(hairStyleId, hasExplicitColor ? color.hex : '');
-      const editedImageUrl = await inpaintRegion({
-        imageUrlOrDataUri: source,
-        maskUrlOrDataUri: rawMaskUrl,
-        prompt,
-        cancelCtx,
-      });
+      const fastHairColor = resolveFastHairColorName(color.id, color.name);
+      const haircutProviderValue = resolveFastHaircut(hairStyleId);
+
+      let editedImageUrl = source;
+      if (!(fastHairColor === 'No change' && haircutProviderValue === 'No change')) {
+        editedImageUrl = await generateFastHairEditUrl({
+          imageDataUri: source,
+          hairColorName: fastHairColor,
+          haircutProviderValue,
+          cancelCtx,
+        });
+      }
 
       return sendJson(res, 200, {
         success: true,
         mode: 'fast',
         editedImageUrl,
-        maskUrl: rawMaskUrl,
+        maskUrl: '',
         chosenStyle: { id: hairStyleId, name: HAIR_STYLE_PRESETS.find((s) => s.id === hairStyleId)?.name || hairStyleId },
         chosenColor: {
           id: color.id,
@@ -1100,24 +1237,18 @@ const server = http.createServer(async (req, res) => {
       }
 
       const source = isDataUri(userImageUrl) ? userImageUrl : await urlToDataUri(userImageUrl);
-      const sourceBuf = await fetchBuffer(source);
-      const eyesMaskDataUri = await makeRegionMaskDataUri(sourceBuf, 'eyes');
-      const eyesMaskBuf = await fetchBuffer(eyesMaskDataUri);
-      const targetHex = EYE_COLOR_TARGET_HEX[eyeColorId] || '#6E7C90';
-      const editedBuf = await recolorWithMaskBuffer({
-        imageBuf: sourceBuf,
-        maskBuf: eyesMaskBuf,
-        targetHex,
-        strength: 0.98,
-        minMaskAlpha: 18,
+      const chosenEye = EYE_COLOR_PRESETS.find((x) => x.id === eyeColorId) || { id: eyeColorId, name: eyeColorId };
+      const editedImageUrl = await generateFastEyeEditUrl({
+        imageDataUri: source,
+        eyeColorName: chosenEye.name,
+        cancelCtx,
       });
-      const editedImageUrl = `data:image/png;base64,${editedBuf.toString('base64')}`;
 
       return sendJson(res, 200, {
         success: true,
         mode: 'eyes-fast',
         editedImageUrl,
-        chosenEyeColor: { id: eyeColorId, name: EYE_COLOR_PRESETS.find((x) => x.id === eyeColorId)?.name || eyeColorId },
+        chosenEyeColor: { id: chosenEye.id, name: chosenEye.name },
       });
     } catch (err) {
       console.error('recolor-eyes-fast error:', err);
