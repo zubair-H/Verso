@@ -16,7 +16,7 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout, borderRadius } from '@/constants/spacing';
@@ -27,6 +27,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const LOGO_SIZE_SMALL = 220;
+const SUBTITLE_MARGIN_BOTTOM = 27;
 
 function WasteHero() {
   const { colors, isDark } = useTheme();
@@ -68,7 +69,7 @@ function WasteHero() {
         ]}
       />
       <Animated.View style={iconStyle}>
-        <Feather name="refresh-cw" size={52} color={colors.textPrimary} />
+        <Ionicons name="leaf-outline" size={56} color={colors.textPrimary} />
       </Animated.View>
     </View>
   );
@@ -81,6 +82,7 @@ const CARD_DATA = [
     title: 'Selfie',
     desc: 'Snap a quick photo',
     emphasis: false,
+    lightOnly: false,
     headline: 'Start with you.',
     headlineDim: 'Your best angle.',
     description: 'Snap a photo or pick one from your gallery — any clear shot of your face works.',
@@ -91,6 +93,7 @@ const CARD_DATA = [
     title: 'Inspo',
     desc: 'Browse celeb looks',
     emphasis: false,
+    lightOnly: false,
     headline: 'Find your look.',
     headlineDim: 'Any style, any celeb.',
     description: 'Browse our collection of looks or upload a celeb photo you want to draw from.',
@@ -101,6 +104,7 @@ const CARD_DATA = [
     title: 'Attributes',
     desc: 'Fine-tune details',
     emphasis: false,
+    lightOnly: false,
     headline: 'Fine-tune it.',
     headlineDim: 'Every detail matters.',
     description: 'Choose exactly what you want — hair, style, features — and fine-tune every detail.',
@@ -111,16 +115,19 @@ const CARD_DATA = [
     title: 'Magic',
     desc: 'See the result',
     emphasis: false,
+    lightOnly: false,
     headline: 'See the magic.',
     headlineDim: 'AI brings it to life.',
     description: 'AI applies the look to your photo — see yourself transformed in seconds.',
     Hero: MagicHero,
   },
   {
-    icon: 'refresh-cw' as const,
+    icon: 'leaf-outline' as const,
+    iconFamily: 'ionicons' as const,
     title: 'REDUCES WASTE',
     desc: 'Try first, commit smarter',
     emphasis: true,
+    lightOnly: true,
     headline: 'REDUCES WASTE.',
     headlineDim: 'Try it virtually first.',
     description: 'Preview changes before real-world decisions to cut unnecessary products, returns, and one-off waste.',
@@ -264,16 +271,22 @@ export default function HowItWorksScreen() {
 
   // Layout
   const containerWidth = SCREEN_WIDTH - layout.screenPadding * 2;
-  const ROW_GAP = 24;
+  const ROW_GAP = CARD_DATA.length > 4 ? 22 : 24;
   const cardPositions = useMemo(() => getCardPositions(containerWidth, ROW_GAP), [containerWidth]);
   const totalGridHeight = CARD_HEIGHT * CARD_DATA.length + ROW_GAP * (CARD_DATA.length - 1);
 
-  const bottomArea = Math.max(insets.bottom, 16) + 24 + 56;
+  const extraBottomClearance = CARD_DATA.length > 4 ? 84 : 0;
+  const bottomArea = Math.max(insets.bottom, 16) + 24 + 56 + extraBottomClearance;
   // Cards area positioning
   const topArea = insets.top - 40 + LOGO_SIZE_SMALL;
   const headlineAreaHeight = 72;
   const availableForGrid = SCREEN_HEIGHT - topArea - headlineAreaHeight - bottomArea - 24;
-  const gridMarginTop = Math.max((availableForGrid - totalGridHeight) / 2, 8);
+  const gridUpShift = CARD_DATA.length > 4 ? 96 : 0;
+  const topCardGap = CARD_DATA.length > 4 ? ROW_GAP * 2.5 : ROW_GAP * 3.5;
+  const gridMarginTop = Math.max(Math.max((availableForGrid - totalGridHeight) / 2, 8) - gridUpShift + topCardGap, 0);
+  const headerUpShift = CARD_DATA.length > 4 ? -64 : 0;
+  const subtitleUpShift = CARD_DATA.length > 4 ? -10 : 0;
+  const headerLayoutOffset = headerUpShift + subtitleUpShift + SUBTITLE_MARGIN_BOTTOM;
 
   // Entry animations
   useEffect(() => {
@@ -452,21 +465,54 @@ export default function HowItWorksScreen() {
     }, 550);
   }, []);
 
+  const handleZoomOutAndExit = useCallback(() => {
+    if (isAnimating.current) return;
+    isAnimating.current = true;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    setPhase('zooming_out');
+    zoomProgress.value = withTiming(0, { duration: ZOOM_DURATION, easing: STANDARD_EASE });
+
+    setTimeout(() => {
+      setShowHero(false);
+      detailOpacity.value = 0;
+      detailTranslateY.value = 16;
+
+      setCompletedCards(prev => {
+        const next = [...prev];
+        next[activeCardIndex] = true;
+        return next;
+      });
+
+      setAllComplete(true);
+      setPhase('overview');
+      isAnimating.current = false;
+
+      // After collapse completes, run the normal graceful exit sequence.
+      setTimeout(() => {
+        handleExit();
+      }, 120);
+    }, ZOOM_DURATION + 50);
+  }, [activeCardIndex, handleExit]);
+
   const handleContinue = useCallback(() => {
     if (phase === 'overview' && allComplete) {
       handleExit();
     } else if (phase === 'overview') {
       handleZoomIn();
+    } else if (phase === 'detail' && CARD_DATA[activeCardIndex].lightOnly) {
+      handleZoomOutAndExit();
     } else if (phase === 'detail') {
       handleZoomOut();
     }
-  }, [phase, allComplete, activeCardIndex, handleZoomIn, handleZoomOut, handleExit]);
+  }, [phase, allComplete, activeCardIndex, handleZoomIn, handleZoomOut, handleExit, handleZoomOutAndExit]);
 
   const buttonText = useMemo(() => {
     if (phase === 'overview' && allComplete) return "Let's go";
+    if (phase === 'detail' && CARD_DATA[activeCardIndex].lightOnly) return 'Continue';
     if (phase === 'detail') return 'Got it';
     return 'Continue';
-  }, [phase, allComplete]);
+  }, [phase, allComplete, activeCardIndex]);
 
   // --- Animated styles ---
   const headlineStyle = useAnimatedStyle(() => ({
@@ -510,11 +556,11 @@ export default function HowItWorksScreen() {
       <View style={styles.content}>
         <View style={styles.logoSpacer} />
 
-        <Animated.View style={[styles.headlineContainer, headlineStyle]}>
+        <Animated.View style={[styles.headlineContainer, headerUpShift !== 0 && { marginTop: headerUpShift }, headlineStyle]}>
           <Text style={styles.headline}>Here's how it works</Text>
         </Animated.View>
 
-        <Animated.View style={subtitleStyle}>
+        <Animated.View style={[subtitleUpShift !== 0 && { marginTop: subtitleUpShift }, subtitleStyle]}>
           <Text style={styles.subtitle}>{CARD_DATA.length} simple steps to your new look</Text>
         </Animated.View>
 
@@ -581,6 +627,7 @@ export default function HowItWorksScreen() {
           cardPosition={cardPositions[activeCardIndex]}
           gridMarginTop={gridMarginTop}
           headlineAreaHeight={headlineAreaHeight}
+          headerLayoutOffset={headerLayoutOffset}
         />
       )}
 
@@ -806,6 +853,7 @@ function OverviewTile({
     : (isDark ? 'rgba(255,255,255,0.08)' : colors.accentMuted);
   const iconColor = colors.textPrimary;
   const accentColor = colors.accent;
+  const IconComponent = card.iconFamily === 'ionicons' ? Ionicons : Feather;
 
   return (
     <Animated.View
@@ -849,8 +897,8 @@ function OverviewTile({
       {/* Icon */}
       <View style={[tileStyles.iconWrap, { backgroundColor: iconBgColor }]}>
         <Animated.View style={iconOpacityStyle}>
-          <Feather
-            name={card.icon}
+          <IconComponent
+            name={card.icon as any}
             size={22}
             color={iconColor}
           />
@@ -909,6 +957,7 @@ interface ZoomOverlayProps {
   cardPosition: { x: number; y: number };
   gridMarginTop: number;
   headlineAreaHeight: number;
+  headerLayoutOffset: number;
 }
 
 function ZoomOverlay({
@@ -922,8 +971,11 @@ function ZoomOverlay({
   cardPosition,
   gridMarginTop,
   headlineAreaHeight,
+  headerLayoutOffset,
 }: ZoomOverlayProps) {
   const HeroComponent = card.Hero;
+  const isLightOnly = card.lightOnly;
+  const IconComponent = card.iconFamily === 'ionicons' ? Ionicons : Feather;
 
   // Card's absolute screen position
   const cardScreenX = layout.screenPadding + cardPosition.x;
@@ -931,6 +983,7 @@ function ZoomOverlay({
     insets.top - 40 +        // logoSpacer marginTop
     LOGO_SIZE_SMALL +        // logoSpacer height
     headlineAreaHeight +     // headline + subtitle
+    headerLayoutOffset +     // manual header shifts applied in layout
     gridMarginTop +          // grid top margin
     cardPosition.y;          // position within grid
 
@@ -975,7 +1028,7 @@ function ZoomOverlay({
       {/* Tile content (visible at start of zoom / end of zoom-out) */}
       <Animated.View style={[overlayZoomStyles.tileContent, tileContentStyle]}>
         <View style={[tileStyles.iconWrap, { backgroundColor: iconBgColor }]}>
-          <Feather name={card.icon} size={22} color={colors.textPrimary} />
+          <IconComponent name={card.icon as any} size={22} color={colors.textPrimary} />
         </View>
         <View style={tileStyles.textWrap}>
           <Text style={[tileStyles.title, card.emphasis && tileStyles.titleEmphasis, { color: colors.textPrimary }]}>
@@ -997,12 +1050,31 @@ function ZoomOverlay({
             {card.headlineDim}
           </Text>
         </View>
-        <Text style={[overlayZoomStyles.description, { color: colors.textTertiary }]}>
-          {card.description}
-        </Text>
-        <View style={overlayZoomStyles.heroContainer}>
-          {showHero && <HeroComponent />}
-        </View>
+        {isLightOnly ? (
+          <View style={overlayZoomStyles.lightOnlyWrap}>
+            <View style={[overlayZoomStyles.lightOnlyGlow, { backgroundColor: isDark ? 'rgba(127, 166, 173, 0.14)' : 'rgba(127, 166, 173, 0.12)' }]} />
+            <View
+              style={[
+                overlayZoomStyles.lightOnlyCore,
+                {
+                  backgroundColor: colors.bgSecondary,
+                  borderColor: isDark ? 'rgba(127, 166, 173, 0.28)' : 'rgba(127, 166, 173, 0.24)',
+                },
+              ]}
+            >
+              <Ionicons name="leaf-outline" size={58} color={colors.textPrimary} />
+            </View>
+          </View>
+        ) : (
+          <>
+            <Text style={[overlayZoomStyles.description, { color: colors.textTertiary }]}>
+              {card.description}
+            </Text>
+            <View style={overlayZoomStyles.heroContainer}>
+              {showHero && <HeroComponent />}
+            </View>
+          </>
+        )}
       </Animated.View>
     </Animated.View>
   );
@@ -1052,9 +1124,9 @@ const tileStyles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   titleEmphasis: {
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 0.2,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   desc: {
     fontSize: 11,
@@ -1102,8 +1174,8 @@ const overlayZoomStyles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   headlineEmphasis: {
-    fontWeight: '800',
-    letterSpacing: 0.3,
+    fontWeight: '400',
+    letterSpacing: -0.5,
   },
   description: {
     ...typography.bodyLarge,
@@ -1111,6 +1183,27 @@ const overlayZoomStyles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 16,
+  },
+  lightOnlyWrap: {
+    marginTop: 18,
+    width: 180,
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lightOnlyGlow: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+  },
+  lightOnlyCore: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
 });
 
@@ -1147,7 +1240,7 @@ const createStyles = (colors: any, insets: any) =>
       fontSize: 14,
       color: colors.textTertiary,
       textAlign: 'center',
-      marginBottom: 0,
+      marginBottom: SUBTITLE_MARGIN_BOTTOM,
       fontWeight: '500',
     },
     gridContainer: {
