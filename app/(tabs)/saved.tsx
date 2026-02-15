@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -44,6 +45,7 @@ export default function SavedScreen() {
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [previewLook, setPreviewLook] = useState<SavedLook | null>(null);
 
   const favoriteCount = useMemo(
     () => savedLooks.filter((look) => look.isFavorite).length,
@@ -65,11 +67,12 @@ export default function SavedScreen() {
     ));
   };
 
-  const handleCardPress = async (id: string) => {
+  const handleCardPress = async (look: SavedLook) => {
     if (!selectionMode) {
+      setPreviewLook(look);
       return;
     }
-    await toggleSelection(id);
+    await toggleSelection(look.id);
   };
 
   const handleCardLongPress = async (id: string) => {
@@ -249,6 +252,10 @@ export default function SavedScreen() {
   );
 
   const showEmpty = !isLoading && displayedLooks.length === 0;
+  const previewSubtitle = previewLook
+    ? formatSavedDate(previewLook.createdAt, previewLook.elements?.length ?? 0)
+    : '';
+  const previewTitle = previewLook?.elements?.length ? previewLook.elements[0] : 'Saved look';
 
   return (
     <View style={[dynamicStyles.screen, { paddingTop: insets.top }]}>
@@ -348,7 +355,7 @@ export default function SavedScreen() {
                   index={index}
                   selected={selectedIds.includes(look.id)}
                   selectionMode={selectionMode}
-                  onPress={() => handleCardPress(look.id)}
+                  onPress={() => handleCardPress(look)}
                   onLongPress={() => handleCardLongPress(look.id)}
                   onToggleFavorite={async () => {
                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -382,6 +389,35 @@ export default function SavedScreen() {
           />
         </Animated.View>
       )}
+
+      <Modal
+        visible={Boolean(previewLook)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewLook(null)}
+      >
+        <View style={styles.previewBackdrop}>
+          <Pressable style={styles.previewDismissArea} onPress={() => setPreviewLook(null)} />
+          {previewLook && (
+            <View style={styles.previewCard}>
+              <Image source={{ uri: previewLook.result }} style={styles.previewImage} />
+              <View style={styles.previewHeader}>
+                <View>
+                  <Text numberOfLines={1} style={[typography.headlineMedium, { color: '#FFFFFF' }]}>
+                    {previewTitle}
+                  </Text>
+                  <Text numberOfLines={1} style={[typography.bodySmall, { color: 'rgba(255,255,255,0.86)' }]}>
+                    {previewSubtitle}
+                  </Text>
+                </View>
+                <Pressable onPress={() => setPreviewLook(null)} style={styles.previewCloseButton}>
+                  <Ionicons name="close" size={18} color={colors.textPrimary} />
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -606,5 +642,41 @@ const styles = StyleSheet.create({
   },
   selectionAction: {
     flex: 1,
+  },
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.82)',
+    justifyContent: 'center',
+  },
+  previewDismissArea: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  previewCard: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  previewHeader: {
+    position: 'absolute',
+    top: 54,
+    left: layout.screenPadding,
+    right: layout.screenPadding,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  previewCloseButton: {
+    width: 30,
+    height: 30,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
   },
 });

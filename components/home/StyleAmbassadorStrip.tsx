@@ -424,6 +424,7 @@ export function StyleAmbassadorStrip({
   const personaTiles = useMemo(() => {
     const withJpegFormat = (url?: string) => {
       if (!url) return undefined;
+      if (!url.startsWith('https://images.unsplash.com/')) return url;
       if (url.includes('fm=')) return url;
       return `${url}${url.includes('?') ? '&' : '?'}fm=jpg`;
     };
