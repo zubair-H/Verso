@@ -12,9 +12,9 @@ import { AnalysisTags } from '@/components/create/AnalysisTags';
 import { UploadTile } from '@/components/create/facial/UploadTile';
 import { ExpandableSection } from '@/components/create/facial/ExpandableSection';
 import { BrowShapeGlyph, LipsShapeGlyph } from '@/components/create/facial/Glyphs';
-import { type ExpandableSectionKey, type FeaturePreset } from './facial/types';
-import { useFacialAnalysisState } from './facial/useFacialAnalysisState';
-import { createFacialStyles } from './facial/styles';
+import { type ExpandableSectionKey, type FeaturePreset } from '@/features/create/facial/types';
+import { useFacialAnalysisState } from '@/features/create/facial/useFacialAnalysisState';
+import { createFacialStyles } from '@/features/create/facial/styles';
 import {
   EYEBROW_COLOR_PRESETS,
   EYEBROW_PRESETS,
@@ -22,7 +22,7 @@ import {
   OUTFIT_COLORS,
   getEyeColorHex,
   getHairPreviewImage,
-} from './facial/constants';
+} from '@/features/create/facial/constants';
 
 export default function CreateScreen() {
   const { colors } = useTheme();

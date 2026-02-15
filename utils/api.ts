@@ -113,13 +113,34 @@ export interface RecolorFaceFeaturesFastResponse {
   };
 }
 
+export interface RecolorOutfitFastResponse {
+  success: boolean;
+  mode: 'outfit-fast';
+  editedImageUrl: string;
+  chosenOutfit: {
+    topColorId: string;
+    bottomColorId: string;
+    topColorHex?: string | null;
+    bottomColorHex?: string | null;
+  };
+}
+
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/$/, '');
 }
 
+function isLikelyValidBaseUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && Boolean(parsed.host);
+  } catch {
+    return false;
+  }
+}
+
 function inferApiBaseUrl(): string {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl) {
+  if (envUrl && isLikelyValidBaseUrl(envUrl)) {
     return normalizeBaseUrl(envUrl);
   }
 
@@ -293,6 +314,21 @@ export async function recolorFaceFeaturesFast(payload: {
 }): Promise<RecolorFaceFeaturesFastResponse> {
   return apiRequest<RecolorFaceFeaturesFastResponse>(
     '/api/recolor-face-features-fast',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    270000
+  );
+}
+
+export async function recolorOutfitFast(payload: {
+  userImageUrl: string;
+  topColorId: string;
+  bottomColorId: string;
+}): Promise<RecolorOutfitFastResponse> {
+  return apiRequest<RecolorOutfitFastResponse>(
+    '/api/recolor-outfit-fast',
     {
       method: 'POST',
       body: JSON.stringify(payload),
