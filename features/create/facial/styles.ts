@@ -75,7 +75,6 @@ export function createFacialStyles(colors: any, insetBottom: number) {
       backgroundColor: colors.bgSecondary,
     },
     hairCardActive: { borderColor: colors.accent, borderWidth: 2 },
-    hairImage: { width: '100%', height: '100%', resizeMode: 'cover' },
     hairCardLabel: { ...typography.caption, color: colors.textSecondary, marginTop: 6, textAlign: 'center' },
     hairFallback: {
       flex: 1,

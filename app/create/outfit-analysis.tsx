@@ -1,5 +1,5 @@
 import React, { ReactNode, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,18 +65,27 @@ const INITIAL_SELECTIONS: OutfitSelections = {
   bottomColor: null,
 };
 
-const COLOR_SWATCHES: Record<string, string> = {
-  black: '#111111',
-  white: '#F2F2F2',
-  beige: '#D8C3A5',
-  brown: '#7A4E2D',
-  navy: '#1E3A6D',
-  green: '#3C8D40',
-  red: '#C53939',
-  pink: '#D97AAE',
-  gray: '#8C8C8C',
-  olive: '#6B7A3D',
-  blue: '#2B6ACF',
+const OUTFIT_REFERENCE_IMAGES: Record<OutfitSectionKey, Record<string, string>> = {
+  topColor: {
+    black: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?fit=crop&w=900&q=80&fm=jpg',
+    white: 'https://images.unsplash.com/photo-1544717305-2782549b5136?fit=crop&w=900&q=80&fm=jpg',
+    beige: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?fit=crop&w=900&q=80&fm=jpg',
+    brown: 'https://images.unsplash.com/photo-1488161628813-04466f872be2?fit=crop&w=900&q=80&fm=jpg',
+    navy: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?fit=crop&w=900&q=80&fm=jpg',
+    green: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?fit=crop&w=900&q=80&fm=jpg',
+    red: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?fit=crop&w=900&q=80&fm=jpg',
+    pink: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?fit=crop&w=900&q=80&fm=jpg',
+  },
+  bottomColor: {
+    black: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?fit=crop&w=900&q=80&fm=jpg',
+    white: 'https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?fit=crop&w=900&q=80&fm=jpg',
+    beige: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?fit=crop&w=900&q=80&fm=jpg',
+    brown: 'https://images.unsplash.com/photo-1495385794356-15371f348c31?fit=crop&w=900&q=80&fm=jpg',
+    navy: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?fit=crop&w=900&q=80&fm=jpg',
+    gray: 'https://images.unsplash.com/photo-1517365830460-955ce3ccd263?fit=crop&w=900&q=80&fm=jpg',
+    olive: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?fit=crop&w=900&q=80&fm=jpg',
+    blue: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?fit=crop&w=900&q=80&fm=jpg',
+  },
 };
 
 export default function OutfitAnalysisScreen() {
@@ -86,49 +95,61 @@ export default function OutfitAnalysisScreen() {
   const localStyles = useMemo(
     () =>
       StyleSheet.create({
-        optionPill: {
-          borderRadius: layout.screenPadding,
-          backgroundColor: colors.bgSecondary,
+        optionTileWrap: {
+          width: 106,
+        },
+        optionTile: {
+          width: '100%',
+          aspectRatio: 0.82,
+          borderRadius: 16,
+          overflow: 'hidden',
           borderWidth: 1,
           borderColor: colors.borderLight,
-          paddingVertical: 9,
-          paddingHorizontal: 13,
-          marginRight: 10,
+          justifyContent: 'flex-end',
+          padding: 10,
         },
-        optionPillActive: {
+        optionTileActive: {
           borderColor: colors.accent,
-          backgroundColor: colors.accentMuted,
+          borderWidth: 2,
         },
-        optionText: {
+        imageFill: {
+          ...StyleSheet.absoluteFillObject,
+        },
+        imageScrim: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: 'rgba(0, 0, 0, 0.16)',
+        },
+        tileLabel: {
           ...typography.caption,
-          color: colors.textSecondary,
-          textAlign: 'center',
+          color: '#FFFFFF',
+          fontWeight: '600',
+          textShadowColor: 'rgba(0, 0, 0, 0.35)',
+          textShadowOffset: { width: 0, height: 1 },
+          textShadowRadius: 2,
         },
-        optionLabelWrap: {
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 4,
-          minWidth: 72,
-        },
-        optionTextWrap: {
+        tileGlassTag: {
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: 999,
+          backgroundColor: 'rgba(255, 255, 255, 0.28)',
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.45)',
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 6,
         },
-        optionTextActive: {
-          color: colors.textPrimary,
+        tileGlassTagIcon: {
+          marginRight: 5,
         },
-        helperText: {
-          marginTop: 8,
+        tileGlassTagText: {
           ...typography.caption,
-          color: colors.textTertiary,
-        },
-        colorDot: {
-          width: 12,
-          height: 12,
-          borderRadius: 6,
-          borderWidth: 1,
-          borderColor: colors.border,
+          color: '#FFFFFF',
+          fontWeight: '700',
+          textShadowColor: 'rgba(0, 0, 0, 0.3)',
+          textShadowOffset: { width: 0, height: 1 },
+          textShadowRadius: 2,
         },
       }),
     [colors]
@@ -187,36 +208,29 @@ export default function OutfitAnalysisScreen() {
   };
 
   const getSectionByKey = (key: OutfitSectionKey) => SECTIONS.find((section) => section.key === key)!;
-  const isColorSection = (key: OutfitSectionKey) => key === 'topColor' || key === 'bottomColor';
+  const getTagLabel = (key: OutfitSectionKey, optionLabel: string) =>
+    `${optionLabel} ${key === 'topColor' ? 'Top' : 'Bottom'}`;
+  const getTagIcon = (key: OutfitSectionKey): keyof typeof Ionicons.glyphMap =>
+    key === 'topColor' ? 'shirt-outline' : 'walk-outline';
 
   const renderOptionRow = (section: SectionDef): ReactNode => (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
       {section.options.map((option) => {
         const active = selections[section.key] === option.id;
-        const colorSection = isColorSection(section.key);
-        const swatch = COLOR_SWATCHES[option.id] || colors.textSecondary;
+        const imageUri = OUTFIT_REFERENCE_IMAGES[section.key][option.id];
         return (
-          <Pressable
-            key={option.id}
-            onPress={() => toggleOption(section.key, option.id)}
-            style={[localStyles.optionPill, active && localStyles.optionPillActive]}
-          >
-            {colorSection ? (
-              <View style={localStyles.optionTextWrap}>
-                <View style={[localStyles.colorDot, { backgroundColor: swatch }]} />
-                <Text style={[localStyles.optionText, active && localStyles.optionTextActive]}>{option.label}</Text>
+          <View key={option.id} style={localStyles.optionTileWrap}>
+            <Pressable onPress={() => toggleOption(section.key, option.id)} style={[localStyles.optionTile, active && localStyles.optionTileActive]}>
+              <ImageBackground source={{ uri: imageUri }} style={localStyles.imageFill}>
+                <View style={localStyles.imageScrim} />
+              </ImageBackground>
+              <View style={localStyles.tileGlassTag}>
+                <Ionicons name={getTagIcon(section.key)} size={12} color="#FFFFFF" style={localStyles.tileGlassTagIcon} />
+                <Text style={localStyles.tileGlassTagText}>{getTagLabel(section.key, option.label)}</Text>
               </View>
-            ) : (
-              <View style={localStyles.optionLabelWrap}>
-                <Ionicons
-                  name={option.icon || 'sparkles'}
-                  size={18}
-                  color={active ? colors.textPrimary : colors.textSecondary}
-                />
-                <Text style={[localStyles.optionText, active && localStyles.optionTextActive]}>{option.label}</Text>
-              </View>
-            )}
-          </Pressable>
+              <Text style={localStyles.tileLabel}>{option.label}</Text>
+            </Pressable>
+          </View>
         );
       })}
     </ScrollView>
@@ -226,24 +240,21 @@ export default function OutfitAnalysisScreen() {
     <View style={styles.gridWrap}>
       {section.options.map((option) => {
         const active = selections[section.key] === option.id;
-        const colorSection = isColorSection(section.key);
-        const swatch = COLOR_SWATCHES[option.id] || colors.textSecondary;
+        const imageUri = OUTFIT_REFERENCE_IMAGES[section.key][option.id];
         return (
           <View key={option.id} style={styles.squareTileWrap}>
             <Pressable
               onPress={() => toggleOption(section.key, option.id)}
-              style={[styles.squareTile, active && styles.squareTileActive]}
+              style={[styles.squareTile, localStyles.optionTile, active && localStyles.optionTileActive]}
             >
-              {colorSection ? (
-                <View style={[localStyles.colorDot, { backgroundColor: swatch }]} />
-              ) : (
-                <Ionicons
-                  name={option.icon || 'sparkles'}
-                  size={20}
-                  color={active ? colors.textPrimary : colors.textSecondary}
-                />
-              )}
-              <Text style={[styles.squareTileText, active && styles.squareTileTextActive]}>{option.label}</Text>
+              <ImageBackground source={{ uri: imageUri }} style={localStyles.imageFill}>
+                <View style={localStyles.imageScrim} />
+              </ImageBackground>
+              <View style={localStyles.tileGlassTag}>
+                <Ionicons name={getTagIcon(section.key)} size={12} color="#FFFFFF" style={localStyles.tileGlassTagIcon} />
+                <Text style={localStyles.tileGlassTagText}>{getTagLabel(section.key, option.label)}</Text>
+              </View>
+              <Text style={localStyles.tileLabel}>{option.label}</Text>
             </Pressable>
           </View>
         );
@@ -301,7 +312,7 @@ export default function OutfitAnalysisScreen() {
         >
           <AnalysisTags activeTab="outfit" />
 
-          <Animated.View entering={FadeInDown.delay(120).duration(280)} style={{ marginTop: 4 }}>
+          <Animated.View entering={FadeInDown.delay(120).duration(280)} style={{ marginTop: 16 }}>
             <Text style={styles.sectionTitle}>Outfit Photo</Text>
             <UploadTile
               image={analysisImage}

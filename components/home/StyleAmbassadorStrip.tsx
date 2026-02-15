@@ -5,6 +5,7 @@ import {
   View,
   Pressable,
   Dimensions,
+  ImageBackground,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -124,6 +125,36 @@ interface PersonaGridTile {
   visualIndex: number;
 }
 
+function getTileTagMeta(tile: PersonaGridTile): { label: string; icon: keyof typeof Ionicons.glyphMap } {
+  const isDetail = tile.id.includes('-detail');
+
+  if (tile.attribute === 'face') {
+    if (isDetail) return { label: 'Eyebrows', icon: 'brush-outline' };
+    if (tile.kind === 'outfit') return { label: 'Facial Style', icon: 'sparkles-outline' };
+    return { label: 'Face Shape', icon: 'scan-outline' };
+  }
+
+  if (tile.attribute === 'hair') {
+    if (isDetail) return { label: 'Hair Texture', icon: 'cut-outline' };
+    if (tile.kind === 'outfit') return { label: 'Hair + Outfit', icon: 'shirt-outline' };
+    return { label: 'Hairline', icon: 'sparkles-outline' };
+  }
+
+  if (tile.attribute === 'color') {
+    if (isDetail) return { label: 'Eye Color', icon: 'eye-outline' };
+    if (tile.kind === 'outfit') return { label: 'Palette Fit', icon: 'color-palette-outline' };
+    return { label: 'Undertone', icon: 'color-fill-outline' };
+  }
+
+  if (tile.attribute === 'style') {
+    if (isDetail) return { label: 'Accessories', icon: 'diamond-outline' };
+    if (tile.kind === 'outfit') return { label: 'Outfit Fit', icon: 'shirt-outline' };
+    return { label: 'Style Vibe', icon: 'sparkles-outline' };
+  }
+
+  return { label: tile.kind === 'outfit' ? 'Outfit' : 'Portrait', icon: 'sparkles-outline' };
+}
+
 type FeedBlock =
   | {
       id: string;
@@ -210,6 +241,39 @@ function AmbassadorCard({
           alignItems: 'center',
           justifyContent: 'center',
         },
+        imageFill: {
+          ...StyleSheet.absoluteFillObject,
+        },
+        imageScrim: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: 'rgba(0,0,0,0.16)',
+        },
+        glassTag: {
+          position: 'absolute',
+          top: 10,
+          left: 10,
+          paddingHorizontal: 9,
+          paddingVertical: 4,
+          borderRadius: borderRadius.full,
+          backgroundColor: 'rgba(255,255,255,0.28)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.45)',
+          flexDirection: 'row',
+          alignItems: 'center',
+        },
+        glassTagIcon: {
+          marginRight: 5,
+        },
+        glassTagText: {
+          ...typography.caption,
+          color: '#FFFFFF',
+          fontWeight: '700',
+        },
+        fallbackIconWrap: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
       }),
     [colors, isSelected, tile.cardHeight, withBottomGap]
   );
@@ -217,6 +281,7 @@ function AmbassadorCard({
   const palette = isDark ? DARK_TILE_COLORS : LIGHT_TILE_COLORS;
   const tileColor = palette[tile.visualIndex % palette.length];
   const icon = tile.icon;
+  const tagMeta = getTileTagMeta(tile);
 
   return (
     <AnimatedPressable
@@ -227,7 +292,19 @@ function AmbassadorCard({
     >
       <View style={styles.card}>
         <View style={[styles.cardBody, { backgroundColor: tileColor }]}>
-          <Ionicons name={icon} size={tile.kind === 'outfit' ? 44 : 36} color="#FFFFFF" />
+          {tile.image ? (
+            <ImageBackground source={{ uri: tile.image }} style={styles.imageFill}>
+              <View style={styles.imageScrim} />
+            </ImageBackground>
+          ) : (
+            <View style={styles.fallbackIconWrap}>
+              <Ionicons name={icon} size={tile.kind === 'outfit' ? 44 : 36} color="#FFFFFF" />
+            </View>
+          )}
+          <View style={styles.glassTag}>
+            <Ionicons name={tagMeta.icon} size={12} color="#FFFFFF" style={styles.glassTagIcon} />
+            <Text style={styles.glassTagText}>{tagMeta.label}</Text>
+          </View>
         </View>
       </View>
     </AnimatedPressable>
@@ -345,10 +422,17 @@ export function StyleAmbassadorStrip({
 }: StyleAmbassadorStripProps) {
   const { colors } = useTheme();
   const personaTiles = useMemo(() => {
+    const withJpegFormat = (url?: string) => {
+      if (!url) return undefined;
+      if (url.includes('fm=')) return url;
+      return `${url}${url.includes('?') ? '&' : '?'}fm=jpg`;
+    };
+
     const tiles = personas.reduce((acc, persona) => {
       acc.push({
         id: `${persona.id}-headshot`,
         persona,
+        image: withJpegFormat(persona.headshotImage || persona.image),
         tileTitle: `${persona.title} Headshot`,
         attribute: persona.attribute,
         kind: 'headshot',
@@ -363,6 +447,7 @@ export function StyleAmbassadorStrip({
           acc.push({
             id: `${persona.id}-detail`,
             persona,
+            image: withJpegFormat(detailSource),
             tileTitle: `${persona.title} Detail`,
             attribute: persona.attribute,
             kind: 'headshot',
@@ -377,6 +462,7 @@ export function StyleAmbassadorStrip({
         acc.push({
           id: `${persona.id}-outfit`,
           persona,
+          image: withJpegFormat(persona.outfitImage),
           tileTitle: `${persona.title} Outfit`,
           attribute: persona.attribute,
           kind: 'outfit',
@@ -568,7 +654,7 @@ export function StyleAmbassadorStrip({
       <View style={styles.header}>
         <Text style={styles.title}>Attribute Style Cards</Text>
         <Text style={styles.subtitle}>
-          Pick clean icon cards for hair, eyes, brows, and outfit tone combinations.
+          Explore real reference cards for hair, face, color, and outfit style combinations.
         </Text>
       </View>
       <View style={styles.feed}>

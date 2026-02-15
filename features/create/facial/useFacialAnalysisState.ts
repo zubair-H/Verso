@@ -22,7 +22,6 @@ export function useFacialAnalysisState() {
   const [hairColorPresets, setHairColorPresets] = useState<HairColorPreset[]>(DEFAULT_HAIR_COLOR_PRESETS);
   const [hairStylePresets, setHairStylePresets] = useState<HairStylePreset[]>([]);
   const [eyeColorPresets, setEyeColorPresets] = useState<EyeColorPreset[]>([]);
-  const [failedHairPreviewIds, setFailedHairPreviewIds] = useState<Record<string, boolean>>({});
 
   const [selectedHairColorId, setSelectedHairColorId] = useState<string | null>(null);
   const [selectedHairStyleId, setSelectedHairStyleId] = useState<string | null>(null);
@@ -203,8 +202,6 @@ export function useFacialAnalysisState() {
   return {
     selfieImage,
     setSelfieImage,
-    failedHairPreviewIds,
-    setFailedHairPreviewIds,
     selectedHairColorId,
     setSelectedHairColorId,
     selectedHairStyleId,

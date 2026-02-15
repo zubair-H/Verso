@@ -1,5 +1,5 @@
 import React, { ReactNode, useMemo } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,7 +21,6 @@ import {
   LIP_PRESETS,
   OUTFIT_COLORS,
   getEyeColorHex,
-  getHairPreviewImage,
 } from '@/features/create/facial/constants';
 
 export default function CreateScreen() {
@@ -30,8 +29,6 @@ export default function CreateScreen() {
   const {
     selfieImage,
     setSelfieImage,
-    failedHairPreviewIds,
-    setFailedHairPreviewIds,
     selectedHairColorId,
     setSelectedHairColorId,
     selectedHairStyleId,
@@ -50,7 +47,6 @@ export default function CreateScreen() {
     setSelectedBottomColorId,
     focusedCategory,
     setFocusedCategory,
-    loadingColors,
     visibleHairColorPresets,
     visibleHairStylePresets,
     visibleEyeColorPresets,
@@ -105,7 +101,6 @@ export default function CreateScreen() {
       <>
         {visibleHairStylePresets.map((style) => {
           const active = selectedHairStyleId === style.id;
-          const previewUri = getHairPreviewImage(style.id);
           return (
             <Pressable
               key={style.id}
@@ -113,18 +108,10 @@ export default function CreateScreen() {
               style={[styles.hairCardWrap, asGrid && styles.hairCardWrapGrid]}
             >
               <View style={[styles.hairCard, active && styles.hairCardActive]}>
-                {failedHairPreviewIds[style.id] ? (
-                  <View style={styles.hairFallback}>
-                    <Ionicons name="cut-outline" size={18} color={colors.textSecondary} />
-                    <Text style={styles.hairFallbackText}>Preview</Text>
-                  </View>
-                ) : (
-                  <Image
-                    source={{ uri: previewUri }}
-                    style={styles.hairImage}
-                    onError={() => setFailedHairPreviewIds((prev) => ({ ...prev, [style.id]: true }))}
-                  />
-                )}
+                <View style={styles.hairFallback}>
+                  <Ionicons name="cut-outline" size={18} color={colors.textSecondary} />
+                  <Text style={styles.hairFallbackText}>Style</Text>
+                </View>
               </View>
               <Text style={styles.hairCardLabel}>{style.name}</Text>
             </Pressable>
@@ -357,7 +344,7 @@ export default function CreateScreen() {
         <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 14 }]} showsVerticalScrollIndicator={false}>
           <AnalysisTags activeTab="facial" />
 
-          <Animated.View entering={FadeInDown.delay(120).duration(280)} style={{ marginTop: 4 }}>
+          <Animated.View entering={FadeInDown.delay(120).duration(280)} style={{ marginTop: 16 }}>
             <Text style={styles.sectionTitle}>Your Photo</Text>
             <UploadTile image={selfieImage} onSelect={pickImage} onRemove={() => setSelfieImage(null)} />
           </Animated.View>

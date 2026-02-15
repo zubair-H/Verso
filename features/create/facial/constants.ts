@@ -12,41 +12,13 @@ export const DEFAULT_HAIR_COLOR_PRESETS: HairColorPreset[] = [
   { id: 'silver', name: 'Silver', hex: '#c8c8c8', strength: 0.55 },
 ];
 
-export const HAIR_STYLE_PREVIEW_IMAGES: Record<string, string> = {
-  no_change: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=520&fit=crop',
-  buzz: 'https://images.unsplash.com/photo-1542204625-de293a4f7a17?w=400&h=520&fit=crop',
-  'taper-fade': 'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?w=400&h=520&fit=crop',
-  straight: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&h=520&fit=crop',
-  wavy: 'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=400&h=520&fit=crop',
-  curly: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=400&h=520&fit=crop',
-  bob: 'https://images.unsplash.com/photo-1546961329-78bef0414d7c?w=400&h=520&fit=crop',
-  pixie_cut: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&h=520&fit=crop',
-  layered: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=400&h=520&fit=crop',
-  soft_waves: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=520&fit=crop',
-  side_parted: 'https://images.unsplash.com/photo-1521119989659-a83eee488004?w=400&h=520&fit=crop',
-  center_parted: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=520&fit=crop',
-  blunt_bangs: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=520&fit=crop',
-  side_swept_bangs: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=520&fit=crop',
-  slicked_back: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=520&fit=crop',
-  shag: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=520&fit=crop',
-  lob: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=520&fit=crop',
-  angled_bob: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=520&fit=crop',
-  a_line_bob: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=520&fit=crop',
-  faux_hawk: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=520&fit=crop',
-  high_ponytail: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=520&fit=crop',
-  low_ponytail: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=400&h=520&fit=crop',
-  messy_bun: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=520&fit=crop',
-  top_knot: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=400&h=520&fit=crop',
-  french_braid: 'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=400&h=520&fit=crop',
-  dutch_braid: 'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=400&h=520&fit=crop',
-  fishtail_braid: 'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=400&h=520&fit=crop',
-};
-
 export const LIP_PRESETS: FeaturePreset[] = [
-  { id: 'full', name: 'Full' },
-  { id: 'defined_cupid', name: 'Cupid' },
-  { id: 'soft_matte', name: 'Soft' },
-  { id: 'glossy', name: 'Glossy' },
+  { id: 'rose_nude', name: 'Rose Nude' },
+  { id: 'warm_nude', name: 'Warm Nude' },
+  { id: 'mauve', name: 'Mauve' },
+  { id: 'berry', name: 'Berry' },
+  { id: 'classic_red', name: 'Classic Red' },
+  { id: 'deep_plum', name: 'Deep Plum' },
 ];
 
 export const EYEBROW_PRESETS: FeaturePreset[] = [
@@ -95,8 +67,4 @@ export function mergePresets(apiPresets: HairColorPreset[]): HairColorPreset[] {
 
 export function getEyeColorHex(id: string) {
   return EYE_COLOR_HEX[id] || '#7082A0';
-}
-
-export function getHairPreviewImage(styleId: string) {
-  return HAIR_STYLE_PREVIEW_IMAGES[styleId] || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=520&fit=crop';
 }
