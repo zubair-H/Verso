@@ -22,7 +22,7 @@ export function UploadTile({
       StyleSheet.create({
         card: {
           width: '100%',
-          height: 300,
+          height: 180,
           borderRadius: borderRadius.xl,
           overflow: 'hidden',
           backgroundColor: colors.bgCard,
@@ -33,7 +33,7 @@ export function UploadTile({
           justifyContent: 'center',
         },
         preview: { width: '100%', height: '100%', resizeMode: 'cover' },
-        placeholder: { alignItems: 'center', gap: 12 },
+        placeholder: { alignItems: 'center', gap: 8 },
         iconWrap: {
           width: 56,
           height: 56,

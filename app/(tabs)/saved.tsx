@@ -49,11 +49,6 @@ export default function SavedScreen() {
     [savedLooks]
   );
 
-  const recentCount = useMemo(() => {
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    return savedLooks.filter((look) => look.createdAt >= weekAgo).length;
-  }, [savedLooks]);
-
   const displayedLooks = useMemo(() => {
     const filtered = activeTab === 'favorites'
       ? savedLooks.filter((look) => look.isFavorite)
@@ -99,11 +94,6 @@ export default function SavedScreen() {
     exitSelectionMode();
   };
 
-  const handleCompare = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Compare flow is not wired yet.
-  };
-
   const handleTabChange = async (tab: FilterTab) => {
     await Haptics.selectionAsync();
     setActiveTab(tab);
@@ -144,46 +134,6 @@ export default function SavedScreen() {
         editText: {
           ...typography.labelMedium,
           color: colors.accent,
-        },
-        statChip: {
-          flex: 1,
-          borderRadius: borderRadius.lg,
-          paddingVertical: 10,
-          paddingHorizontal: 12,
-          borderWidth: 1,
-          borderColor: colors.borderLight,
-          backgroundColor: colors.bgSecondary,
-          gap: 6,
-        },
-        statChipTop: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-        },
-        statChipIcon: {
-          width: 18,
-          height: 18,
-          borderRadius: borderRadius.full,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.accentMuted,
-        },
-        statPill: {
-          flex: 1,
-          borderRadius: borderRadius.lg,
-          paddingVertical: 11,
-          paddingHorizontal: 12,
-          borderWidth: 1,
-          borderColor: colors.borderLight,
-          backgroundColor: colors.bgSecondary,
-        },
-        statLabel: {
-          ...typography.caption,
-          color: colors.textSecondary,
-        },
-        statValue: {
-          ...typography.headlineMedium,
-          color: colors.textPrimary,
         },
         tabsWrap: {
           flexDirection: 'row',
@@ -272,13 +222,21 @@ export default function SavedScreen() {
           alignItems: 'center',
           justifyContent: 'space-between',
         },
+        selectedCountText: {
+          ...typography.headlineMedium,
+          color: colors.textPrimary,
+        },
+        bottomBarDoneButton: {
+          borderRadius: borderRadius.full,
+          borderWidth: 1,
+          borderColor: colors.borderLight,
+          backgroundColor: colors.bgSecondary,
+          paddingHorizontal: 12,
+          paddingVertical: 7,
+        },
         bottomBarDone: {
           ...typography.labelMedium,
           color: colors.accent,
-        },
-        bottomBarActions: {
-          flexDirection: 'row',
-          gap: 10,
         },
         bottomMeta: {
           ...typography.caption,
@@ -317,27 +275,6 @@ export default function SavedScreen() {
           >
             <Text style={dynamicStyles.editText}>{selectionMode ? 'Done' : 'Select'}</Text>
           </Pressable>
-        </View>
-
-        <View style={styles.statsRow}>
-          <View style={dynamicStyles.statChip}>
-            <View style={dynamicStyles.statChipTop}>
-              <View style={dynamicStyles.statChipIcon}>
-                <Ionicons name="images-outline" size={11} color={colors.accent} />
-              </View>
-              <Text style={dynamicStyles.statLabel}>Total Looks</Text>
-            </View>
-            <Text style={dynamicStyles.statValue}>{savedLooks.length}</Text>
-          </View>
-          <View style={dynamicStyles.statChip}>
-            <View style={dynamicStyles.statChipTop}>
-              <View style={dynamicStyles.statChipIcon}>
-                <Ionicons name="calendar-outline" size={11} color={colors.accent} />
-              </View>
-              <Text style={dynamicStyles.statLabel}>Saved This Week</Text>
-            </View>
-            <Text style={dynamicStyles.statValue}>{recentCount}</Text>
-          </View>
         </View>
 
         <View style={dynamicStyles.tabsWrap}>
@@ -429,29 +366,19 @@ export default function SavedScreen() {
           <View style={dynamicStyles.bottomBarTop}>
             <View>
               <Text style={dynamicStyles.bottomMeta}>Selection</Text>
-              <Text style={[typography.labelLarge, { color: colors.textPrimary }]}>
-                {selectedIds.length} selected
-              </Text>
+              <Text style={dynamicStyles.selectedCountText}>{selectedIds.length} selected</Text>
             </View>
-            <Pressable onPress={exitSelectionMode}>
+            <Pressable onPress={exitSelectionMode} style={dynamicStyles.bottomBarDoneButton}>
               <Text style={dynamicStyles.bottomBarDone}>Done</Text>
             </Pressable>
           </View>
-          <View style={dynamicStyles.bottomBarActions}>
-            <SecondaryButton
-              label="Delete"
-              icon="trash-outline"
-              onPress={handleDeleteSelected}
-              disabled={!selectedIds.length}
-              style={styles.selectionAction}
-            />
-            <PrimaryButton
-              label="Compare"
-              onPress={handleCompare}
-              disabled={selectedIds.length !== 2}
-              style={styles.selectionAction}
-            />
-          </View>
+          <SecondaryButton
+            label={selectedIds.length ? `Delete Selected (${selectedIds.length})` : 'Delete Selected'}
+            icon="trash-outline"
+            onPress={handleDeleteSelected}
+            disabled={!selectedIds.length}
+            style={styles.selectionAction}
+          />
         </Animated.View>
       )}
     </View>
@@ -637,11 +564,6 @@ const styles = StyleSheet.create({
   },
   headerTextWrap: {
     flex: 1,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
   },
   centerState: {
     alignItems: 'center',
