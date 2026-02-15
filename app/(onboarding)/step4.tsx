@@ -12,7 +12,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
-import { Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import OnboardingStep from '@/components/onboarding/OnboardingStep';
 
@@ -126,7 +126,7 @@ function MagicHero() {
 
       {/* Central icon */}
       <Animated.View style={iconStyle}>
-        <Feather name="zap" size={56} color={colors.textPrimary} />
+        <Ionicons name="sparkles-outline" size={56} color={colors.textPrimary} />
       </Animated.View>
     </View>
   );
@@ -146,7 +146,7 @@ export default function Step4Screen() {
       headline="See the magic."
       headlineDim="AI brings it to life."
       description="AI applies the look to your photo — see yourself transformed in seconds."
-      nextRoute="/(onboarding)/demo1"
+      nextRoute="/(onboarding)/permissions"
     >
       <MagicHero />
     </OnboardingStep>

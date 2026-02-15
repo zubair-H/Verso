@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { Stack, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import StepIndicator from '@/components/onboarding/StepIndicator';
+import { STEP_DATA } from '@/components/onboarding/OnboardingStep';
 
 // Logo layer images - dark versions for light mode, light versions for dark mode
 const lineImageDark = require('@/assets/line.png');
@@ -25,18 +27,23 @@ const nameImageLight = require('@/assets/name-light.png');
 const LOGO_SIZE_LARGE = 280;
 const LOGO_SIZE_SMALL = 220;
 
-const DEMO_SCREENS = ['demo1', 'demo2', 'demo3'];
+const STEP_SCREENS = ['step1', 'step2', 'step3', 'step4'];
+
+function getStepIndex(screen: string): number {
+  const idx = STEP_SCREENS.indexOf(screen);
+  return idx >= 0 ? idx : -1;
+}
 
 function OnboardingLayoutContent() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
-  const { logoExitProgress, logoVisible } = useOnboarding();
+  const { logoExitProgress, indicatorCount, logoVisible } = useOnboarding();
   const { colors, isDark } = useTheme();
 
   // Get current screen from segments
   const currentScreen = segments[segments.length - 1] || 'index';
-  const isDemoScreen = DEMO_SCREENS.includes(currentScreen);
-  const isSmallLogo = isDemoScreen || currentScreen === 'permissions' || currentScreen === 'howitworks';
+  const isStepScreen = STEP_SCREENS.includes(currentScreen);
+  const isSmallLogo = isStepScreen || currentScreen === 'permissions' || currentScreen === 'howitworks';
 
   // Logo animation progress (0 = large/top position, 1 = small/higher position)
   const logoProgress = useSharedValue(0);
@@ -46,6 +53,9 @@ function OnboardingLayoutContent() {
   const swooshReveal = useSharedValue(0);
   const nameReveal = useSharedValue(0);
   const hasPlayedIntro = useSharedValue(false);
+
+  // Step indicator visibility
+  const indicatorOpacity = useSharedValue(0);
 
   // Intro logo animation (runs once on first mount)
   useEffect(() => {
@@ -63,12 +73,20 @@ function OnboardingLayoutContent() {
     const EASE = Easing.out(Easing.cubic);
 
     if (isSmallLogo) {
+      // Logo shrinks to top position on step1 and stays there
       logoProgress.value = withTiming(1, { duration: 600, easing: SMOOTH_EASE });
     } else {
       // Index: large logo position
       logoProgress.value = withTiming(0, { duration: 500, easing: EASE });
     }
-  }, [currentScreen]);
+
+    // Step indicator: only visible on step screens (hidden on howitworks — progress is built into cards)
+    if (isStepScreen) {
+      indicatorOpacity.value = withTiming(1, { duration: 300, easing: EASE });
+    } else {
+      indicatorOpacity.value = withTiming(0, { duration: 300, easing: EASE });
+    }
+  }, [currentScreen, indicatorCount]);
 
   const logoContainerStyle = useAnimatedStyle(() => {
     const scaleOffset = (LOGO_SIZE_LARGE - LOGO_SIZE_SMALL) / 2;
@@ -104,7 +122,31 @@ function OnboardingLayoutContent() {
     return { width: revealWidth * exitMultiplier };
   });
 
-  const showLogo = !currentScreen || currentScreen === '(onboarding)' || ['index', 'howitworks', 'demo1', 'demo2', 'demo3', 'permissions'].includes(currentScreen);
+  // Step indicator position: just below the small logo
+  // Small logo visual bottom ≈ insets.top + 160
+  const indicatorStyle = useAnimatedStyle(() => ({
+    opacity: indicatorOpacity.value,
+  }));
+
+  const showLogo = !currentScreen || currentScreen === '(onboarding)' || ['index', 'howitworks', 'step1', 'step2', 'step3', 'step4', 'permissions'].includes(currentScreen);
+
+  const isHowItWorks = currentScreen === 'howitworks';
+  // On howitworks, currentStep = indicatorCount so collected dots show as "completed"
+  // On step screens, currentStep is the actual step index (0-3)
+  const currentStep = isHowItWorks ? indicatorCount : getStepIndex(currentScreen);
+  // Progressive indicator: only show dots that have been "collected" from card exits
+  const indicatorVisibleCount = indicatorCount;
+  const dynamicStyles = useMemo(() => ({
+    indicatorContainer: {
+      position: 'absolute' as const,
+      left: 0,
+      right: 0,
+      // Position below the small logo
+      top: insets.top + 165,
+      alignItems: 'center' as const,
+      zIndex: 100,
+    },
+  }), [insets.top]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bgTertiary }]}>
@@ -137,6 +179,11 @@ function OnboardingLayoutContent() {
         </Animated.View>
       )}
 
+      {/* Persistent step indicator — stays across step pages */}
+      <Animated.View style={[dynamicStyles.indicatorContainer, indicatorStyle]}>
+        <StepIndicator currentStep={currentStep} steps={STEP_DATA} visibleCount={indicatorVisibleCount} />
+      </Animated.View>
+
       <Stack
         screenOptions={{
           headerShown: false,
@@ -147,10 +194,10 @@ function OnboardingLayoutContent() {
       >
         <Stack.Screen name="index" options={{ animation: 'none' }} />
         <Stack.Screen name="howitworks" options={{ animation: 'none' }} />
-        <Stack.Screen name="demo1" options={{ animation: 'none' }} />
-        <Stack.Screen name="demo2" options={{ animation: 'none' }} />
-        <Stack.Screen name="demo3" options={{ animation: 'none' }} />
-        <Stack.Screen name="permissions" options={{ animation: 'none' }} />
+        <Stack.Screen name="step1" options={{ animation: 'none' }} />
+        <Stack.Screen name="step2" options={{ animation: 'none' }} />
+        <Stack.Screen name="step3" options={{ animation: 'none' }} />
+        <Stack.Screen name="step4" options={{ animation: 'none' }} />
       </Stack>
     </View>
   );

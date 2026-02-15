@@ -536,8 +536,8 @@ export default function IntroScreen() {
 
         {/* Headline */}
         <Animated.View style={[styles.headlineContainer, headlineStyle]}>
-          <Text style={styles.headline}>See it. Style it.</Text>
-          <Text style={[styles.headline, styles.headlineDim]}>Sustain it.</Text>
+          <Text style={styles.headline}>Try any look.</Text>
+          <Text style={[styles.headline, styles.headlineDim]}>Risk nothing.</Text>
         </Animated.View>
       </View>
 

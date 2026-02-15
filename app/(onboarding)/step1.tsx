@@ -11,7 +11,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import OnboardingStep from '@/components/onboarding/OnboardingStep';
 
@@ -99,7 +99,7 @@ function ViewfinderHero() {
 
       {/* Icon */}
       <Animated.View style={[heroStyles.icon, iconStyle]}>
-        <Feather name="camera" size={56} color={colors.textPrimary} />
+        <Ionicons name="camera-outline" size={56} color={colors.textPrimary} />
       </Animated.View>
 
       {/* Viewfinder brackets */}
@@ -144,8 +144,8 @@ export default function Step1Screen() {
     <OnboardingStep
       stepIndex={0}
       headline="Start with you."
-      headlineDim="Your best angle, sustainably."
-      description="Snap a photo or pick one from your gallery — then try looks virtually first to reduce trial-and-error waste."
+      headlineDim="Your best angle."
+      description="Snap a photo or pick one from your gallery — any clear shot of your face works."
       nextRoute="/(onboarding)/step2"
       goBack
     >
