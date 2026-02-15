@@ -1,1 +1,1 @@
-export { default } from '../create/index';
+export { default } from '../create/facial-analysis';

@@ -53,7 +53,7 @@ export default function HomeScreen() {
       },
       {
         id: 'hair-texture',
-        title: 'Hair Texture Analysis',
+        title: 'Outfit Color Swap',
         subtitle: 'Generate more natural hair transfers from your texture profile.',
         badge: 'AI',
         icon: 'cut',
@@ -62,8 +62,7 @@ export default function HomeScreen() {
           colors.heroBannerMid,
           colors.colorAnalysisBannerEnd,
         ],
-        onPress: () =>
-          router.push({ pathname: '/(tabs)/create', params: { mode: 'hair', category: 'hair-texture' } }),
+        onPress: () => router.push('/(tabs)/outfit-analysis'),
       },
       {
         id: 'color-analysis',
@@ -189,7 +188,7 @@ export default function HomeScreen() {
         {/* Hero Banner — Create Your Look */}
         <Animated.View entering={FadeInDown.delay(100).springify().damping(38).stiffness(200)} style={styles.heroBannerSection}>
           <HeroBanner
-            title="Try Any Look"
+            title="Facial Analysis"
             subtitle="Upload your photo, pick a celeb-inspired persona, and remix any attribute instantly"
             badge="Style Ambassadors"
             badgeIcon="sparkles"

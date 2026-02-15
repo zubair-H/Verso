@@ -60,7 +60,6 @@ export default function CreateScreen() {
     pickImage,
     handleGenerate,
   } = useFacialAnalysisState();
-
   const styles = useMemo(() => createFacialStyles(colors, insets.bottom), [colors, insets.bottom]);
 
   const openFocusedCategory = (key: ExpandableSectionKey) => {
@@ -341,11 +340,15 @@ export default function CreateScreen() {
     return renderOutfitColors(true);
   };
 
+  const handleBackPress = () => {
+    router.replace('/(tabs)');
+  };
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.container, { paddingTop: insets.top }]}> 
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.replace('/(tabs)')} style={styles.backButton}>
+          <Pressable onPress={handleBackPress} style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.headerTitle}>Create Your Look</Text>

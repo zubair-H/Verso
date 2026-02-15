@@ -47,7 +47,9 @@ export function AnalysisTags({ activeTab }: { activeTab: AnalysisTab }) {
     <View style={styles.row}>
       <Pressable
         onPress={() => {
-          if (activeTab !== 'facial') router.replace('/create');
+          if (activeTab !== 'facial') {
+            router.replace('/(tabs)/create');
+          }
         }}
         style={[styles.tag, activeTab === 'facial' && styles.tagActive]}
       >
@@ -55,7 +57,9 @@ export function AnalysisTags({ activeTab }: { activeTab: AnalysisTab }) {
       </Pressable>
       <Pressable
         onPress={() => {
-          if (activeTab !== 'outfit') router.replace('/create/outfit-analysis');
+          if (activeTab !== 'outfit') {
+            router.replace('/(tabs)/outfit-analysis');
+          }
         }}
         style={[styles.tag, activeTab === 'outfit' && styles.tagActive]}
       >
@@ -63,7 +67,9 @@ export function AnalysisTags({ activeTab }: { activeTab: AnalysisTab }) {
       </Pressable>
       <Pressable
         onPress={() => {
-          if (activeTab !== 'health') router.replace('/create/health-analysis');
+          if (activeTab !== 'health') {
+            router.replace('/(tabs)/health-analysis');
+          }
         }}
         style={[styles.tag, activeTab === 'health' && styles.tagActive]}
       >

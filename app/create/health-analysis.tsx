@@ -42,10 +42,14 @@ export default function HealthAnalysisScreen() {
     [colors, insets.top]
   );
 
+  const handleBackPress = () => {
+    router.replace('/(tabs)');
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.replace('/(tabs)')} style={styles.backButton}>
+        <Pressable onPress={handleBackPress} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Create Your Look</Text>

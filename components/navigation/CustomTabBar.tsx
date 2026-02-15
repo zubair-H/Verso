@@ -35,6 +35,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarProps) {
   const { colors, isDark } = useTheme();
+  const currentRouteName = state.routes[state.index]?.name;
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -104,9 +105,10 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate('create');
   };
-
-  const currentRouteName = state.routes[state.index]?.name;
-  const isCreateActive = currentRouteName === 'create';
+  const isCreateActive =
+    currentRouteName === 'create' ||
+    currentRouteName === 'outfit-analysis' ||
+    currentRouteName === 'health-analysis';
 
   // Order: Home, Saved, [Create], Live, More
   const leftTabs = tabs.slice(0, 2);   // Home, Saved

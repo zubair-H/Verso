@@ -150,7 +150,6 @@ export default function OutfitAnalysisScreen() {
   );
 
   const canGenerate = Boolean(analysisImage && selectedLabels.length > 0);
-
   const ctaLabel = useMemo(() => {
     if (!analysisImage) return 'Upload outfit photo';
     if (selectedLabels.length === 0) return 'Select outfit attributes';
@@ -281,11 +280,15 @@ export default function OutfitAnalysisScreen() {
     });
   };
 
+  const handleBackPress = () => {
+    router.replace('/(tabs)');
+  };
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.container, { paddingTop: insets.top }]}> 
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.replace('/(tabs)')} style={styles.backButton}>
+          <Pressable onPress={handleBackPress} style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.headerTitle}>Outfit Analysis</Text>
