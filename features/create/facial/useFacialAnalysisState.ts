@@ -179,6 +179,21 @@ export function useFacialAnalysisState() {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       return;
     }
+    const facialTransformCount = [
+      selectedHairColorId,
+      selectedHairStyleId,
+      selectedEyeColorId,
+      selectedLipsId,
+      selectedEyebrowsId,
+      selectedEyebrowColorId,
+    ].filter(Boolean).length;
+    if (facialTransformCount === 0) {
+      Alert.alert(
+        'No facial transform selected',
+        'Select Hair, Eye, Lips, or Eyebrow options here. Use Outfit Analysis for outfit color changes.'
+      );
+      return;
+    }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     const session = createHairSwapSession({

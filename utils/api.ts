@@ -165,8 +165,14 @@ function inferApiBaseUrl(): string {
 export const API_BASE_URL = inferApiBaseUrl();
 
 async function apiRequest<T>(path: string, init?: RequestInit, timeoutMs = 8000): Promise<T> {
+  const externalSignal = init?.signal;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const onAbort = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener('abort', onAbort, { once: true });
+  }
 
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -192,6 +198,9 @@ async function apiRequest<T>(path: string, init?: RequestInit, timeoutMs = 8000)
     return data as T;
   } finally {
     clearTimeout(timer);
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onAbort);
+    }
   }
 }
 
@@ -280,12 +289,16 @@ export async function recolorHairFast(payload: {
   userImageUrl: string;
   colorId: string;
   hairStyleId?: string;
+  sessionId?: string;
+  signal?: AbortSignal;
 }): Promise<RecolorHairFastResponse> {
+  const { signal, ...bodyPayload } = payload;
   return apiRequest<RecolorHairFastResponse>(
     '/api/recolor-hair-fast',
     {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(bodyPayload),
+      signal,
     },
     270000
   );
@@ -294,12 +307,16 @@ export async function recolorHairFast(payload: {
 export async function recolorEyesFast(payload: {
   userImageUrl: string;
   eyeColorId: string;
+  sessionId?: string;
+  signal?: AbortSignal;
 }): Promise<RecolorEyesFastResponse> {
+  const { signal, ...bodyPayload } = payload;
   return apiRequest<RecolorEyesFastResponse>(
     '/api/recolor-eyes-fast',
     {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(bodyPayload),
+      signal,
     },
     270000
   );
@@ -311,14 +328,29 @@ export async function recolorFaceFeaturesFast(payload: {
   lipsId?: string;
   eyebrowsId?: string;
   eyebrowColorId?: string;
+  sessionId?: string;
+  signal?: AbortSignal;
 }): Promise<RecolorFaceFeaturesFastResponse> {
+  const { signal, ...bodyPayload } = payload;
   return apiRequest<RecolorFaceFeaturesFastResponse>(
     '/api/recolor-face-features-fast',
     {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(bodyPayload),
+      signal,
     },
     270000
+  );
+}
+
+export async function cancelSession(sessionId: string): Promise<{ success: boolean; sessionId: string; cancelled: boolean; activeRequests: number }> {
+  return apiRequest<{ success: boolean; sessionId: string; cancelled: boolean; activeRequests: number }>(
+    '/api/cancel-session',
+    {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    },
+    5000
   );
 }
 

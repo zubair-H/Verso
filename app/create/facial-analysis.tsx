@@ -75,7 +75,7 @@ export default function CreateScreen() {
           const active = selectedId === item.id;
           return (
             <View key={item.id} style={{ alignItems: 'center' }}>
-              <Pressable onPress={() => onSelect(item.id)} style={[styles.chip, active && styles.chipActive]}>
+              <Pressable onPress={() => onSelect(active ? null : item.id)} style={[styles.chip, active && styles.chipActive]}>
                 {glyph(item.id, active ? colors.textPrimary : colors.textSecondary)}
               </Pressable>
               <Text style={styles.chipLabel}>{item.name}</Text>
@@ -104,7 +104,7 @@ export default function CreateScreen() {
           return (
             <Pressable
               key={style.id}
-              onPress={() => setSelectedHairStyleId(style.id)}
+              onPress={() => setSelectedHairStyleId((prev) => (prev === style.id ? null : style.id))}
               style={[styles.hairCardWrap, asGrid && styles.hairCardWrapGrid]}
             >
               <View style={[styles.hairCard, active && styles.hairCardActive]}>
@@ -142,7 +142,7 @@ export default function CreateScreen() {
             return (
               <View key={preset.id} style={styles.squareTileWrap}>
                 <Pressable
-                  onPress={() => setSelectedHairColorId(preset.id)}
+                  onPress={() => setSelectedHairColorId((prev) => (prev === preset.id ? null : preset.id))}
                   style={[styles.squareTile, active && styles.squareTileActive]}
                 >
                   <View style={[styles.squareTileSwatch, { backgroundColor: preset.hex }]} />
@@ -159,7 +159,7 @@ export default function CreateScreen() {
             return (
               <Pressable
                 key={preset.id}
-                onPress={() => setSelectedHairColorId(preset.id)}
+                onPress={() => setSelectedHairColorId((prev) => (prev === preset.id ? null : preset.id))}
                 style={[styles.colorChip, active && styles.colorChipActive]}
               >
                 <View style={[styles.colorDot, { backgroundColor: preset.hex }]} />
@@ -182,7 +182,7 @@ export default function CreateScreen() {
             const eyeHex = getEyeColorHex(eye.id);
             return (
               <View key={eye.id} style={{ alignItems: 'center' }}>
-                <Pressable onPress={() => setSelectedEyeColorId(eye.id)} style={[styles.chip, active && styles.chipActive]}>
+                <Pressable onPress={() => setSelectedEyeColorId((prev) => (prev === eye.id ? null : eye.id))} style={[styles.chip, active && styles.chipActive]}>
                   <Ionicons name="eye-outline" size={24} color={eyeHex} />
                 </Pressable>
                 <Text style={styles.chipLabel}>{eye.name}</Text>
@@ -197,7 +197,7 @@ export default function CreateScreen() {
             const eyeHex = getEyeColorHex(eye.id);
             return (
               <View key={eye.id} style={{ alignItems: 'center' }}>
-                <Pressable onPress={() => setSelectedEyeColorId(eye.id)} style={[styles.chip, active && styles.chipActive]}>
+                <Pressable onPress={() => setSelectedEyeColorId((prev) => (prev === eye.id ? null : eye.id))} style={[styles.chip, active && styles.chipActive]}>
                   <Ionicons name="eye-outline" size={24} color={eyeHex} />
                 </Pressable>
                 <Text style={styles.chipLabel}>{eye.name}</Text>
@@ -218,7 +218,7 @@ export default function CreateScreen() {
             const active = selectedEyebrowColorId === preset.id;
             return (
               <View key={preset.id} style={{ alignItems: 'center' }}>
-                <Pressable onPress={() => setSelectedEyebrowColorId(preset.id)} style={[styles.chip, active && styles.chipActive]}>
+                <Pressable onPress={() => setSelectedEyebrowColorId((prev) => (prev === preset.id ? null : preset.id))} style={[styles.chip, active && styles.chipActive]}>
                   <BrowShapeGlyph id="natural" color={preset.hex} />
                 </Pressable>
                 <Text style={styles.chipLabel}>{preset.name}</Text>
@@ -232,7 +232,7 @@ export default function CreateScreen() {
             const active = selectedEyebrowColorId === preset.id;
             return (
               <View key={preset.id} style={{ alignItems: 'center' }}>
-                <Pressable onPress={() => setSelectedEyebrowColorId(preset.id)} style={[styles.chip, active && styles.chipActive]}>
+                <Pressable onPress={() => setSelectedEyebrowColorId((prev) => (prev === preset.id ? null : preset.id))} style={[styles.chip, active && styles.chipActive]}>
                   <BrowShapeGlyph id="natural" color={preset.hex} />
                 </Pressable>
                 <Text style={styles.chipLabel}>{preset.name}</Text>
@@ -254,7 +254,7 @@ export default function CreateScreen() {
             const active = selectedTopColorId === preset.id;
             return (
               <View key={`top-${preset.id}`} style={styles.squareTileWrap}>
-                <Pressable onPress={() => setSelectedTopColorId(preset.id)} style={[styles.squareTile, active && styles.squareTileActive]}>
+                <Pressable onPress={() => setSelectedTopColorId((prev) => (prev === preset.id ? null : preset.id))} style={[styles.squareTile, active && styles.squareTileActive]}>
                   <View style={[styles.squareTileSwatch, { backgroundColor: preset.hex }]} />
                   <Text style={[styles.squareTileText, active && styles.squareTileTextActive]}>{preset.name}</Text>
                 </Pressable>
@@ -267,7 +267,7 @@ export default function CreateScreen() {
           {OUTFIT_COLORS.map((preset) => {
             const active = selectedTopColorId === preset.id;
             return (
-              <Pressable key={`top-${preset.id}`} onPress={() => setSelectedTopColorId(preset.id)} style={[styles.colorChip, active && styles.colorChipActive]}>
+              <Pressable key={`top-${preset.id}`} onPress={() => setSelectedTopColorId((prev) => (prev === preset.id ? null : preset.id))} style={[styles.colorChip, active && styles.colorChipActive]}>
                 <View style={[styles.colorDot, { backgroundColor: preset.hex }]} />
                 <Text style={[styles.colorChipText, active && styles.colorChipTextActive]}>{preset.name}</Text>
               </Pressable>
@@ -283,7 +283,7 @@ export default function CreateScreen() {
             const active = selectedBottomColorId === preset.id;
             return (
               <View key={`bottom-${preset.id}`} style={styles.squareTileWrap}>
-                <Pressable onPress={() => setSelectedBottomColorId(preset.id)} style={[styles.squareTile, active && styles.squareTileActive]}>
+                <Pressable onPress={() => setSelectedBottomColorId((prev) => (prev === preset.id ? null : preset.id))} style={[styles.squareTile, active && styles.squareTileActive]}>
                   <View style={[styles.squareTileSwatch, { backgroundColor: preset.hex }]} />
                   <Text style={[styles.squareTileText, active && styles.squareTileTextActive]}>{preset.name}</Text>
                 </Pressable>
@@ -296,7 +296,7 @@ export default function CreateScreen() {
           {OUTFIT_COLORS.map((preset) => {
             const active = selectedBottomColorId === preset.id;
             return (
-              <Pressable key={`bottom-${preset.id}`} onPress={() => setSelectedBottomColorId(preset.id)} style={[styles.colorChip, active && styles.colorChipActive]}>
+              <Pressable key={`bottom-${preset.id}`} onPress={() => setSelectedBottomColorId((prev) => (prev === preset.id ? null : preset.id))} style={[styles.colorChip, active && styles.colorChipActive]}>
                 <View style={[styles.colorDot, { backgroundColor: preset.hex }]} />
                 <Text style={[styles.colorChipText, active && styles.colorChipTextActive]}>{preset.name}</Text>
               </Pressable>

@@ -92,12 +92,12 @@ const EYE_COLOR_PRESETS = [
   { id: 'gray', name: 'Gray' },
 ];
 
-const EYE_COLOR_DESCRIPTIONS = {
-  brown: 'rich warm brown irises',
-  hazel: 'hazel irises with mixed green-brown tones',
-  green: 'natural emerald green irises',
-  blue: 'natural ocean blue irises',
-  gray: 'soft cool gray irises',
+const EYE_COLOR_TARGET_HEX = {
+  brown: '#5C3A22',
+  hazel: '#7C6A3C',
+  green: '#4A7A46',
+  blue: '#4D72A8',
+  gray: '#7E8794',
 };
 
 const OUTFIT_COLOR_PRESETS = {
@@ -253,32 +253,194 @@ async function fetchBuffer(urlOrDataUri) {
   return Buffer.from(arr);
 }
 
-async function createReplicatePrediction({ version, input }) {
-  const resp = await fetch('https://api.replicate.com/v1/predictions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${REPLICATE_API_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ version, input }),
-  });
-  const text = await resp.text();
-  if (!resp.ok) throw new Error(`Replicate create failed (${resp.status}): ${text}`);
-  return JSON.parse(text);
+function makeCancelledError(sessionId) {
+  const err = new Error('Request cancelled by client');
+  err.status = 499;
+  if (sessionId) err.sessionId = sessionId;
+  return err;
 }
 
-async function pollReplicatePrediction(predictionId, { maxAttempts = 120, intervalMs = 1600 } = {}) {
+function sleep(ms, signal, sessionId) {
+  if (!signal) return new Promise((resolve) => setTimeout(resolve, ms));
+  if (signal.aborted) return Promise.reject(makeCancelledError(sessionId));
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(makeCancelledError(sessionId));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function parseJsonSafe(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function parseRetryAfterSeconds(rawBodyText, headers) {
+  const headerValue = Number(headers?.get?.('retry-after'));
+  if (Number.isFinite(headerValue) && headerValue >= 0) return headerValue;
+
+  const parsedBody = parseJsonSafe(rawBodyText);
+  const bodyValue = Number(parsedBody?.retry_after);
+  if (Number.isFinite(bodyValue) && bodyValue >= 0) return bodyValue;
+
+  const match = /"retry_after"\s*:\s*([0-9.]+)/i.exec(rawBodyText || '');
+  if (match) {
+    const value = Number(match[1]);
+    if (Number.isFinite(value) && value >= 0) return value;
+  }
+  return null;
+}
+
+let replicateNextCreateAt = 0;
+let replicateObservedCreateCooldownMs = Math.max(0, Number(process.env.REPLICATE_MIN_CREATE_INTERVAL_MS || 0));
+
+const ACTIVE_CANCELLATIONS = new Map();
+
+function normalizeSessionId(sessionId) {
+  if (typeof sessionId !== 'string') return '';
+  const trimmed = sessionId.trim();
+  if (!trimmed) return '';
+  return trimmed.slice(0, 120);
+}
+
+function acquireCancellationContext(sessionId) {
+  const id = normalizeSessionId(sessionId);
+  if (!id) return null;
+
+  let entry = ACTIVE_CANCELLATIONS.get(id);
+  if (!entry || (entry.cancelled && entry.activeCount === 0)) {
+    entry = {
+      controller: new AbortController(),
+      activeCount: 0,
+      cancelled: false,
+      updatedAt: Date.now(),
+    };
+    ACTIVE_CANCELLATIONS.set(id, entry);
+  }
+  entry.activeCount += 1;
+  entry.updatedAt = Date.now();
+
+  const release = () => {
+    const latest = ACTIVE_CANCELLATIONS.get(id);
+    if (!latest) return;
+    latest.activeCount = Math.max(0, latest.activeCount - 1);
+    latest.updatedAt = Date.now();
+    if (latest.activeCount === 0 && latest.cancelled) {
+      ACTIVE_CANCELLATIONS.delete(id);
+    }
+  };
+
+  return { sessionId: id, signal: entry.controller.signal, release };
+}
+
+function cancelSessionWork(sessionId) {
+  const id = normalizeSessionId(sessionId);
+  if (!id) return { cancelled: false, active: 0 };
+  const entry = ACTIVE_CANCELLATIONS.get(id);
+  if (!entry) return { cancelled: false, active: 0 };
+  entry.cancelled = true;
+  entry.updatedAt = Date.now();
+  entry.controller.abort();
+  return { cancelled: true, active: entry.activeCount };
+}
+
+async function waitForReplicateCreateSlot({ signal, sessionId } = {}) {
+  const now = Date.now();
+  if (replicateNextCreateAt > now) {
+    await sleep(replicateNextCreateAt - now, signal, sessionId);
+  }
+}
+
+async function createReplicatePrediction({ version, input, signal, sessionId }) {
+  const maxRetries = Math.max(0, Number(process.env.REPLICATE_CREATE_RETRIES || 6));
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    await waitForReplicateCreateSlot({ signal, sessionId });
+
+    const resp = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${REPLICATE_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ version, input }),
+      signal,
+    });
+    const text = await resp.text();
+
+    if (resp.ok) {
+      if (replicateObservedCreateCooldownMs > 0) {
+        replicateNextCreateAt = Date.now() + replicateObservedCreateCooldownMs;
+      }
+      return JSON.parse(text);
+    }
+
+    if (resp.status === 429) {
+      const retryAfterSeconds = parseRetryAfterSeconds(text, resp.headers);
+      const retryAfterMs = Math.max(
+        Math.ceil((retryAfterSeconds || 3) * 1000),
+        replicateObservedCreateCooldownMs || 0,
+        1000
+      );
+      replicateObservedCreateCooldownMs = Math.max(replicateObservedCreateCooldownMs, retryAfterMs);
+      replicateNextCreateAt = Date.now() + retryAfterMs;
+
+      if (attempt < maxRetries) {
+        await sleep(retryAfterMs + Math.floor(Math.random() * 220), signal, sessionId);
+        continue;
+      }
+
+      const err = new Error(`Replicate create failed (429): ${text}`);
+      err.status = 429;
+      err.retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
+      throw err;
+    }
+
+    const err = new Error(`Replicate create failed (${resp.status}): ${text}`);
+    err.status = resp.status;
+    throw err;
+  }
+
+  const err = new Error('Replicate create failed after retries');
+  err.status = 429;
+  throw err;
+}
+
+async function pollReplicatePrediction(
+  predictionId,
+  { maxAttempts = 120, intervalMs = 1600, signal, sessionId } = {}
+) {
   let attempts = 0;
   while (attempts < maxAttempts) {
     const poll = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
       headers: { Authorization: `Bearer ${REPLICATE_API_TOKEN}` },
+      signal,
     });
     const text = await poll.text();
-    if (!poll.ok) throw new Error(`Replicate poll failed (${poll.status}): ${text}`);
+    if (!poll.ok) {
+      if (poll.status === 429) {
+        const retryAfterSeconds = parseRetryAfterSeconds(text, poll.headers) || 2;
+        await sleep(Math.ceil(retryAfterSeconds * 1000), signal, sessionId);
+        continue;
+      }
+      const err = new Error(`Replicate poll failed (${poll.status}): ${text}`);
+      err.status = poll.status;
+      throw err;
+    }
     const data = JSON.parse(text);
     if (data.status === 'succeeded') return { data, attempts };
     if (data.status === 'failed') throw new Error(`Prediction failed: ${data.error || 'Unknown error'}`);
-    await new Promise((r) => setTimeout(r, intervalMs));
+    await sleep(intervalMs, signal, sessionId);
     attempts += 1;
   }
   throw new Error('Prediction timed out');
@@ -566,12 +728,19 @@ async function recolorWithMaskBuffer({
     .toBuffer();
 }
 
-async function generateHairMask(imageUrlOrDataUri) {
+async function generateHairMask(imageUrlOrDataUri, cancelCtx) {
   const prediction = await createReplicatePrediction({
     version: REPLICATE_HAIR_MASK_VERSION,
     input: { image: imageUrlOrDataUri },
+    signal: cancelCtx?.signal,
+    sessionId: cancelCtx?.sessionId,
   });
-  const { data } = await pollReplicatePrediction(prediction.id, { maxAttempts: 180, intervalMs: 1500 });
+  const { data } = await pollReplicatePrediction(prediction.id, {
+    maxAttempts: 180,
+    intervalMs: 1500,
+    signal: cancelCtx?.signal,
+    sessionId: cancelCtx?.sessionId,
+  });
   return normalizeOutputToUrl(data.output);
 }
 
@@ -587,8 +756,8 @@ async function makeRegionMaskDataUri(sourceImage, region) {
 
   if (region === 'eyes') {
     const eyeY = Math.round(h * 0.42);
-    const rx = Math.round(w * 0.07);
-    const ry = Math.round(h * 0.03);
+    const rx = Math.round(w * 0.034);
+    const ry = Math.round(h * 0.02);
     svg += `<ellipse cx="${Math.round(w * 0.38)}" cy="${eyeY}" rx="${rx}" ry="${ry}" fill="white"/>`;
     svg += `<ellipse cx="${Math.round(w * 0.62)}" cy="${eyeY}" rx="${rx}" ry="${ry}" fill="white"/>`;
   }
@@ -602,6 +771,13 @@ async function makeRegionMaskDataUri(sourceImage, region) {
   }
 
   if (region === 'eyebrows') {
+    svg += `<ellipse cx="${Math.round(w * 0.38)}" cy="${Math.round(h * 0.36)}" rx="${Math.round(w * 0.09)}" ry="${Math.round(h * 0.02)}" fill="white"/>`;
+    svg += `<ellipse cx="${Math.round(w * 0.62)}" cy="${Math.round(h * 0.36)}" rx="${Math.round(w * 0.09)}" ry="${Math.round(h * 0.02)}" fill="white"/>`;
+  }
+
+  if (region === 'face_features') {
+    svg += `<ellipse cx="${Math.round(w * 0.5)}" cy="${Math.round(h * 0.52)}" rx="${Math.round(w * 0.08)}" ry="${Math.round(h * 0.11)}" fill="white"/>`;
+    svg += `<ellipse cx="${Math.round(w * 0.5)}" cy="${Math.round(h * 0.66)}" rx="${Math.round(w * 0.11)}" ry="${Math.round(h * 0.05)}" fill="white"/>`;
     svg += `<ellipse cx="${Math.round(w * 0.38)}" cy="${Math.round(h * 0.36)}" rx="${Math.round(w * 0.09)}" ry="${Math.round(h * 0.02)}" fill="white"/>`;
     svg += `<ellipse cx="${Math.round(w * 0.62)}" cy="${Math.round(h * 0.36)}" rx="${Math.round(w * 0.09)}" ry="${Math.round(h * 0.02)}" fill="white"/>`;
   }
@@ -621,7 +797,12 @@ async function makeRegionMaskDataUri(sourceImage, region) {
 
   svg += '</svg>';
 
-  const blurSigma = region === 'upper_body' || region === 'lower_body' || region === 'outfit_combined' ? 0.7 : 1.8;
+  const blurSigma =
+    region === 'upper_body' || region === 'lower_body' || region === 'outfit_combined'
+      ? 0.7
+      : region === 'eyes'
+        ? 0.55
+        : 1.8;
 
   const maskBuf = await sharp(Buffer.from(svg))
     .resize(w, h)
@@ -682,6 +863,7 @@ async function inpaintRegion({
   numInferenceSteps,
   guidanceScale,
   promptStrength,
+  cancelCtx,
 }) {
   const prediction = await createReplicatePrediction({
     version: REPLICATE_SDXL_INPAINT_VERSION,
@@ -696,8 +878,15 @@ async function inpaintRegion({
       guidance_scale: Number.isFinite(guidanceScale) ? guidanceScale : 5.5,
       prompt_strength: Number.isFinite(promptStrength) ? promptStrength : 0.8,
     },
+    signal: cancelCtx?.signal,
+    sessionId: cancelCtx?.sessionId,
   });
-  const { data } = await pollReplicatePrediction(prediction.id, { maxAttempts: 140, intervalMs: 1800 });
+  const { data } = await pollReplicatePrediction(prediction.id, {
+    maxAttempts: 140,
+    intervalMs: 1800,
+    signal: cancelCtx?.signal,
+    sessionId: cancelCtx?.sessionId,
+  });
   return normalizeOutputToUrl(data.output);
 }
 
@@ -712,16 +901,6 @@ function buildHairPrompt(styleId, colorHex) {
   ]
     .filter(Boolean)
     .join(' ');
-}
-
-function buildEyePrompt(eyeColorId) {
-  const tone = EYE_COLOR_DESCRIPTIONS[eyeColorId] || 'natural eye color';
-  return [
-    `Adjust iris color to ${tone}.`,
-    'ONLY modify iris in masked region.',
-    'Do NOT alter eyelids, eyebrows, nose, lips, skin, face shape or background.',
-    'Photorealistic and preserve identity.',
-  ].join(' ');
 }
 
 function buildFeaturePrompt({ noseId, lipsId, eyebrowsId, eyebrowColorId }) {
@@ -756,6 +935,20 @@ function buildOutfitPrompt({ topHex, bottomHex }) {
     .join(' ');
 }
 
+function sendRouteError(res, err, fallbackMessage) {
+  const inferredAbort =
+    err?.name === 'AbortError' ||
+    /aborted|cancelled|canceled/i.test(String(err?.message || ''));
+  const status = Number.isFinite(Number(err?.status)) ? Number(err.status) : inferredAbort ? 499 : 500;
+  const payload = {
+    error: err?.message || fallbackMessage,
+  };
+  if (Number.isFinite(Number(err?.retryAfterSeconds))) {
+    payload.retryAfter = Number(err.retryAfterSeconds);
+  }
+  return sendJson(res, status >= 400 && status <= 599 ? status : 500, payload);
+}
+
 const server = http.createServer(async (req, res) => {
   const method = req.method || 'GET';
   if (method === 'OPTIONS') return sendJson(res, 204, {});
@@ -788,18 +981,43 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { success: true, colors: EYE_COLOR_PRESETS });
   }
 
+  if (method === 'POST' && pathname === '/api/cancel-session') {
+    try {
+      const body = await parseBody(req);
+      const sessionId = normalizeSessionId(body.sessionId);
+      if (!sessionId) return sendJson(res, 400, { error: 'Missing sessionId' });
+      const result = cancelSessionWork(sessionId);
+      return sendJson(res, 200, {
+        success: true,
+        sessionId,
+        cancelled: result.cancelled,
+        activeRequests: result.active,
+      });
+    } catch (err) {
+      return sendRouteError(res, err, 'Cancel failed');
+    }
+  }
+
   if (method === 'POST' && pathname === '/api/recolor-hair-fast') {
+    let cancelCtx = null;
     try {
       if (!REPLICATE_API_TOKEN) throw new Error('REPLICATE_API_TOKEN is not configured');
       const body = await parseBody(req);
-      const { userImageUrl, colorId, hairStyleId = 'no_change' } = body;
+      const { userImageUrl, colorId, hairStyleId = 'no_change', sessionId } = body;
       if (!userImageUrl) return sendJson(res, 400, { error: 'Missing userImageUrl' });
+      cancelCtx = acquireCancellationContext(sessionId);
 
       const color = HAIR_COLOR_PRESETS.find((c) => c.id === colorId) || HAIR_COLOR_PRESETS[0];
       const source = isDataUri(userImageUrl) ? userImageUrl : await urlToDataUri(userImageUrl);
-      const rawMaskUrl = await generateHairMask(source);
-      const prompt = buildHairPrompt(hairStyleId, color.hex);
-      const editedImageUrl = await inpaintRegion({ imageUrlOrDataUri: source, maskUrlOrDataUri: rawMaskUrl, prompt });
+      const rawMaskUrl = await generateHairMask(source, cancelCtx);
+      const hasExplicitColor = typeof colorId === 'string' && colorId.trim() !== '' && colorId !== 'current';
+      const prompt = buildHairPrompt(hairStyleId, hasExplicitColor ? color.hex : '');
+      const editedImageUrl = await inpaintRegion({
+        imageUrlOrDataUri: source,
+        maskUrlOrDataUri: rawMaskUrl,
+        prompt,
+        cancelCtx,
+      });
 
       return sendJson(res, 200, {
         success: true,
@@ -817,22 +1035,31 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (err) {
       console.error('recolor-hair-fast error:', err);
-      return sendJson(res, 500, { error: err.message || 'Hair transform failed' });
+      return sendRouteError(res, err, 'Hair transform failed');
+    } finally {
+      cancelCtx?.release?.();
     }
   }
 
   if (method === 'POST' && pathname === '/api/recolor-hair') {
+    let cancelCtx = null;
     try {
       if (!REPLICATE_API_TOKEN) throw new Error('REPLICATE_API_TOKEN is not configured');
       const body = await parseBody(req);
-      const { userImageUrl, colorId } = body;
+      const { userImageUrl, colorId, sessionId } = body;
       if (!userImageUrl) return sendJson(res, 400, { error: 'Missing userImageUrl' });
+      cancelCtx = acquireCancellationContext(sessionId);
 
       const color = HAIR_COLOR_PRESETS.find((c) => c.id === colorId) || HAIR_COLOR_PRESETS[0];
       const source = isDataUri(userImageUrl) ? userImageUrl : await urlToDataUri(userImageUrl);
-      const rawMaskUrl = await generateHairMask(source);
+      const rawMaskUrl = await generateHairMask(source, cancelCtx);
       const prompt = buildHairPrompt('no_change', color.hex);
-      const editedImageUrl = await inpaintRegion({ imageUrlOrDataUri: source, maskUrlOrDataUri: rawMaskUrl, prompt });
+      const editedImageUrl = await inpaintRegion({
+        imageUrlOrDataUri: source,
+        maskUrlOrDataUri: rawMaskUrl,
+        prompt,
+        cancelCtx,
+      });
       const editedBuf = await fetchBuffer(editedImageUrl);
       const editedImageDataUri = `data:image/png;base64,${editedBuf.toString('base64')}`;
 
@@ -850,16 +1077,19 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (err) {
       console.error('recolor-hair error:', err);
-      return sendJson(res, 500, { error: err.message || 'Hair recolor failed' });
+      return sendRouteError(res, err, 'Hair recolor failed');
+    } finally {
+      cancelCtx?.release?.();
     }
   }
 
   if (method === 'POST' && pathname === '/api/recolor-eyes-fast') {
+    let cancelCtx = null;
     try {
-      if (!REPLICATE_API_TOKEN) throw new Error('REPLICATE_API_TOKEN is not configured');
       const body = await parseBody(req);
-      const { userImageUrl, eyeColorId = 'current' } = body;
+      const { userImageUrl, eyeColorId = 'current', sessionId } = body;
       if (!userImageUrl) return sendJson(res, 400, { error: 'Missing userImageUrl' });
+      cancelCtx = acquireCancellationContext(sessionId);
       if (eyeColorId === 'current') {
         return sendJson(res, 200, {
           success: true,
@@ -870,12 +1100,18 @@ const server = http.createServer(async (req, res) => {
       }
 
       const source = isDataUri(userImageUrl) ? userImageUrl : await urlToDataUri(userImageUrl);
-      const eyesMaskDataUri = await makeRegionMaskDataUri(await fetchBuffer(source), 'eyes');
-      const editedImageUrl = await inpaintRegion({
-        imageUrlOrDataUri: source,
-        maskUrlOrDataUri: eyesMaskDataUri,
-        prompt: buildEyePrompt(eyeColorId),
+      const sourceBuf = await fetchBuffer(source);
+      const eyesMaskDataUri = await makeRegionMaskDataUri(sourceBuf, 'eyes');
+      const eyesMaskBuf = await fetchBuffer(eyesMaskDataUri);
+      const targetHex = EYE_COLOR_TARGET_HEX[eyeColorId] || '#6E7C90';
+      const editedBuf = await recolorWithMaskBuffer({
+        imageBuf: sourceBuf,
+        maskBuf: eyesMaskBuf,
+        targetHex,
+        strength: 0.98,
+        minMaskAlpha: 18,
       });
+      const editedImageUrl = `data:image/png;base64,${editedBuf.toString('base64')}`;
 
       return sendJson(res, 200, {
         success: true,
@@ -885,11 +1121,14 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (err) {
       console.error('recolor-eyes-fast error:', err);
-      return sendJson(res, 500, { error: err.message || 'Eye transform failed' });
+      return sendRouteError(res, err, 'Eye transform failed');
+    } finally {
+      cancelCtx?.release?.();
     }
   }
 
   if (method === 'POST' && pathname === '/api/recolor-face-features-fast') {
+    let cancelCtx = null;
     try {
       if (!REPLICATE_API_TOKEN) throw new Error('REPLICATE_API_TOKEN is not configured');
       const body = await parseBody(req);
@@ -899,29 +1138,22 @@ const server = http.createServer(async (req, res) => {
         lipsId = 'no_change',
         eyebrowsId = 'no_change',
         eyebrowColorId = 'no_change',
+        sessionId,
       } = body;
       if (!userImageUrl) return sendJson(res, 400, { error: 'Missing userImageUrl' });
+      cancelCtx = acquireCancellationContext(sessionId);
 
       const source = isDataUri(userImageUrl) ? userImageUrl : await urlToDataUri(userImageUrl);
       let output = source;
-      const sourceBuf = await fetchBuffer(source);
-
-      if (noseId !== 'no_change') {
-        const mask = await makeRegionMaskDataUri(sourceBuf, 'nose');
-        output = await inpaintRegion({ imageUrlOrDataUri: output, maskUrlOrDataUri: mask, prompt: buildFeaturePrompt({ noseId }) });
-      }
-
-      if (lipsId !== 'no_change') {
-        const mask = await makeRegionMaskDataUri(sourceBuf, 'lips');
-        output = await inpaintRegion({ imageUrlOrDataUri: output, maskUrlOrDataUri: mask, prompt: buildFeaturePrompt({ lipsId }) });
-      }
-
-      if (eyebrowsId !== 'no_change' || eyebrowColorId !== 'no_change') {
-        const mask = await makeRegionMaskDataUri(sourceBuf, 'eyebrows');
+      const prompt = buildFeaturePrompt({ noseId, lipsId, eyebrowsId, eyebrowColorId });
+      if (prompt) {
+        const sourceBuf = await fetchBuffer(source);
+        const mask = await makeRegionMaskDataUri(sourceBuf, 'face_features');
         output = await inpaintRegion({
           imageUrlOrDataUri: output,
           maskUrlOrDataUri: mask,
-          prompt: buildFeaturePrompt({ eyebrowsId, eyebrowColorId }),
+          prompt,
+          cancelCtx,
         });
       }
 
@@ -933,7 +1165,9 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (err) {
       console.error('recolor-face-features-fast error:', err);
-      return sendJson(res, 500, { error: err.message || 'Face feature transform failed' });
+      return sendRouteError(res, err, 'Face feature transform failed');
+    } finally {
+      cancelCtx?.release?.();
     }
   }
 

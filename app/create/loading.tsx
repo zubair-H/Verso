@@ -21,7 +21,7 @@ import Animated, {
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { borderRadius, layout } from '@/constants/spacing';
-import { API_BASE_URL, recolorFaceFeaturesFast, recolorHairFast } from '@/utils/api';
+import { API_BASE_URL, cancelSession, recolorFaceFeaturesFast, recolorHairFast } from '@/utils/api';
 import { getHairSwapSession } from '@/utils/hairSwapSession';
 import { recolorEyesFast } from '@/utils/api';
 
@@ -52,6 +52,7 @@ export default function HairColorLoadingScreen() {
   const [error, setError] = useState('');
   const [statusText, setStatusText] = useState('Preparing your image');
   const stoppedRef = useRef(false);
+  const activeAbortRef = useRef<AbortController | null>(null);
 
   const pulse = useSharedValue(0);
   const spin = useSharedValue(0);
@@ -107,42 +108,54 @@ export default function HairColorLoadingScreen() {
       let outputImage = session.selfie;
       const shouldApplyHair = Boolean(session.hairColorId || session.hairStyleId);
       if (shouldApplyHair) {
+        if (stoppedRef.current) return;
         pushStep('Applying hair style and hair color', runStarted);
+        activeAbortRef.current?.abort();
+        const controller = new AbortController();
+        activeAbortRef.current = controller;
         const response = await recolorHairFast({
           userImageUrl: session.selfie,
           colorId: session.hairColorId || 'current',
           hairStyleId: session.hairStyleId || 'no_change',
+          sessionId: session.id,
+          signal: controller.signal,
         });
         outputImage = response.editedImageUrl || outputImage;
       }
 
       if (session.eyeColorId) {
+        if (stoppedRef.current) return;
         pushStep('Applying eye color', runStarted);
-        try {
-          const eyeResponse = await recolorEyesFast({
-            userImageUrl: outputImage,
-            eyeColorId: session.eyeColorId,
-          });
-          outputImage = eyeResponse.editedImageUrl || outputImage;
-        } catch {
-          pushStep('Eye color step skipped due to model availability', runStarted);
-        }
+        activeAbortRef.current?.abort();
+        const controller = new AbortController();
+        activeAbortRef.current = controller;
+        const eyeResponse = await recolorEyesFast({
+          userImageUrl: outputImage,
+          eyeColorId: session.eyeColorId,
+          sessionId: session.id,
+          signal: controller.signal,
+        });
+        outputImage = eyeResponse.editedImageUrl || outputImage;
       }
 
-      const shouldApplyFaceFeatures = Boolean(session.lipsId || session.eyebrowColorId);
+      const shouldApplyFaceFeatures = Boolean(session.noseId || session.lipsId || session.eyebrowsId || session.eyebrowColorId);
 
       if (shouldApplyFaceFeatures) {
-        pushStep('Applying lips and eyebrow color changes', runStarted);
-        try {
-          const featureResponse = await recolorFaceFeaturesFast({
-            userImageUrl: outputImage,
-            lipsId: session.lipsId || 'no_change',
-            eyebrowColorId: session.eyebrowColorId || 'no_change',
-          });
-          outputImage = featureResponse.editedImageUrl || outputImage;
-        } catch {
-          pushStep('Face feature step skipped due to model availability', runStarted);
-        }
+        if (stoppedRef.current) return;
+        pushStep('Applying facial feature changes', runStarted);
+        activeAbortRef.current?.abort();
+        const controller = new AbortController();
+        activeAbortRef.current = controller;
+        const featureResponse = await recolorFaceFeaturesFast({
+          userImageUrl: outputImage,
+          noseId: session.noseId || 'no_change',
+          lipsId: session.lipsId || 'no_change',
+          eyebrowsId: session.eyebrowsId || 'no_change',
+          eyebrowColorId: session.eyebrowColorId || 'no_change',
+          sessionId: session.id,
+          signal: controller.signal,
+        });
+        outputImage = featureResponse.editedImageUrl || outputImage;
       }
 
       pushStep('Finalizing result', runStarted);
@@ -168,11 +181,13 @@ export default function HairColorLoadingScreen() {
       if (stoppedRef.current) return;
       const err = caught as Error & { details?: { debug?: { steps?: Array<{ message?: string }> } } };
       const message = err?.message || 'Hair color swap failed';
+      if (/aborted|cancelled|canceled/i.test(message)) return;
       setError(message);
       pushStep(`Error: ${message}`, runStarted);
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
+      activeAbortRef.current = null;
       setRunning(false);
     }
   }, [params.sessionId, pushStep, session]);
@@ -192,6 +207,15 @@ export default function HairColorLoadingScreen() {
 
   const handleStopOrBack = async () => {
     stoppedRef.current = true;
+    activeAbortRef.current?.abort();
+    activeAbortRef.current = null;
+    if (params.sessionId) {
+      try {
+        await cancelSession(params.sessionId);
+      } catch {
+        // Best-effort cancellation; still return user to previous screen.
+      }
+    }
     await Haptics.selectionAsync();
     router.back();
   };
