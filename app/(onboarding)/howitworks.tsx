@@ -26,7 +26,7 @@ const LOGO_SIZE_SMALL = 220;
 
 const CARD_DATA = [
   { icon: 'camera' as const, title: 'Selfie', desc: 'Snap a quick photo' },
-  { icon: 'users' as const, title: 'Inspo', desc: 'Browse celeb looks' },
+  { icon: 'users' as const, title: 'Inspo', desc: 'Browse looks' },
   { icon: 'scissors' as const, title: 'Attributes', desc: 'Fine-tune details' },
   { icon: 'zap' as const, title: 'Magic', desc: 'See the result' },
 ];

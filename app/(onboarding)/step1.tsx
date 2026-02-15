@@ -144,8 +144,8 @@ export default function Step1Screen() {
     <OnboardingStep
       stepIndex={0}
       headline="Start with you."
-      headlineDim="Your best angle."
-      description="Snap a photo or pick one from your gallery — any clear shot of your face works."
+      headlineDim="Your best angle, sustainably."
+      description="Snap a photo or pick one from your gallery — then try looks virtually first to reduce trial-and-error waste."
       nextRoute="/(onboarding)/step2"
       goBack
     >
