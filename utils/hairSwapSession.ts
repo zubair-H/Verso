@@ -6,9 +6,13 @@ export interface HairSwapSession {
   selfie: string;
   look: string;
   elements: string;
-  hairColorId: string;
-  hairStyleId: string;
-  eyeColorId: string;
+  hairColorId?: string;
+  hairStyleId?: string;
+  eyeColorId?: string;
+  noseId?: string;
+  lipsId?: string;
+  eyebrowsId?: string;
+  eyebrowColorId?: string;
   topColorId?: string;
   bottomColorId?: string;
   swapMode: HairSwapMode;

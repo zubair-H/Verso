@@ -101,6 +101,18 @@ export interface RecolorEyesFastResponse {
   };
 }
 
+export interface RecolorFaceFeaturesFastResponse {
+  success: boolean;
+  mode: 'face-features-fast';
+  editedImageUrl: string;
+  chosenFeatures: {
+    noseId: string;
+    lipsId: string;
+    eyebrowsId: string;
+    eyebrowColorId: string;
+  };
+}
+
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/$/, '');
 }
@@ -264,6 +276,23 @@ export async function recolorEyesFast(payload: {
 }): Promise<RecolorEyesFastResponse> {
   return apiRequest<RecolorEyesFastResponse>(
     '/api/recolor-eyes-fast',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    270000
+  );
+}
+
+export async function recolorFaceFeaturesFast(payload: {
+  userImageUrl: string;
+  noseId?: string;
+  lipsId?: string;
+  eyebrowsId?: string;
+  eyebrowColorId?: string;
+}): Promise<RecolorFaceFeaturesFastResponse> {
+  return apiRequest<RecolorFaceFeaturesFastResponse>(
+    '/api/recolor-face-features-fast',
     {
       method: 'POST',
       body: JSON.stringify(payload),

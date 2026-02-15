@@ -22,7 +22,7 @@ import Animated, {
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { borderRadius, layout } from '@/constants/spacing';
-import { API_BASE_URL, recolorHairFast } from '@/utils/api';
+import { API_BASE_URL, recolorFaceFeaturesFast, recolorHairFast } from '@/utils/api';
 import { getHairSwapSession } from '@/utils/hairSwapSession';
 import { recolorEyesFast } from '@/utils/api';
 
@@ -84,9 +84,6 @@ export default function HairColorLoadingScreen() {
       if (!session.selfie) {
         throw new Error('Missing selfie image in session.');
       }
-      if (!session.hairColorId) {
-        throw new Error('Missing selected hair color in session.');
-      }
       const mode = 'fast';
 
       pushStep('Preparing request payload', runStarted);
@@ -102,17 +99,19 @@ export default function HairColorLoadingScreen() {
       }
       pushStep('Backend health check passed', runStarted);
 
-      pushStep('Applying hair style and hair color', runStarted);
-
       let outputImage = session.selfie;
-      const response = await recolorHairFast({
-        userImageUrl: session.selfie,
-        colorId: session.hairColorId,
-        hairStyleId: session.hairStyleId || 'no_change',
-      });
-      outputImage = response.editedImageUrl || outputImage;
+      const shouldApplyHair = Boolean(session.hairColorId || session.hairStyleId);
+      if (shouldApplyHair) {
+        pushStep('Applying hair style and hair color', runStarted);
+        const response = await recolorHairFast({
+          userImageUrl: session.selfie,
+          colorId: session.hairColorId || 'current',
+          hairStyleId: session.hairStyleId || 'no_change',
+        });
+        outputImage = response.editedImageUrl || outputImage;
+      }
 
-      if (session.eyeColorId && session.eyeColorId !== 'current') {
+      if (session.eyeColorId) {
         pushStep('Applying eye color', runStarted);
         try {
           const eyeResponse = await recolorEyesFast({
@@ -125,6 +124,22 @@ export default function HairColorLoadingScreen() {
         }
       }
 
+      const shouldApplyFaceFeatures = Boolean(session.lipsId || session.eyebrowColorId);
+
+      if (shouldApplyFaceFeatures) {
+        pushStep('Applying lips and eyebrow color changes', runStarted);
+        try {
+          const featureResponse = await recolorFaceFeaturesFast({
+            userImageUrl: outputImage,
+            lipsId: session.lipsId || 'no_change',
+            eyebrowColorId: session.eyebrowColorId || 'no_change',
+          });
+          outputImage = featureResponse.editedImageUrl || outputImage;
+        } catch {
+          pushStep('Face feature step skipped due to model availability', runStarted);
+        }
+      }
+
       pushStep('Finalizing result', runStarted);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace({
@@ -134,7 +149,7 @@ export default function HairColorLoadingScreen() {
           look: session.look || session.selfie,
           elements: session.elements || 'Hair Color',
           hairColorMode: '1',
-          hairColorId: session.hairColorId,
+          hairColorId: session.hairColorId || '',
           hairStyleId: session.hairStyleId || 'no_change',
           swapMode: mode,
           sessionId: session.id,
