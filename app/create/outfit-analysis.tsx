@@ -10,42 +10,26 @@ import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import { AnalysisTags } from '@/components/create/AnalysisTags';
 import { UploadTile } from '@/components/create/facial/UploadTile';
 import { ExpandableSection } from '@/components/create/facial/ExpandableSection';
-import { OutfitTypeGlyph, type OutfitGlyphId } from '@/components/create/outfit/OutfitGlyphs';
 import { PrimaryButton } from '@/components/ui';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { layout } from '@/constants/spacing';
-import { createFacialStyles } from './facial/styles';
+import { createFacialStyles } from '@/features/create/facial/styles';
+import { createOutfitSwapSession } from '@/utils/outfitSwapSession';
 
 type OutfitSectionKey =
-  | 'topType'
   | 'topColor'
-  | 'bottomType'
-  | 'bottomColor'
-  | 'styleVibe';
+  | 'bottomColor';
 
 type Option = {
   id: string;
   label: string;
   icon?: keyof typeof Ionicons.glyphMap;
-  glyph?: OutfitGlyphId;
 };
 type SectionDef = { key: OutfitSectionKey; title: string; options: Option[] };
 type OutfitSelections = Record<OutfitSectionKey, string | null>;
 
 const SECTIONS: SectionDef[] = [
-  {
-    key: 'topType',
-    title: 'Top Type',
-    options: [
-      { id: 'tee', label: 'Tee', glyph: 'tee' },
-      { id: 'shirt', label: 'Shirt', glyph: 'shirt' },
-      { id: 'blouse', label: 'Blouse', glyph: 'blouse' },
-      { id: 'hoodie', label: 'Hoodie', glyph: 'hoodie' },
-      { id: 'blazer', label: 'Blazer', glyph: 'blazer' },
-      { id: 'knitwear', label: 'Knitwear', glyph: 'knitwear' },
-    ],
-  },
   {
     key: 'topColor',
     title: 'Top Color',
@@ -58,18 +42,6 @@ const SECTIONS: SectionDef[] = [
       { id: 'green', label: 'Green' },
       { id: 'red', label: 'Red' },
       { id: 'pink', label: 'Pink' },
-    ],
-  },
-  {
-    key: 'bottomType',
-    title: 'Bottom Type',
-    options: [
-      { id: 'jeans', label: 'Jeans', glyph: 'jeans' },
-      { id: 'trousers', label: 'Trousers', glyph: 'trousers' },
-      { id: 'cargo', label: 'Cargo', glyph: 'cargo' },
-      { id: 'skirt', label: 'Skirt', glyph: 'skirt' },
-      { id: 'shorts', label: 'Shorts', glyph: 'shorts' },
-      { id: 'leggings', label: 'Leggings', glyph: 'leggings' },
     ],
   },
   {
@@ -86,26 +58,11 @@ const SECTIONS: SectionDef[] = [
       { id: 'blue', label: 'Blue' },
     ],
   },
-  {
-    key: 'styleVibe',
-    title: 'Style Vibe',
-    options: [
-      { id: 'minimal', label: 'Minimal', icon: 'remove-outline' },
-      { id: 'street', label: 'Street', icon: 'flash-outline' },
-      { id: 'smart-casual', label: 'Smart Casual', icon: 'briefcase-outline' },
-      { id: 'classy', label: 'Classy', icon: 'diamond-outline' },
-      { id: 'edgy', label: 'Edgy', icon: 'thunderstorm-outline' },
-      { id: 'sporty', label: 'Sporty', icon: 'fitness-outline' },
-    ],
-  },
 ];
 
 const INITIAL_SELECTIONS: OutfitSelections = {
-  topType: null,
   topColor: null,
-  bottomType: null,
   bottomColor: null,
-  styleVibe: null,
 };
 
 const COLOR_SWATCHES: Record<string, string> = {
@@ -178,6 +135,7 @@ export default function OutfitAnalysisScreen() {
   );
 
   const [analysisImage, setAnalysisImage] = useState<string | null>(null);
+  const [analysisImageDataUri, setAnalysisImageDataUri] = useState<string | null>(null);
   const [focusedCategory, setFocusedCategory] = useState<OutfitSectionKey | null>(null);
   const [selections, setSelections] = useState<OutfitSelections>(INITIAL_SELECTIONS);
 
@@ -205,10 +163,14 @@ export default function OutfitAnalysisScreen() {
       allowsEditing: true,
       aspect: [3, 4],
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
-      setAnalysisImage(result.assets[0].uri);
+      const asset = result.assets[0];
+      setAnalysisImage(asset.uri);
+      const mimeType = asset.mimeType || 'image/jpeg';
+      setAnalysisImageDataUri(asset.base64 ? `data:${mimeType};base64,${asset.base64}` : null);
     }
   };
 
@@ -227,14 +189,12 @@ export default function OutfitAnalysisScreen() {
 
   const getSectionByKey = (key: OutfitSectionKey) => SECTIONS.find((section) => section.key === key)!;
   const isColorSection = (key: OutfitSectionKey) => key === 'topColor' || key === 'bottomColor';
-  const isGarmentTypeSection = (key: OutfitSectionKey) => key === 'topType' || key === 'bottomType';
 
   const renderOptionRow = (section: SectionDef): ReactNode => (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
       {section.options.map((option) => {
         const active = selections[section.key] === option.id;
         const colorSection = isColorSection(section.key);
-        const garmentSection = isGarmentTypeSection(section.key);
         const swatch = COLOR_SWATCHES[option.id] || colors.textSecondary;
         return (
           <Pressable
@@ -249,15 +209,11 @@ export default function OutfitAnalysisScreen() {
               </View>
             ) : (
               <View style={localStyles.optionLabelWrap}>
-                {garmentSection && option.glyph ? (
-                  <OutfitTypeGlyph id={option.glyph} color={active ? colors.textPrimary : colors.textSecondary} size={21} />
-                ) : (
-                  <Ionicons
-                    name={option.icon || 'sparkles'}
-                    size={18}
-                    color={active ? colors.textPrimary : colors.textSecondary}
-                  />
-                )}
+                <Ionicons
+                  name={option.icon || 'sparkles'}
+                  size={18}
+                  color={active ? colors.textPrimary : colors.textSecondary}
+                />
                 <Text style={[localStyles.optionText, active && localStyles.optionTextActive]}>{option.label}</Text>
               </View>
             )}
@@ -272,7 +228,6 @@ export default function OutfitAnalysisScreen() {
       {section.options.map((option) => {
         const active = selections[section.key] === option.id;
         const colorSection = isColorSection(section.key);
-        const garmentSection = isGarmentTypeSection(section.key);
         const swatch = COLOR_SWATCHES[option.id] || colors.textSecondary;
         return (
           <View key={option.id} style={styles.squareTileWrap}>
@@ -283,17 +238,11 @@ export default function OutfitAnalysisScreen() {
               {colorSection ? (
                 <View style={[localStyles.colorDot, { backgroundColor: swatch }]} />
               ) : (
-                <>
-                  {garmentSection && option.glyph ? (
-                    <OutfitTypeGlyph id={option.glyph} color={active ? colors.textPrimary : colors.textSecondary} size={24} />
-                  ) : (
-                    <Ionicons
-                      name={option.icon || 'sparkles'}
-                      size={20}
-                      color={active ? colors.textPrimary : colors.textSecondary}
-                    />
-                  )}
-                </>
+                <Ionicons
+                  name={option.icon || 'sparkles'}
+                  size={20}
+                  color={active ? colors.textPrimary : colors.textSecondary}
+                />
               )}
               <Text style={[styles.squareTileText, active && styles.squareTileTextActive]}>{option.label}</Text>
             </Pressable>
@@ -310,12 +259,24 @@ export default function OutfitAnalysisScreen() {
     }
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const outfitSession = createOutfitSwapSession({
+      imageUri: analysisImage,
+      imageDataUri: analysisImageDataUri || undefined,
+      elements: selectedLabels.join(','),
+      topColorId: selections.topColor || 'current',
+      bottomColorId: selections.bottomColor || 'current',
+    });
+
     router.push({
       pathname: '/create/result',
       params: {
         selfie: analysisImage,
         look: analysisImage,
         elements: selectedLabels.join(','),
+        outfitMode: '1',
+        outfitSessionId: outfitSession.id,
+        topColorId: selections.topColor || 'current',
+        bottomColorId: selections.bottomColor || 'current',
       },
     });
   };
@@ -339,7 +300,14 @@ export default function OutfitAnalysisScreen() {
 
           <Animated.View entering={FadeInDown.delay(120).duration(280)}>
             <Text style={styles.sectionTitle}>Outfit Photo</Text>
-            <UploadTile image={analysisImage} onSelect={pickImage} onRemove={() => setAnalysisImage(null)} />
+            <UploadTile
+              image={analysisImage}
+              onSelect={pickImage}
+              onRemove={() => {
+                setAnalysisImage(null);
+                setAnalysisImageDataUri(null);
+              }}
+            />
             <Text style={localStyles.helperText}>Upload one clear full-outfit image for best results.</Text>
           </Animated.View>
 

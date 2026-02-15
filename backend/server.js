@@ -13,17 +13,19 @@ try {
 }
 
 function loadEnvFile() {
-  const envPath = path.join(__dirname, '.env');
-  if (!fs.existsSync(envPath)) return;
-  const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const idx = trimmed.indexOf('=');
-    if (idx < 0) continue;
-    const key = trimmed.slice(0, idx).trim();
-    const value = trimmed.slice(idx + 1).trim().replace(/^['"]|['"]$/g, '');
-    if (key && process.env[key] === undefined) process.env[key] = value;
+  const candidates = [path.join(__dirname, '.env'), path.join(process.cwd(), '.env')];
+  for (const envPath of candidates) {
+    if (!fs.existsSync(envPath)) continue;
+    const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx < 0) continue;
+      const key = trimmed.slice(0, idx).trim();
+      const value = trimmed.slice(idx + 1).trim().replace(/^['"]|['"]$/g, '');
+      if (key && process.env[key] === undefined) process.env[key] = value;
+    }
   }
 }
 loadEnvFile();
@@ -91,6 +93,20 @@ const EYE_COLOR_DESCRIPTIONS = {
   green: 'natural emerald green irises',
   blue: 'natural ocean blue irises',
   gray: 'soft cool gray irises',
+};
+
+const OUTFIT_COLOR_PRESETS = {
+  black: { name: 'Black', hex: '#111111' },
+  white: { name: 'White', hex: '#F2F2F2' },
+  beige: { name: 'Beige', hex: '#D8C3A5' },
+  brown: { name: 'Brown', hex: '#7A4E2D' },
+  navy: { name: 'Navy', hex: '#1E3A6D' },
+  green: { name: 'Green', hex: '#3C8D40' },
+  red: { name: 'Red', hex: '#C53939' },
+  pink: { name: 'Pink', hex: '#D97AAE' },
+  gray: { name: 'Gray', hex: '#8C8C8C' },
+  olive: { name: 'Olive', hex: '#6B7A3D' },
+  blue: { name: 'Blue', hex: '#2B6ACF' },
 };
 
 const STYLE_PROMPTS = {
@@ -307,19 +323,35 @@ async function makeRegionMaskDataUri(sourceImage, region) {
     svg += `<ellipse cx="${Math.round(w * 0.62)}" cy="${Math.round(h * 0.36)}" rx="${Math.round(w * 0.09)}" ry="${Math.round(h * 0.02)}" fill="white"/>`;
   }
 
+  if (region === 'upper_body') {
+    svg += `<rect x="${Math.round(w * 0.11)}" y="${Math.round(h * 0.12)}" width="${Math.round(w * 0.78)}" height="${Math.round(h * 0.49)}" rx="${Math.round(w * 0.06)}" fill="white"/>`;
+  }
+
+  if (region === 'lower_body') {
+    svg += `<rect x="${Math.round(w * 0.14)}" y="${Math.round(h * 0.48)}" width="${Math.round(w * 0.72)}" height="${Math.round(h * 0.48)}" rx="${Math.round(w * 0.06)}" fill="white"/>`;
+  }
+
   svg += '</svg>';
 
   const maskBuf = await sharp(Buffer.from(svg))
     .resize(w, h)
     .grayscale()
-    .blur(1.2)
+    .blur(1.8)
     .png()
     .toBuffer();
 
   return `data:image/png;base64,${maskBuf.toString('base64')}`;
 }
 
-async function inpaintRegion({ imageUrlOrDataUri, maskUrlOrDataUri, prompt }) {
+async function inpaintRegion({
+  imageUrlOrDataUri,
+  maskUrlOrDataUri,
+  prompt,
+  negativePrompt,
+  numInferenceSteps,
+  guidanceScale,
+  promptStrength,
+}) {
   const prediction = await createReplicatePrediction({
     version: REPLICATE_SDXL_INPAINT_VERSION,
     input: {
@@ -327,9 +359,11 @@ async function inpaintRegion({ imageUrlOrDataUri, maskUrlOrDataUri, prompt }) {
       mask: maskUrlOrDataUri,
       prompt,
       negative_prompt:
+        negativePrompt ||
         'identity change, different person, deformed face, extra eyes, extra lips, artifact, text, watermark, cartoon',
-      num_inference_steps: 24,
-      guidance_scale: 5.5,
+      num_inference_steps: Number.isFinite(numInferenceSteps) ? numInferenceSteps : 24,
+      guidance_scale: Number.isFinite(guidanceScale) ? guidanceScale : 5.5,
+      prompt_strength: Number.isFinite(promptStrength) ? promptStrength : 0.8,
     },
   });
   const { data } = await pollReplicatePrediction(prediction.id, { maxAttempts: 140, intervalMs: 1800 });
@@ -372,6 +406,20 @@ function buildFeaturePrompt({ noseId, lipsId, eyebrowsId, eyebrowColorId }) {
     'Do NOT alter identity, hair, eyes, skin texture, clothing or background.',
     'Keep photorealistic consistency.',
   ].join(' ');
+}
+
+function buildOutfitPrompt({ topHex, bottomHex }) {
+  return [
+    topHex ? `Force upper garment color to ${topHex}.` : '',
+    bottomHex ? `Force lower garment color to ${bottomHex}.` : '',
+    'Color shift must be obvious and clearly visible.',
+    'Maintain garment texture, folds, seams, and lighting.',
+    'Keep skin tone, face, tattoos, jewelry, watch, and background unchanged.',
+    'Photorealistic output, preserve identity and body proportions.',
+    'Only modify clothing color in the masked region.',
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 const server = http.createServer(async (req, res) => {
@@ -551,6 +599,104 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('recolor-face-features-fast error:', err);
       return sendJson(res, 500, { error: err.message || 'Face feature transform failed' });
+    }
+  }
+
+  if (method === 'POST' && pathname === '/api/recolor-outfit-fast') {
+    try {
+      if (!REPLICATE_API_TOKEN) throw new Error('REPLICATE_API_TOKEN is not configured');
+      const body = await parseBody(req);
+      const {
+        userImageUrl,
+        topColorId = 'current',
+        bottomColorId = 'current',
+      } = body;
+
+      if (!userImageUrl) return sendJson(res, 400, { error: 'Missing userImageUrl' });
+
+      const topColor = OUTFIT_COLOR_PRESETS[topColorId] || null;
+      const bottomColor = OUTFIT_COLOR_PRESETS[bottomColorId] || null;
+
+      if (!topColor && !bottomColor) {
+        return sendJson(res, 200, {
+          success: true,
+          mode: 'outfit-fast',
+          editedImageUrl: userImageUrl,
+          chosenOutfit: { topColorId, bottomColorId },
+        });
+      }
+
+      const source = isDataUri(userImageUrl) ? userImageUrl : await urlToDataUri(userImageUrl);
+      let output = source;
+
+      if (topColor) {
+        const upperMask = await makeRegionMaskDataUri(await fetchBuffer(output), 'upper_body');
+        output = await inpaintRegion({
+          imageUrlOrDataUri: output,
+          maskUrlOrDataUri: upperMask,
+          prompt: buildOutfitPrompt({ topHex: topColor.hex }),
+          numInferenceSteps: 34,
+          guidanceScale: 8.5,
+          promptStrength: 0.92,
+          negativePrompt:
+            'identity change, different person, altered face, altered body shape, altered tattoos, altered jewelry, text, watermark, cartoon',
+        });
+      }
+
+      if (bottomColor) {
+        const lowerMask = await makeRegionMaskDataUri(await fetchBuffer(output), 'lower_body');
+        output = await inpaintRegion({
+          imageUrlOrDataUri: output,
+          maskUrlOrDataUri: lowerMask,
+          prompt: buildOutfitPrompt({ bottomHex: bottomColor.hex }),
+          numInferenceSteps: 34,
+          guidanceScale: 8.5,
+          promptStrength: 0.92,
+          negativePrompt:
+            'identity change, different person, altered face, altered body shape, altered tattoos, altered jewelry, text, watermark, cartoon',
+        });
+      }
+
+      return sendJson(res, 200, {
+        success: true,
+        mode: 'outfit-fast',
+        editedImageUrl: output,
+        chosenOutfit: {
+          topColorId,
+          bottomColorId,
+          topColorHex: topColor?.hex || null,
+          bottomColorHex: bottomColor?.hex || null,
+        },
+      });
+    } catch (err) {
+      console.error('recolor-outfit-fast error:', err);
+      return sendJson(res, 500, { error: err.message || 'Outfit recolor failed' });
+    }
+  }
+
+  if (method === 'POST' && pathname === '/v1/generate') {
+    try {
+      const body = await parseBody(req);
+      const { selfie, look, elements } = body;
+      if (!selfie || !look || !Array.isArray(elements) || elements.length === 0) {
+        return sendJson(res, 400, { error: 'Missing required fields: selfie, look, elements[]' });
+      }
+
+      const job = {
+        id: `job_${Date.now()}`,
+        status: 'completed',
+        selfie,
+        look,
+        elements,
+        // Compatibility behavior for current app flow.
+        resultUrl: look,
+        createdAt: Date.now(),
+        completedAt: Date.now(),
+      };
+
+      return sendJson(res, 201, { job });
+    } catch (err) {
+      return sendJson(res, 400, { error: err.message || 'Invalid request' });
     }
   }
 

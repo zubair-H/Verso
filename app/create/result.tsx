@@ -32,8 +32,9 @@ import { layout, borderRadius, springs } from '@/constants/spacing';
 import { useStorage } from '@/hooks/useStorage';
 import { trackEvent } from '@/utils/analytics';
 import { getProductsForElements, Product } from '@/utils/mockProducts';
-import { API_BASE_URL, generateLook, recolorHair, recolorHairFast } from '@/utils/api';
+import { API_BASE_URL, generateLook, recolorHair, recolorHairFast, recolorOutfitFast } from '@/utils/api';
 import { getHairSwapSession } from '@/utils/hairSwapSession';
+import { getOutfitSwapSession } from '@/utils/outfitSwapSession';
 
 const { width } = Dimensions.get('window');
 const IMAGE_WIDTH = width - layout.screenPadding * 2;
@@ -69,6 +70,10 @@ export default function ResultScreen() {
     precomputedImage?: string;
     maskUrl?: string;
     debugSummary?: string;
+    outfitMode?: string;
+    outfitSessionId?: string;
+    topColorId?: string;
+    bottomColorId?: string;
   }>();
   const { saveLook, useFreeTry } = useStorage();
 
@@ -84,20 +89,25 @@ export default function ResultScreen() {
   const [generationError, setGenerationError] = useState<string>('');
   const [usedPrecomputed, setUsedPrecomputed] = useState(false);
 
-  const session = useMemo(
+  const hairSession = useMemo(
     () => (params.sessionId ? getHairSwapSession(params.sessionId) : null),
     [params.sessionId]
   );
-  const sourceSelfie = session?.selfie || params.selfie || '';
-  const sourceLook = session?.look || params.look || '';
-  const sourceElementsRaw = session?.elements || params.elements || '';
-  const sourceColorId = session?.hairColorId || params.hairColorId || '';
-  const sourceStyleId = session?.hairStyleId || params.hairStyleId || 'no_change';
-  const sourceMode = session?.swapMode || params.swapMode || 'stable';
+  const outfitSession = useMemo(
+    () => (params.outfitSessionId ? getOutfitSwapSession(params.outfitSessionId) : null),
+    [params.outfitSessionId]
+  );
+  const sourceSelfie = hairSession?.selfie || outfitSession?.imageUri || params.selfie || '';
+  const sourceLook = hairSession?.look || outfitSession?.imageUri || params.look || '';
+  const sourceElementsRaw = hairSession?.elements || outfitSession?.elements || params.elements || '';
+  const sourceColorId = hairSession?.hairColorId || params.hairColorId || '';
+  const sourceStyleId = hairSession?.hairStyleId || params.hairStyleId || 'no_change';
+  const sourceMode = hairSession?.swapMode || params.swapMode || 'stable';
 
   const elements = sourceElementsRaw ? sourceElementsRaw.split(',') : [];
   const products = getProductsForElements(elements);
   const isHairColorMode = params.hairColorMode === '1';
+  const isOutfitMode = params.outfitMode === '1';
 
   const ensureDataUri = useCallback(async (uri: string): Promise<string> => {
     if (!uri) return uri;
@@ -242,6 +252,15 @@ export default function ResultScreen() {
           setResultImageUri(response.editedImageDataUri || sourceSelfie || sourceLook || '');
           setHairMaskUrl(response.maskUrl || '');
         }
+      } else if (isOutfitMode) {
+        const outfitImage = outfitSession?.imageDataUri || sourceSelfie || sourceLook;
+        const userImageUrl = await ensureDataUri(outfitImage);
+        const response = await recolorOutfitFast({
+          userImageUrl,
+          topColorId: outfitSession?.topColorId || params.topColorId || 'current',
+          bottomColorId: outfitSession?.bottomColorId || params.bottomColorId || 'current',
+        });
+        setResultImageUri(response.editedImageUrl || sourceLook || sourceSelfie || '');
       } else {
         const job = await generateLook({
           selfie: sourceSelfie,
@@ -256,7 +275,11 @@ export default function ResultScreen() {
       const message = isNetworkIssue
         ? `Cannot reach backend at ${API_BASE_URL}. Start API server and ensure your phone/simulator can access your computer on the same network.`
         : rawMessage;
-      const title = isHairColorMode ? 'Hair color swap failed' : 'Look generation failed';
+      const title = isHairColorMode
+        ? 'Hair color swap failed'
+        : isOutfitMode
+          ? 'Outfit recolor failed'
+          : 'Look generation failed';
       setGenerationError(message);
       Alert.alert(title, message);
       setResultImageUri(sourceLook || '');
@@ -268,6 +291,7 @@ export default function ResultScreen() {
     elements,
     ensureDataUri,
     isHairColorMode,
+    isOutfitMode,
     sourceColorId,
     params.hairHex,
     sourceStyleId,
@@ -277,6 +301,9 @@ export default function ResultScreen() {
     params.precomputedImage,
     sourceMode,
     sourceSelfie,
+    params.topColorId,
+    params.bottomColorId,
+    outfitSession,
     runSignatureReveal,
     usedPrecomputed,
   ]);

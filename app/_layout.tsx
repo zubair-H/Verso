@@ -17,7 +17,7 @@ function RootLayoutContent() {
       >
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="create/result" />
+        <Stack.Screen name="create" />
       </Stack>
     </>
   );
