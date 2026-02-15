@@ -6,8 +6,16 @@ export default function CreateLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: 'fade',
+        animation: 'none',
+        gestureEnabled: false,
       }}
-    />
+    >
+      <Stack.Screen name="index" options={{ animation: 'none' }} />
+      <Stack.Screen name="facial-analysis" options={{ animation: 'none' }} />
+      <Stack.Screen name="outfit-analysis" options={{ animation: 'none' }} />
+      <Stack.Screen name="health-analysis" options={{ animation: 'none' }} />
+      <Stack.Screen name="loading" options={{ animation: 'none' }} />
+      <Stack.Screen name="result" options={{ animation: 'none' }} />
+    </Stack>
   );
 }
