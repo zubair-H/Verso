@@ -46,6 +46,7 @@ export default function HairColorLoadingScreen() {
   const params = useLocalSearchParams<{
     sessionId?: string;
   }>();
+  const session = useMemo(() => (params.sessionId ? getHairSwapSession(params.sessionId) : null), [params.sessionId]);
 
   const [running, setRunning] = useState(true);
   const [error, setError] = useState('');
@@ -61,6 +62,16 @@ export default function HairColorLoadingScreen() {
     void atMs;
   }, []);
 
+  const headerSubtitle = useMemo(() => {
+    const elements = (session?.elements || '')
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    if (elements.length === 1) return elements[0];
+    if (elements.length > 1) return 'Applying multiple attributes';
+    return 'Preparing your result';
+  }, [session?.elements]);
+
   const runHairSwap = useCallback(async () => {
     const runStarted = Date.now();
     stoppedRef.current = false;
@@ -72,7 +83,6 @@ export default function HairColorLoadingScreen() {
       if (!params.sessionId) {
         throw new Error('Missing hair swap session id.');
       }
-      const session = getHairSwapSession(params.sessionId);
       if (!session) {
         throw new Error('Hair swap session not found. Please try again from Create page.');
       }
@@ -165,7 +175,7 @@ export default function HairColorLoadingScreen() {
     } finally {
       setRunning(false);
     }
-  }, [params.sessionId, pushStep]);
+  }, [params.sessionId, pushStep, session]);
 
   useEffect(() => {
     void runHairSwap();
@@ -310,7 +320,7 @@ export default function HairColorLoadingScreen() {
         </Pressable>
         <View>
           <Text style={styles.title}>Analyzing your photo</Text>
-          <Text style={styles.subtitle}>Preparing your result</Text>
+          <Text style={styles.subtitle}>{headerSubtitle}</Text>
         </View>
       </View>
 

@@ -1,11 +1,12 @@
 import React, { ReactNode, useMemo, useState } from 'react';
-import { ImageBackground, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeOut, runOnJS } from 'react-native-reanimated';
 
 import { AnalysisTags } from '@/components/create/AnalysisTags';
 import { UploadTile } from '@/components/create/facial/UploadTile';
@@ -24,7 +25,6 @@ type OutfitSectionKey =
 type Option = {
   id: string;
   label: string;
-  icon?: keyof typeof Ionicons.glyphMap;
 };
 type SectionDef = { key: OutfitSectionKey; title: string; options: Option[] };
 type OutfitSelections = Record<OutfitSectionKey, string | null>;
@@ -65,29 +65,6 @@ const INITIAL_SELECTIONS: OutfitSelections = {
   bottomColor: null,
 };
 
-const OUTFIT_REFERENCE_IMAGES: Record<OutfitSectionKey, Record<string, string>> = {
-  topColor: {
-    black: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?fit=crop&w=900&q=80&fm=jpg',
-    white: 'https://images.unsplash.com/photo-1544717305-2782549b5136?fit=crop&w=900&q=80&fm=jpg',
-    beige: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?fit=crop&w=900&q=80&fm=jpg',
-    brown: 'https://images.unsplash.com/photo-1488161628813-04466f872be2?fit=crop&w=900&q=80&fm=jpg',
-    navy: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?fit=crop&w=900&q=80&fm=jpg',
-    green: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?fit=crop&w=900&q=80&fm=jpg',
-    red: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?fit=crop&w=900&q=80&fm=jpg',
-    pink: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?fit=crop&w=900&q=80&fm=jpg',
-  },
-  bottomColor: {
-    black: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?fit=crop&w=900&q=80&fm=jpg',
-    white: 'https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?fit=crop&w=900&q=80&fm=jpg',
-    beige: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?fit=crop&w=900&q=80&fm=jpg',
-    brown: 'https://images.unsplash.com/photo-1495385794356-15371f348c31?fit=crop&w=900&q=80&fm=jpg',
-    navy: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?fit=crop&w=900&q=80&fm=jpg',
-    gray: 'https://images.unsplash.com/photo-1517365830460-955ce3ccd263?fit=crop&w=900&q=80&fm=jpg',
-    olive: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?fit=crop&w=900&q=80&fm=jpg',
-    blue: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?fit=crop&w=900&q=80&fm=jpg',
-  },
-};
-
 export default function OutfitAnalysisScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -102,54 +79,37 @@ export default function OutfitAnalysisScreen() {
           width: '100%',
           aspectRatio: 0.82,
           borderRadius: 16,
-          overflow: 'hidden',
           borderWidth: 1,
           borderColor: colors.borderLight,
-          justifyContent: 'flex-end',
-          padding: 10,
+          backgroundColor: colors.bgSecondary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          paddingHorizontal: 8,
+          paddingVertical: 10,
         },
         optionTileActive: {
           borderColor: colors.accent,
           borderWidth: 2,
-        },
-        imageFill: {
-          ...StyleSheet.absoluteFillObject,
-        },
-        imageScrim: {
-          ...StyleSheet.absoluteFillObject,
-          backgroundColor: 'rgba(0, 0, 0, 0.16)',
+          backgroundColor: colors.accentMuted,
         },
         tileLabel: {
           ...typography.caption,
-          color: '#FFFFFF',
+          color: colors.textSecondary,
           fontWeight: '600',
-          textShadowColor: 'rgba(0, 0, 0, 0.35)',
-          textShadowOffset: { width: 0, height: 1 },
-          textShadowRadius: 2,
         },
-        tileGlassTag: {
-          position: 'absolute',
-          top: 8,
-          left: 8,
-          paddingHorizontal: 8,
-          paddingVertical: 4,
-          borderRadius: 999,
-          backgroundColor: 'rgba(255, 255, 255, 0.28)',
+        tileLabelActive: {
+          color: colors.textPrimary,
+        },
+        tileIcon: {
+          width: 30,
+          height: 30,
+          borderRadius: 15,
+          backgroundColor: colors.bgCard,
           borderWidth: 1,
-          borderColor: 'rgba(255, 255, 255, 0.45)',
-          flexDirection: 'row',
+          borderColor: colors.borderLight,
           alignItems: 'center',
-        },
-        tileGlassTagIcon: {
-          marginRight: 5,
-        },
-        tileGlassTagText: {
-          ...typography.caption,
-          color: '#FFFFFF',
-          fontWeight: '700',
-          textShadowColor: 'rgba(0, 0, 0, 0.3)',
-          textShadowOffset: { width: 0, height: 1 },
-          textShadowRadius: 2,
+          justifyContent: 'center',
         },
       }),
     [colors]
@@ -159,6 +119,24 @@ export default function OutfitAnalysisScreen() {
   const [analysisImageDataUri, setAnalysisImageDataUri] = useState<string | null>(null);
   const [focusedCategory, setFocusedCategory] = useState<OutfitSectionKey | null>(null);
   const [selections, setSelections] = useState<OutfitSelections>(INITIAL_SELECTIONS);
+
+  const goToCreate = () => {
+    router.replace('/(tabs)/create');
+  };
+
+  const swipeBackGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .hitSlop({ left: 0, width: 24 })
+        .activeOffsetX(20)
+        .failOffsetY([-20, 20])
+        .onEnd((event) => {
+          if (event.translationX > 70 && event.velocityX > 280) {
+            runOnJS(goToCreate)();
+          }
+        }),
+    []
+  );
 
   const selectedLabels = useMemo(
     () =>
@@ -208,8 +186,6 @@ export default function OutfitAnalysisScreen() {
   };
 
   const getSectionByKey = (key: OutfitSectionKey) => SECTIONS.find((section) => section.key === key)!;
-  const getTagLabel = (key: OutfitSectionKey, optionLabel: string) =>
-    `${optionLabel} ${key === 'topColor' ? 'Top' : 'Bottom'}`;
   const getTagIcon = (key: OutfitSectionKey): keyof typeof Ionicons.glyphMap =>
     key === 'topColor' ? 'shirt-outline' : 'walk-outline';
 
@@ -217,18 +193,13 @@ export default function OutfitAnalysisScreen() {
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
       {section.options.map((option) => {
         const active = selections[section.key] === option.id;
-        const imageUri = OUTFIT_REFERENCE_IMAGES[section.key][option.id];
         return (
           <View key={option.id} style={localStyles.optionTileWrap}>
             <Pressable onPress={() => toggleOption(section.key, option.id)} style={[localStyles.optionTile, active && localStyles.optionTileActive]}>
-              <ImageBackground source={{ uri: imageUri }} style={localStyles.imageFill}>
-                <View style={localStyles.imageScrim} />
-              </ImageBackground>
-              <View style={localStyles.tileGlassTag}>
-                <Ionicons name={getTagIcon(section.key)} size={12} color="#FFFFFF" style={localStyles.tileGlassTagIcon} />
-                <Text style={localStyles.tileGlassTagText}>{getTagLabel(section.key, option.label)}</Text>
+              <View style={localStyles.tileIcon}>
+                <Ionicons name={getTagIcon(section.key)} size={16} color={colors.textSecondary} />
               </View>
-              <Text style={localStyles.tileLabel}>{option.label}</Text>
+              <Text style={[localStyles.tileLabel, active && localStyles.tileLabelActive]}>{option.label}</Text>
             </Pressable>
           </View>
         );
@@ -240,21 +211,16 @@ export default function OutfitAnalysisScreen() {
     <View style={styles.gridWrap}>
       {section.options.map((option) => {
         const active = selections[section.key] === option.id;
-        const imageUri = OUTFIT_REFERENCE_IMAGES[section.key][option.id];
         return (
           <View key={option.id} style={styles.squareTileWrap}>
             <Pressable
               onPress={() => toggleOption(section.key, option.id)}
               style={[styles.squareTile, localStyles.optionTile, active && localStyles.optionTileActive]}
             >
-              <ImageBackground source={{ uri: imageUri }} style={localStyles.imageFill}>
-                <View style={localStyles.imageScrim} />
-              </ImageBackground>
-              <View style={localStyles.tileGlassTag}>
-                <Ionicons name={getTagIcon(section.key)} size={12} color="#FFFFFF" style={localStyles.tileGlassTagIcon} />
-                <Text style={localStyles.tileGlassTagText}>{getTagLabel(section.key, option.label)}</Text>
+              <View style={localStyles.tileIcon}>
+                <Ionicons name={getTagIcon(section.key)} size={16} color={colors.textSecondary} />
               </View>
-              <Text style={localStyles.tileLabel}>{option.label}</Text>
+              <Text style={[localStyles.tileLabel, active && localStyles.tileLabelActive]}>{option.label}</Text>
             </Pressable>
           </View>
         );
@@ -292,69 +258,76 @@ export default function OutfitAnalysisScreen() {
   };
 
   const handleBackPress = () => {
-    router.replace('/(tabs)');
+    goToCreate();
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Pressable onPress={handleBackPress} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Outfit Analysis</Text>
-        </View>
+    <GestureDetector gesture={swipeBackGesture}>
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+          <View style={styles.header}>
+            <Pressable onPress={handleBackPress} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+            </Pressable>
+            <Text style={styles.headerTitle}>Outfit Analysis</Text>
+          </View>
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
-          showsVerticalScrollIndicator={false}
-        >
-          <AnalysisTags activeTab="outfit" />
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
+            showsVerticalScrollIndicator={false}
+          >
+            <AnalysisTags activeTab="outfit" />
 
-          <Animated.View entering={FadeInDown.delay(120).duration(280)} style={{ marginTop: 16 }}>
-            <Text style={styles.sectionTitle}>Outfit Photo</Text>
-            <UploadTile
-              image={analysisImage}
-              onSelect={pickImage}
-              onRemove={() => {
-                setAnalysisImage(null);
-                setAnalysisImageDataUri(null);
-              }}
-            />
-            
-          </Animated.View>
-
-          {SECTIONS.map((section, index) => (
-            <Animated.View key={section.key} entering={FadeInDown.delay(160 + index * 35).duration(280)}>
-              <ExpandableSection
-                title={section.title}
-                onExpand={() => setFocusedCategory(section.key)}
-                onClear={() => clearCategory(section.key)}
-                clearDisabled={!selections[section.key]}
-              >
-                {renderOptionRow(section)}
-              </ExpandableSection>
+            <Animated.View entering={FadeInDown.delay(120).duration(280)} style={{ marginTop: 16 }}>
+              <Text style={styles.sectionTitle}>Outfit Photo</Text>
+              <UploadTile
+                image={analysisImage}
+                onSelect={pickImage}
+                onRemove={() => {
+                  setAnalysisImage(null);
+                  setAnalysisImageDataUri(null);
+                }}
+              />
             </Animated.View>
-          ))}
-        </ScrollView>
 
-        {focusedCategory ? (
-          <Animated.View style={styles.focusedOverlay} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
-            <View style={styles.focusedHeader}>
-              <Text style={styles.focusedTitle}>{getSectionByKey(focusedCategory).title}</Text>
-              <Pressable onPress={() => setFocusedCategory(null)} hitSlop={10} style={styles.shrinkButton}>
-                <Ionicons name="close" size={20} color={colors.textSecondary} />
-              </Pressable>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>{renderOptionGrid(getSectionByKey(focusedCategory))}</ScrollView>
-          </Animated.View>
-        ) : null}
+            {SECTIONS.map((section, index) => (
+              <Animated.View key={section.key} entering={FadeInDown.delay(160 + index * 35).duration(280)}>
+                <ExpandableSection
+                  title={section.title}
+                  onExpand={() => setFocusedCategory(section.key)}
+                  onClear={() => clearCategory(section.key)}
+                  clearDisabled={!selections[section.key]}
+                >
+                  {renderOptionRow(section)}
+                </ExpandableSection>
+              </Animated.View>
+            ))}
+          </ScrollView>
 
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + layout.tabBarHeight + 8 }]}> 
-          <PrimaryButton label={ctaLabel} onPress={handleGenerate} disabled={!canGenerate} icon={canGenerate ? 'sparkles' : undefined} style={{ width: '100%' }} />
+          {focusedCategory ? (
+            <Animated.View style={styles.focusedOverlay} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
+              <View style={styles.focusedHeader}>
+                <Text style={styles.focusedTitle}>{getSectionByKey(focusedCategory).title}</Text>
+                <Pressable onPress={() => setFocusedCategory(null)} hitSlop={10} style={styles.shrinkButton}>
+                  <Ionicons name="close" size={20} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false}>{renderOptionGrid(getSectionByKey(focusedCategory))}</ScrollView>
+            </Animated.View>
+          ) : null}
+
+          <View style={[styles.bottomBar, { paddingBottom: insets.bottom + layout.tabBarHeight + 8 }]}>
+            <PrimaryButton
+              label={ctaLabel}
+              onPress={handleGenerate}
+              disabled={!canGenerate}
+              icon={canGenerate ? 'sparkles' : undefined}
+              style={{ width: '100%' }}
+            />
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </GestureDetector>
   );
 }

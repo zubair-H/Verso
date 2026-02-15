@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 
 import { AnalysisTags } from '@/components/create/AnalysisTags';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -43,25 +45,41 @@ export default function HealthAnalysisScreen() {
   );
 
   const handleBackPress = () => {
-    router.replace('/(tabs)');
+    router.replace('/(tabs)/create');
   };
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={handleBackPress} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Create Your Look</Text>
-      </View>
+  const swipeBackGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .hitSlop({ left: 0, width: 24 })
+        .activeOffsetX(20)
+        .failOffsetY([-20, 20])
+        .onEnd((event) => {
+          if (event.translationX > 70 && event.velocityX > 280) {
+            runOnJS(handleBackPress)();
+          }
+        }),
+    []
+  );
 
-      <View style={styles.body}>
-        <AnalysisTags activeTab="health" />
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Health Analysis</Text>
-          <Text style={styles.cardText}>This page is ready for health-related analysis content.</Text>
+  return (
+    <GestureDetector gesture={swipeBackGesture}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable onPress={handleBackPress} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Create Your Look</Text>
+        </View>
+
+        <View style={styles.body}>
+          <AnalysisTags activeTab="health" />
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Health Analysis</Text>
+            <Text style={styles.cardText}>This page is ready for health-related analysis content.</Text>
+          </View>
         </View>
       </View>
-    </View>
+    </GestureDetector>
   );
 }
