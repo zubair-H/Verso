@@ -28,12 +28,59 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const LOGO_SIZE_SMALL = 220;
 
+function WasteHero() {
+  const { colors, isDark } = useTheme();
+  const iconScale = useSharedValue(0);
+  const iconOpacity = useSharedValue(0);
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    iconScale.value = withDelay(250, withSpring(1, { damping: 10, stiffness: 90 }));
+    iconOpacity.value = withDelay(250, withTiming(1, { duration: 300 }));
+    pulse.value = withDelay(
+      500,
+      withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.sin) })
+    );
+  }, []);
+
+  const iconStyle = useAnimatedStyle(() => ({
+    opacity: iconOpacity.value,
+    transform: [{ scale: iconScale.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(pulse.value, [0, 1], [0.18, 0.38]),
+    transform: [{ scale: interpolate(pulse.value, [0, 1], [0.95, 1.15]) }],
+  }));
+
+  return (
+    <View style={{ width: 140, height: 140, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            width: 100,
+            height: 100,
+            borderRadius: 50,
+            backgroundColor: isDark ? 'rgba(134, 239, 172, 0.18)' : 'rgba(16, 185, 129, 0.18)',
+          },
+          glowStyle,
+        ]}
+      />
+      <Animated.View style={iconStyle}>
+        <Feather name="refresh-cw" size={52} color={colors.textPrimary} />
+      </Animated.View>
+    </View>
+  );
+}
+
 // Card data with detail content
 const CARD_DATA = [
   {
     icon: 'camera' as const,
     title: 'Selfie',
     desc: 'Snap a quick photo',
+    emphasis: false,
     headline: 'Start with you.',
     headlineDim: 'Your best angle.',
     description: 'Snap a photo or pick one from your gallery — any clear shot of your face works.',
@@ -43,6 +90,7 @@ const CARD_DATA = [
     icon: 'users' as const,
     title: 'Inspo',
     desc: 'Browse celeb looks',
+    emphasis: false,
     headline: 'Find your look.',
     headlineDim: 'Any style, any celeb.',
     description: 'Browse our collection of looks or upload a celeb photo you want to draw from.',
@@ -52,6 +100,7 @@ const CARD_DATA = [
     icon: 'scissors' as const,
     title: 'Attributes',
     desc: 'Fine-tune details',
+    emphasis: false,
     headline: 'Fine-tune it.',
     headlineDim: 'Every detail matters.',
     description: 'Choose exactly what you want — hair, style, features — and fine-tune every detail.',
@@ -61,10 +110,21 @@ const CARD_DATA = [
     icon: 'zap' as const,
     title: 'Magic',
     desc: 'See the result',
+    emphasis: false,
     headline: 'See the magic.',
     headlineDim: 'AI brings it to life.',
     description: 'AI applies the look to your photo — see yourself transformed in seconds.',
     Hero: MagicHero,
+  },
+  {
+    icon: 'refresh-cw' as const,
+    title: 'REDUCES WASTE',
+    desc: 'Try first, commit smarter',
+    emphasis: true,
+    headline: 'REDUCES WASTE.',
+    headlineDim: 'Try it virtually first.',
+    description: 'Preview changes before real-world decisions to cut unnecessary products, returns, and one-off waste.',
+    Hero: WasteHero,
   },
 ];
 
@@ -125,12 +185,10 @@ function getCardPositions(containerWidth: number, rowGap: number) {
   const rightX = containerWidth - CARD_WIDTH;
   const rowHeight = CARD_HEIGHT + rowGap;
 
-  return [
-    { x: leftX, y: 0 },                    // Card 0: left
-    { x: rightX, y: rowHeight },            // Card 1: right
-    { x: leftX, y: rowHeight * 2 },         // Card 2: left
-    { x: rightX, y: rowHeight * 3 },        // Card 3: right
-  ];
+  return Array.from({ length: CARD_DATA.length }, (_, i) => ({
+    x: i % 2 === 0 ? leftX : rightX,
+    y: rowHeight * i,
+  }));
 }
 
 // SVG arrow path between two cards
@@ -170,7 +228,7 @@ export default function HowItWorksScreen() {
   // State machine
   const [phase, setPhase] = useState<FlowPhase>('overview');
   const [activeCardIndex, setActiveCardIndex] = useState(0);
-  const [completedCards, setCompletedCards] = useState<boolean[]>([false, false, false, false]);
+  const [completedCards, setCompletedCards] = useState<boolean[]>(Array(CARD_DATA.length).fill(false));
   const [allComplete, setAllComplete] = useState(false);
   const [showHero, setShowHero] = useState(false);
   const isAnimating = useRef(false);
@@ -188,27 +246,27 @@ export default function HowItWorksScreen() {
   const headlineTranslateY = useSharedValue(20);
   const subtitleEntry = useSharedValue(0);
   const cardEntries = useRef([
-    useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0),
+    useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0),
   ]).current;
   const arrowEntries = useRef([
-    useSharedValue(0), useSharedValue(0), useSharedValue(0),
+    useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0),
   ]).current;
   const buttonEntry = useSharedValue(0);
   const buttonTranslateY = useSharedValue(30);
   const activePulse = useSharedValue(0);
   // Per-card and per-arrow fill: once filled, they stay filled (progressive trail)
   const cardFills = useRef([
-    useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0),
+    useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0),
   ]).current;
   const arrowFills = useRef([
-    useSharedValue(0), useSharedValue(0), useSharedValue(0),
+    useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0),
   ]).current;
 
   // Layout
   const containerWidth = SCREEN_WIDTH - layout.screenPadding * 2;
   const ROW_GAP = 24;
   const cardPositions = useMemo(() => getCardPositions(containerWidth, ROW_GAP), [containerWidth]);
-  const totalGridHeight = CARD_HEIGHT * 4 + ROW_GAP * 3;
+  const totalGridHeight = CARD_HEIGHT * CARD_DATA.length + ROW_GAP * (CARD_DATA.length - 1);
 
   const bottomArea = Math.max(insets.bottom, 16) + 24 + 56;
   // Cards area positioning
@@ -241,7 +299,7 @@ export default function HowItWorksScreen() {
       entry.value = withDelay(delay, withTiming(1, { duration: ARROW_DRAW, easing: STANDARD_EASE }));
     });
 
-    const totalSequence = BASE + 3 * (CARD_APPEAR + ARROW_DRAW) + CARD_APPEAR;
+    const totalSequence = BASE + (CARD_DATA.length - 1) * (CARD_APPEAR + ARROW_DRAW) + CARD_APPEAR;
     buttonEntry.value = withDelay(totalSequence + 200, withTiming(1, { duration: 500, easing: SMOOTH_EASE }));
     buttonTranslateY.value = withDelay(totalSequence + 200, withSpring(0, { damping: 20, stiffness: 90 }));
 
@@ -301,7 +359,7 @@ export default function HowItWorksScreen() {
         return next;
       });
 
-      if (activeCardIndex === 3) {
+      if (activeCardIndex === CARD_DATA.length - 1) {
         // Last card — return to overview with all cards complete
         setAllComplete(true);
         setPhase('overview');
@@ -362,7 +420,7 @@ export default function HowItWorksScreen() {
 
     // Stagger cards out (reverse order: card3 first, card0 last)
     cardEntries.forEach((entry, i) => {
-      const reverseDelay = (3 - i) * 80;
+      const reverseDelay = (CARD_DATA.length - 1 - i) * 80;
       entry.value = withDelay(reverseDelay, withTiming(0, { duration: 300, easing: EXIT_EASE }));
     });
 
@@ -457,7 +515,7 @@ export default function HowItWorksScreen() {
         </Animated.View>
 
         <Animated.View style={subtitleStyle}>
-          <Text style={styles.subtitle}>4 simple steps to your new look</Text>
+          <Text style={styles.subtitle}>{CARD_DATA.length} simple steps to your new look</Text>
         </Animated.View>
 
         {/* Cards grid with arrows */}
@@ -468,7 +526,7 @@ export default function HowItWorksScreen() {
             height={totalGridHeight}
             style={StyleSheet.absoluteFill}
           >
-            {[0, 1, 2].map((i) => {
+            {Array.from({ length: CARD_DATA.length - 1 }, (_, i) => {
               const from = cardPositions[i];
               const to = cardPositions[i + 1];
               const path = getArrowPath(from, to);
@@ -811,6 +869,7 @@ function OverviewTile({
         <Animated.Text
           style={[
             tileStyles.title,
+            card.emphasis && tileStyles.titleEmphasis,
             {
               color: colors.textPrimary,
             },
@@ -919,7 +978,7 @@ function ZoomOverlay({
           <Feather name={card.icon} size={22} color={colors.textPrimary} />
         </View>
         <View style={tileStyles.textWrap}>
-          <Text style={[tileStyles.title, { color: colors.textPrimary }]}>
+          <Text style={[tileStyles.title, card.emphasis && tileStyles.titleEmphasis, { color: colors.textPrimary }]}>
             {card.title}
           </Text>
           <Text style={[tileStyles.desc, { color: colors.textTertiary }]}>
@@ -931,7 +990,7 @@ function ZoomOverlay({
       {/* Detail content — headline first, then hero */}
       <Animated.View style={[overlayZoomStyles.detailContent, detailContentStyle]}>
         <View style={overlayZoomStyles.headlineContainer}>
-          <Text style={[overlayZoomStyles.headline, { color: colors.textPrimary }]}>
+          <Text style={[overlayZoomStyles.headline, card.emphasis && overlayZoomStyles.headlineEmphasis, { color: colors.textPrimary }]}>
             {card.headline}
           </Text>
           <Text style={[overlayZoomStyles.headline, { color: colors.textTertiary }]}>
@@ -992,6 +1051,11 @@ const tileStyles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: -0.2,
   },
+  titleEmphasis: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
   desc: {
     fontSize: 11,
     fontWeight: '400',
@@ -1036,6 +1100,10 @@ const overlayZoomStyles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 44,
     letterSpacing: -0.5,
+  },
+  headlineEmphasis: {
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   description: {
     ...typography.bodyLarge,
