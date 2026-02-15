@@ -31,6 +31,7 @@ import {
 } from '@/utils/api';
 import { trackEvent } from '@/utils/analytics';
 import { createHairSwapSession } from '@/utils/hairSwapSession';
+import { AnalysisTags } from '@/components/create/AnalysisTags';
 
 type ExpandableSectionKey =
   | 'hairColor'
@@ -903,6 +904,7 @@ export default function CreateScreen() {
         </View>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]} showsVerticalScrollIndicator={false}>
+          <AnalysisTags activeTab="facial" />
 
           <Animated.View entering={FadeInDown.delay(120).duration(280)}>
             <Text style={styles.sectionTitle}>Your Photo</Text>
