@@ -3,7 +3,14 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const sharp = require('sharp');
+let sharp = null;
+try {
+  // Optional dependency: only needed for region mask generation endpoints.
+  // Server can still boot without it.
+  sharp = require('sharp');
+} catch {
+  sharp = null;
+}
 
 function loadEnvFile() {
   const envPath = path.join(__dirname, '.env');
@@ -270,6 +277,9 @@ async function generateHairMask(imageUrlOrDataUri) {
 }
 
 async function makeRegionMaskDataUri(sourceImage, region) {
+  if (!sharp) {
+    throw new Error('sharp is required for this endpoint. Run: npm install sharp');
+  }
   const meta = await sharp(sourceImage).metadata();
   const w = meta.width || 1024;
   const h = meta.height || 1024;
@@ -378,6 +388,7 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       service: 'lookr-feature-transform',
       replicateConfigured: !!REPLICATE_API_TOKEN,
+      sharpAvailable: !!sharp,
       timestamp: new Date().toISOString(),
     });
   }
