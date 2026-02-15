@@ -32,7 +32,7 @@ import { layout, borderRadius, springs } from '@/constants/spacing';
 import { useStorage } from '@/hooks/useStorage';
 import { trackEvent } from '@/utils/analytics';
 import { getProductsForElements, Product } from '@/utils/mockProducts';
-import { generateLook, recolorHair, recolorHairFast } from '@/utils/api';
+import { API_BASE_URL, generateLook, recolorHair, recolorHairFast } from '@/utils/api';
 import { getHairSwapSession } from '@/utils/hairSwapSession';
 
 const { width } = Dimensions.get('window');
@@ -251,9 +251,14 @@ export default function ResultScreen() {
         setResultImageUri(job.resultUrl || sourceLook || '');
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Generation failed';
+      const rawMessage = error instanceof Error ? error.message : 'Generation failed';
+      const isNetworkIssue = /network request failed/i.test(rawMessage);
+      const message = isNetworkIssue
+        ? `Cannot reach backend at ${API_BASE_URL}. Start API server and ensure your phone/simulator can access your computer on the same network.`
+        : rawMessage;
+      const title = isHairColorMode ? 'Hair color swap failed' : 'Look generation failed';
       setGenerationError(message);
-      Alert.alert('Hair color swap failed', message);
+      Alert.alert(title, message);
       setResultImageUri(sourceLook || '');
       setHairMaskUrl('');
     } finally {

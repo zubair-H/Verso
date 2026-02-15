@@ -73,7 +73,7 @@ export function UploadTile({
             <View style={styles.iconWrap}>
               <Ionicons name="image-outline" size={28} color={colors.accent} />
             </View>
-            <Text style={styles.placeholderText}>Upload your selfie</Text>
+            <Text style={styles.placeholderText}>Upload image</Text>
           </View>
         )}
       </View>
