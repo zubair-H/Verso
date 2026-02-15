@@ -39,6 +39,7 @@ export default function SavedScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { savedLooks, toggleFavorite, deleteLook, isLoading } = useStorage();
+  const selectionBarBottomOffset = layout.tabBarHeight + 8;
 
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [selectionMode, setSelectionMode] = useState(false);
@@ -209,7 +210,7 @@ export default function SavedScreen() {
           position: 'absolute',
           left: layout.screenPadding,
           right: layout.screenPadding,
-          bottom: insets.bottom + layout.tabBarHeight + 8,
+          bottom: selectionBarBottomOffset,
           borderRadius: borderRadius.xl,
           backgroundColor: colors.bgCard,
           borderWidth: 1,
@@ -244,7 +245,7 @@ export default function SavedScreen() {
           marginBottom: 2,
         },
       }),
-    [colors, insets.bottom, selectionMode]
+    [colors, selectionBarBottomOffset, selectionMode]
   );
 
   const showEmpty = !isLoading && displayedLooks.length === 0;
@@ -261,7 +262,7 @@ export default function SavedScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: selectionMode ? layout.tabBarHeight + 120 : layout.tabBarHeight + 30 },
+          { paddingBottom: selectionMode ? layout.tabBarHeight + 136 : layout.tabBarHeight + 30 },
         ]}
       >
         <View style={styles.headerRow}>
