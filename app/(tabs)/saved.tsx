@@ -121,6 +121,9 @@ export default function SavedScreen() {
           flex: 1,
           backgroundColor: colors.bgPrimary,
         },
+        screenGradient: {
+          ...StyleSheet.absoluteFillObject,
+        },
         headerTitle: {
           ...typography.displayMedium,
           color: colors.textPrimary,
@@ -130,35 +133,49 @@ export default function SavedScreen() {
           color: colors.textSecondary,
           marginTop: 4,
         },
+        editButton: {
+          borderRadius: borderRadius.full,
+          borderWidth: 1,
+          borderColor: selectionMode ? colors.accent : colors.border,
+          backgroundColor: selectionMode ? colors.accentMuted : colors.bgSecondary,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+        },
         editText: {
-          ...typography.labelLarge,
+          ...typography.labelMedium,
           color: colors.accent,
         },
-        summaryCard: {
-          marginTop: 18,
-          backgroundColor: colors.bgSecondary,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: borderRadius.xl,
-          padding: 14,
-        },
-        summaryTitle: {
-          ...typography.labelLarge,
-          color: colors.textPrimary,
-        },
-        summaryMeta: {
-          ...typography.caption,
-          color: colors.textSecondary,
-          marginTop: 2,
-        },
-        statPill: {
+        statChip: {
           flex: 1,
           borderRadius: borderRadius.lg,
           paddingVertical: 10,
           paddingHorizontal: 12,
           borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.bgCard,
+          borderColor: colors.borderLight,
+          backgroundColor: colors.bgSecondary,
+          gap: 6,
+        },
+        statChipTop: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+        },
+        statChipIcon: {
+          width: 18,
+          height: 18,
+          borderRadius: borderRadius.full,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.accentMuted,
+        },
+        statPill: {
+          flex: 1,
+          borderRadius: borderRadius.lg,
+          paddingVertical: 11,
+          paddingHorizontal: 12,
+          borderWidth: 1,
+          borderColor: colors.borderLight,
+          backgroundColor: colors.bgSecondary,
         },
         statLabel: {
           ...typography.caption,
@@ -171,21 +188,23 @@ export default function SavedScreen() {
         tabsWrap: {
           flexDirection: 'row',
           marginTop: 16,
-          padding: 4,
-          borderRadius: borderRadius.xl,
-          backgroundColor: colors.bgTertiary,
+          gap: 10,
         },
         tab: {
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
           paddingVertical: 10,
-          borderRadius: borderRadius.lg,
+          borderRadius: borderRadius.full,
           flexDirection: 'row',
           gap: 6,
+          borderWidth: 1,
+          borderColor: colors.borderLight,
+          backgroundColor: colors.bgSecondary,
         },
         tabActive: {
           backgroundColor: colors.bgCard,
+          borderColor: colors.accent,
         },
         tabText: {
           ...typography.labelMedium,
@@ -203,9 +222,21 @@ export default function SavedScreen() {
           justifyContent: 'center',
           backgroundColor: colors.accentMuted,
         },
+        countBadgeActive: {
+          backgroundColor: colors.accent,
+        },
         countBadgeText: {
           ...typography.labelSmall,
           color: colors.textPrimary,
+        },
+        countBadgeTextActive: {
+          color: colors.textOnAccent,
+        },
+        gridHeading: {
+          ...typography.labelLarge,
+          color: colors.textPrimary,
+          marginTop: 18,
+          marginBottom: 10,
         },
         emptyTitle: {
           ...typography.headlineLarge,
@@ -228,7 +259,7 @@ export default function SavedScreen() {
           position: 'absolute',
           left: layout.screenPadding,
           right: layout.screenPadding,
-          bottom: layout.tabBarHeight + 10,
+          bottom: insets.bottom + layout.tabBarHeight + 8,
           borderRadius: borderRadius.xl,
           backgroundColor: colors.bgCard,
           borderWidth: 1,
@@ -255,13 +286,19 @@ export default function SavedScreen() {
           marginBottom: 2,
         },
       }),
-    [colors]
+    [colors, insets.bottom, selectionMode]
   );
 
   const showEmpty = !isLoading && displayedLooks.length === 0;
 
   return (
     <View style={[dynamicStyles.screen, { paddingTop: insets.top }]}>
+      <LinearGradient
+        colors={[colors.bgSecondary, colors.bgPrimary, colors.bgPrimary]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={dynamicStyles.screenGradient}
+      />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
@@ -274,23 +311,32 @@ export default function SavedScreen() {
             <Text style={dynamicStyles.headerTitle}>Saved</Text>
             <Text style={dynamicStyles.headerSubtitle}>Your transformation archive</Text>
           </View>
-          <Pressable onPress={selectionMode ? exitSelectionMode : () => setSelectionMode(true)}>
+          <Pressable
+            onPress={selectionMode ? exitSelectionMode : () => setSelectionMode(true)}
+            style={dynamicStyles.editButton}
+          >
             <Text style={dynamicStyles.editText}>{selectionMode ? 'Done' : 'Select'}</Text>
           </Pressable>
         </View>
 
-        <View style={dynamicStyles.summaryCard}>
-          <Text style={dynamicStyles.summaryTitle}>Style Vault</Text>
-          <Text style={dynamicStyles.summaryMeta}>Track recent looks and quickly compare favorites.</Text>
-          <View style={styles.statsRow}>
-            <View style={dynamicStyles.statPill}>
+        <View style={styles.statsRow}>
+          <View style={dynamicStyles.statChip}>
+            <View style={dynamicStyles.statChipTop}>
+              <View style={dynamicStyles.statChipIcon}>
+                <Ionicons name="images-outline" size={11} color={colors.accent} />
+              </View>
               <Text style={dynamicStyles.statLabel}>Total Looks</Text>
-              <Text style={dynamicStyles.statValue}>{savedLooks.length}</Text>
             </View>
-            <View style={dynamicStyles.statPill}>
+            <Text style={dynamicStyles.statValue}>{savedLooks.length}</Text>
+          </View>
+          <View style={dynamicStyles.statChip}>
+            <View style={dynamicStyles.statChipTop}>
+              <View style={dynamicStyles.statChipIcon}>
+                <Ionicons name="calendar-outline" size={11} color={colors.accent} />
+              </View>
               <Text style={dynamicStyles.statLabel}>Saved This Week</Text>
-              <Text style={dynamicStyles.statValue}>{recentCount}</Text>
             </View>
+            <Text style={dynamicStyles.statValue}>{recentCount}</Text>
           </View>
         </View>
 
@@ -300,8 +346,15 @@ export default function SavedScreen() {
             onPress={() => handleTabChange('all')}
           >
             <Text style={[dynamicStyles.tabText, activeTab === 'all' && dynamicStyles.tabTextActive]}>All</Text>
-            <View style={dynamicStyles.countBadge}>
-              <Text style={dynamicStyles.countBadgeText}>{savedLooks.length}</Text>
+            <View style={[dynamicStyles.countBadge, activeTab === 'all' && dynamicStyles.countBadgeActive]}>
+              <Text
+                style={[
+                  dynamicStyles.countBadgeText,
+                  activeTab === 'all' && dynamicStyles.countBadgeTextActive,
+                ]}
+              >
+                {savedLooks.length}
+              </Text>
             </View>
           </Pressable>
           <Pressable
@@ -309,8 +362,15 @@ export default function SavedScreen() {
             onPress={() => handleTabChange('favorites')}
           >
             <Text style={[dynamicStyles.tabText, activeTab === 'favorites' && dynamicStyles.tabTextActive]}>Favorites</Text>
-            <View style={dynamicStyles.countBadge}>
-              <Text style={dynamicStyles.countBadgeText}>{favoriteCount}</Text>
+            <View style={[dynamicStyles.countBadge, activeTab === 'favorites' && dynamicStyles.countBadgeActive]}>
+              <Text
+                style={[
+                  dynamicStyles.countBadgeText,
+                  activeTab === 'favorites' && dynamicStyles.countBadgeTextActive,
+                ]}
+              >
+                {favoriteCount}
+              </Text>
             </View>
           </Pressable>
         </View>
@@ -340,24 +400,27 @@ export default function SavedScreen() {
         )}
 
         {!showEmpty && displayedLooks.length > 0 && (
-          <View style={styles.grid}>
-            {displayedLooks.map((look, index) => (
-              <SavedLookCard
-                key={look.id}
-                look={look}
-                index={index}
-                selected={selectedIds.includes(look.id)}
-                selectionMode={selectionMode}
-                onPress={() => handleCardPress(look.id)}
-                onLongPress={() => handleCardLongPress(look.id)}
-                onToggleFavorite={async () => {
-                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  toggleFavorite(look.id);
-                }}
-                colors={colors}
-              />
-            ))}
-          </View>
+          <>
+            <Text style={dynamicStyles.gridHeading}>Recent Looks</Text>
+            <View style={styles.grid}>
+              {displayedLooks.map((look, index) => (
+                <SavedLookCard
+                  key={look.id}
+                  look={look}
+                  index={index}
+                  selected={selectedIds.includes(look.id)}
+                  selectionMode={selectionMode}
+                  onPress={() => handleCardPress(look.id)}
+                  onLongPress={() => handleCardLongPress(look.id)}
+                  onToggleFavorite={async () => {
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    toggleFavorite(look.id);
+                  }}
+                  colors={colors}
+                />
+              ))}
+            </View>
+          </>
         )}
       </ScrollView>
 
@@ -434,22 +497,41 @@ function SavedLookCard({
         card: {
           width: CARD_WIDTH,
           height: CARD_HEIGHT,
-          borderRadius: borderRadius.lg,
+          borderRadius: borderRadius.xl,
           overflow: 'hidden',
           backgroundColor: colors.bgCard,
           borderWidth: selected ? 2 : 1,
           borderColor: selected ? colors.accent : colors.border,
         },
+        topMetaBadge: {
+          position: 'absolute',
+          top: 10,
+          left: 10,
+          borderRadius: borderRadius.full,
+          paddingHorizontal: 10,
+          paddingVertical: 5,
+          backgroundColor: 'rgba(0,0,0,0.38)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.2)',
+          zIndex: 3,
+        },
+        topMetaText: {
+          ...typography.labelSmall,
+          color: '#FFFFFF',
+        },
         favoriteButton: {
           position: 'absolute',
           top: 10,
           right: 10,
-          width: 30,
-          height: 30,
+          width: 32,
+          height: 32,
           borderRadius: borderRadius.full,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: 'rgba(0,0,0,0.34)',
+          backgroundColor: 'rgba(0,0,0,0.38)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.2)',
+          zIndex: 3,
         },
         selectionIndicator: {
           position: 'absolute',
@@ -487,6 +569,7 @@ function SavedLookCard({
 
   const title = look.elements?.length ? look.elements[0] : 'Custom look';
   const subtitle = formatSavedDate(look.createdAt, look.elements?.length ?? 0);
+  const badgeText = look.elements?.length ? `${look.elements.length} traits` : 'Saved look';
 
   return (
     <AnimatedPressable
@@ -498,6 +581,9 @@ function SavedLookCard({
     >
       <Animated.View entering={FadeIn.delay(Math.min(index * 40, 240))} style={cardStyles.card}>
         <Image source={{ uri: look.result }} style={styles.savedImage} />
+        <View style={cardStyles.topMetaBadge}>
+          <Text style={cardStyles.topMetaText}>{badgeText}</Text>
+        </View>
 
         {!selectionMode && (
           <Pressable style={cardStyles.favoriteButton} onPress={onToggleFavorite} hitSlop={8}>
@@ -545,7 +631,7 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 6,
   },
@@ -577,7 +663,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: CARD_GAP,
-    marginTop: 18,
   },
   cardWrap: {
     width: CARD_WIDTH,
