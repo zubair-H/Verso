@@ -20,6 +20,8 @@ export function createFacialStyles(colors: any, insetBottom: number) {
     sectionTitle: { ...typography.labelLarge, color: colors.textPrimary, marginBottom: 10 },
     hint: { marginTop: 8, ...typography.caption, color: colors.textTertiary },
     row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 6 },
+    hairRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingRight: 6 },
+    wrapRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
     gridWrap: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -95,6 +97,7 @@ export function createFacialStyles(colors: any, insetBottom: number) {
       alignItems: 'center',
       gap: 8,
     },
+    colorChipWrapItem: { marginRight: 0 },
     colorChipActive: { borderColor: colors.accent, backgroundColor: colors.bgCard },
     colorDot: {
       width: 14,
@@ -123,7 +126,6 @@ export function createFacialStyles(colors: any, insetBottom: number) {
       paddingVertical: 8,
       marginRight: -10,
     },
-    shrinkText: { ...typography.caption, color: colors.accent },
     bottomBar: {
       backgroundColor: colors.bgPrimary,
       paddingHorizontal: layout.screenPadding,

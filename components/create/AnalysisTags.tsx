@@ -16,21 +16,24 @@ export function AnalysisTags({ activeTab }: { activeTab: AnalysisTab }) {
         row: {
           flexDirection: 'row',
           alignItems: 'center',
+          justifyContent: 'center',
           gap: 8,
           marginTop: 10,
-          marginBottom: 4,
+          marginBottom: 1,
         },
         tag: {
+          flex: 1,
           borderRadius: 14,
           borderWidth: 1,
           borderColor: colors.borderLight,
           backgroundColor: colors.bgSecondary,
           paddingHorizontal: 12,
           paddingVertical: 8,
+          alignItems: 'center',
         },
         tagActive: {
           borderColor: colors.accent,
-          backgroundColor: colors.accentMuted,
+          backgroundColor: 'transparent',
         },
         tagText: {
           ...typography.caption,
@@ -64,16 +67,6 @@ export function AnalysisTags({ activeTab }: { activeTab: AnalysisTab }) {
         style={[styles.tag, activeTab === 'outfit' && styles.tagActive]}
       >
         <Text style={[styles.tagText, activeTab === 'outfit' && styles.tagTextActive]}>Outfit Analysis</Text>
-      </Pressable>
-      <Pressable
-        onPress={() => {
-          if (activeTab !== 'health') {
-            router.replace('/(tabs)/health-analysis');
-          }
-        }}
-        style={[styles.tag, activeTab === 'health' && styles.tagActive]}
-      >
-        <Text style={[styles.tagText, activeTab === 'health' && styles.tagTextActive]}>Health Analysis</Text>
       </Pressable>
     </View>
   );

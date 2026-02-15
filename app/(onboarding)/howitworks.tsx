@@ -415,54 +415,68 @@ export default function HowItWorksScreen() {
     }, ZOOM_DURATION + 50);
   }, [activeCardIndex]);
 
-  const handleExit = useCallback(() => {
+  const handleExit = useCallback((options?: { skipHaptic?: boolean; soft?: boolean }) => {
     if (isAnimating.current) return;
     isAnimating.current = true;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const skipHaptic = options?.skipHaptic ?? false;
+    const soft = options?.soft ?? false;
+    if (!skipHaptic) {
+      Haptics.impactAsync(soft ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium);
+    }
 
-    const EXIT_EASE = Easing.bezier(0.4, 0, 0.2, 1);
+    const EXIT_EASE = soft ? SMOOTH_EASE : Easing.bezier(0.4, 0, 0.2, 1);
+    const buttonFadeDur = soft ? 320 : 250;
+    const buttonSlideDur = soft ? 380 : 300;
+    const textFadeDur = soft ? 360 : 300;
+    const textSlideDur = soft ? 420 : 350;
+    const cardFadeDur = soft ? 360 : 300;
+    const cardStagger = soft ? 95 : 80;
+    const arrowFadeDur = soft ? 300 : 250;
+    const drainDur = soft ? 360 : 300;
+    const globalExitDur = soft ? 620 : 500;
+    const navigateDelay = soft ? 680 : 550;
 
     // Fade out button with slight downward slide
-    buttonEntry.value = withTiming(0, { duration: 250, easing: EXIT_EASE });
-    buttonTranslateY.value = withTiming(20, { duration: 300, easing: EXIT_EASE });
+    buttonEntry.value = withTiming(0, { duration: buttonFadeDur, easing: EXIT_EASE });
+    buttonTranslateY.value = withTiming(20, { duration: buttonSlideDur, easing: EXIT_EASE });
 
     // Fade out headline + subtitle with slight upward drift
-    headlineEntry.value = withTiming(0, { duration: 300, easing: EXIT_EASE });
-    headlineTranslateY.value = withTiming(-12, { duration: 350, easing: EXIT_EASE });
-    subtitleEntry.value = withTiming(0, { duration: 250, easing: EXIT_EASE });
+    headlineEntry.value = withTiming(0, { duration: textFadeDur, easing: EXIT_EASE });
+    headlineTranslateY.value = withTiming(-12, { duration: textSlideDur, easing: EXIT_EASE });
+    subtitleEntry.value = withTiming(0, { duration: buttonFadeDur, easing: EXIT_EASE });
 
     // Stagger cards out (reverse order: card3 first, card0 last)
     cardEntries.forEach((entry, i) => {
-      const reverseDelay = (CARD_DATA.length - 1 - i) * 80;
-      entry.value = withDelay(reverseDelay, withTiming(0, { duration: 300, easing: EXIT_EASE }));
+      const reverseDelay = (CARD_DATA.length - 1 - i) * cardStagger;
+      entry.value = withDelay(reverseDelay, withTiming(0, { duration: cardFadeDur, easing: EXIT_EASE }));
     });
 
     // Arrows fade out together
     arrowEntries.forEach((entry) => {
-      entry.value = withTiming(0, { duration: 250, easing: EXIT_EASE });
+      entry.value = withTiming(0, { duration: arrowFadeDur, easing: EXIT_EASE });
     });
 
     // Drain active card border, hide already-drained ones
     cardFills.forEach((fill) => {
       if (fill.value > 0 && fill.value <= 1) {
         // Active/filled card: drain it out (1→2)
-        fill.value = withTiming(2, { duration: 300, easing: EXIT_EASE });
+        fill.value = withTiming(2, { duration: drainDur, easing: EXIT_EASE });
       }
       // Already drained (value >= 2) or unfilled (0): leave as-is
     });
     arrowFills.forEach((fill) => {
       if (fill.value > 0 && fill.value <= 1) {
-        fill.value = withTiming(2, { duration: 300, easing: EXIT_EASE });
+        fill.value = withTiming(2, { duration: drainDur, easing: EXIT_EASE });
       }
     });
 
     // Drive exitProgress for any global effects
-    exitProgress.value = withTiming(1, { duration: 500, easing: EXIT_EASE });
+    exitProgress.value = withTiming(1, { duration: globalExitDur, easing: EXIT_EASE });
 
     // Navigate after animation completes
     setTimeout(() => {
       router.push('/(onboarding)/permissions' as any);
-    }, 550);
+    }, navigateDelay);
   }, []);
 
   const handleZoomOutAndExit = useCallback(() => {
@@ -490,8 +504,8 @@ export default function HowItWorksScreen() {
 
       // After collapse completes, run the normal graceful exit sequence.
       setTimeout(() => {
-        handleExit();
-      }, 120);
+        handleExit({ skipHaptic: true, soft: true });
+      }, 220);
     }, ZOOM_DURATION + 50);
   }, [activeCardIndex, handleExit]);
 

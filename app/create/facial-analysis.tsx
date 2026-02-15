@@ -138,7 +138,7 @@ export default function CreateScreen() {
         {asGrid ? (
           <View style={styles.gridWrap}>{content}</View>
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hairRow}>
             {content}
           </ScrollView>
         )}
@@ -354,10 +354,10 @@ export default function CreateScreen() {
           <Text style={styles.headerTitle}>Create Your Look</Text>
         </View>
 
-        <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 14 }]} showsVerticalScrollIndicator={false}>
           <AnalysisTags activeTab="facial" />
 
-          <Animated.View entering={FadeInDown.delay(120).duration(280)}>
+          <Animated.View entering={FadeInDown.delay(120).duration(280)} style={{ marginTop: 4 }}>
             <Text style={styles.sectionTitle}>Your Photo</Text>
             <UploadTile image={selfieImage} onSelect={pickImage} onRemove={() => setSelfieImage(null)} />
           </Animated.View>
@@ -447,7 +447,7 @@ export default function CreateScreen() {
             <View style={styles.focusedHeader}>
               <Text style={styles.focusedTitle}>{getFocusedTitle(focusedCategory)}</Text>
               <Pressable onPress={() => setFocusedCategory(null)} hitSlop={10} style={styles.shrinkButton}>
-                <Text style={styles.shrinkText}>Shrink</Text>
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
               </Pressable>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>{renderCategoryContent(focusedCategory)}</ScrollView>

@@ -296,12 +296,12 @@ export default function OutfitAnalysisScreen() {
 
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
           showsVerticalScrollIndicator={false}
         >
           <AnalysisTags activeTab="outfit" />
 
-          <Animated.View entering={FadeInDown.delay(120).duration(280)}>
+          <Animated.View entering={FadeInDown.delay(120).duration(280)} style={{ marginTop: 4 }}>
             <Text style={styles.sectionTitle}>Outfit Photo</Text>
             <UploadTile
               image={analysisImage}
@@ -311,7 +311,7 @@ export default function OutfitAnalysisScreen() {
                 setAnalysisImageDataUri(null);
               }}
             />
-            <Text style={localStyles.helperText}>Upload one clear full-outfit image for best results.</Text>
+            
           </Animated.View>
 
           {SECTIONS.map((section, index) => (
@@ -333,7 +333,7 @@ export default function OutfitAnalysisScreen() {
             <View style={styles.focusedHeader}>
               <Text style={styles.focusedTitle}>{getSectionByKey(focusedCategory).title}</Text>
               <Pressable onPress={() => setFocusedCategory(null)} hitSlop={10} style={styles.shrinkButton}>
-                <Text style={styles.shrinkText}>Shrink</Text>
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
               </Pressable>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>{renderOptionGrid(getSectionByKey(focusedCategory))}</ScrollView>

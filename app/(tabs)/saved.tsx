@@ -1,81 +1,89 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
-  ScrollView,
-  Pressable,
-  Image,
-  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   FadeIn,
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { PrimaryButton } from '@/components/ui';
-import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PrimaryButton, SecondaryButton } from '@/components/ui';
+import { borderRadius, layout, springs } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
-import { layout, borderRadius, springs } from '@/constants/spacing';
-import { useStorage, SavedLook } from '@/hooks/useStorage';
+import { useTheme } from '@/contexts/ThemeContext';
+import { SavedLook, useStorage } from '@/hooks/useStorage';
 
-const { width } = Dimensions.get('window');
-const COLUMN_COUNT = 3;
-const CARD_GAP = 12;
-const CARD_WIDTH = (width - layout.screenPadding * 2 - CARD_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
-
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const GRID_COLUMNS = 2;
+const CARD_GAP = 14;
+const CARD_WIDTH = (SCREEN_WIDTH - layout.screenPadding * 2 - CARD_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
+const CARD_HEIGHT = CARD_WIDTH * 1.42;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-interface ColorsType {
-  bgPrimary: string;
-  textPrimary: string;
-  textSecondary: string;
-  textTertiary: string;
-  accent: string;
-  bgTertiary: string;
-  border: string;
-}
+type FilterTab = 'all' | 'favorites';
 
 export default function SavedScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { savedLooks, toggleFavorite, isLoading } = useStorage();
-  const [activeTab, setActiveTab] = useState<'all' | 'favorites'>('all');
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const { savedLooks, toggleFavorite, deleteLook, isLoading } = useStorage();
+
+  const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const displayedLooks = activeTab === 'favorites'
-    ? savedLooks.filter((look) => look.isFavorite)
-    : savedLooks;
+  const favoriteCount = useMemo(
+    () => savedLooks.filter((look) => look.isFavorite).length,
+    [savedLooks]
+  );
 
-  const handleTabChange = async (tab: 'all' | 'favorites') => {
+  const recentCount = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return savedLooks.filter((look) => look.createdAt >= weekAgo).length;
+  }, [savedLooks]);
+
+  const displayedLooks = useMemo(() => {
+    const filtered = activeTab === 'favorites'
+      ? savedLooks.filter((look) => look.isFavorite)
+      : savedLooks;
+
+    return [...filtered].sort((a, b) => b.createdAt - a.createdAt);
+  }, [activeTab, savedLooks]);
+
+  const toggleSelection = async (id: string) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveTab(tab);
+    setSelectedIds((prev) => (
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    ));
   };
 
-  const handleLongPress = async (id: string) => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSelectionMode(true);
-    setSelectedIds([id]);
-  };
-
-  const handlePress = async (id: string) => {
-    if (selectionMode) {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setSelectedIds((prev) =>
-        prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-      );
+  const handleCardPress = async (id: string) => {
+    if (!selectionMode) {
+      return;
     }
+    await toggleSelection(id);
   };
 
-  const handleToggleFavorite = async (id: string) => {
+  const handleCardLongPress = async (id: string) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    toggleFavorite(id);
+    if (!selectionMode) {
+      setSelectionMode(true);
+      setSelectedIds([id]);
+      return;
+    }
+    await toggleSelection(id);
   };
 
   const exitSelectionMode = () => {
@@ -83,157 +91,255 @@ export default function SavedScreen() {
     setSelectedIds([]);
   };
 
-  const handleCompare = () => {
-    // Navigate to compare view
+  const handleDeleteSelected = async () => {
+    if (!selectedIds.length) return;
+
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    await Promise.all(selectedIds.map(async (id) => deleteLook(id)));
+    exitSelectionMode();
+  };
+
+  const handleCompare = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Compare flow is not wired yet.
+  };
+
+  const handleTabChange = async (tab: FilterTab) => {
+    await Haptics.selectionAsync();
+    setActiveTab(tab);
+    exitSelectionMode();
   };
 
   const handleTryALook = () => {
-    router.push('/(tabs)');
+    router.push('/(tabs)/create');
   };
 
-  const dynamicStyles = useMemo(() => ({
-    container: {
-      flex: 1,
-      backgroundColor: colors.bgPrimary,
-    },
-    title: {
-      ...typography.displayMedium,
-      color: colors.textPrimary,
-    },
-    editButton: {
-      ...typography.labelLarge,
-      color: colors.accent,
-    },
-    tabsContainer: {
-      flexDirection: 'row' as const,
-      marginHorizontal: layout.screenPadding,
-      marginBottom: 24,
-      backgroundColor: colors.bgTertiary,
-      borderRadius: borderRadius.md,
-      padding: 4,
-    },
-    tab: {
-      flex: 1,
-      paddingVertical: 12,
-      alignItems: 'center' as const,
-      borderRadius: borderRadius.sm,
-    },
-    tabActive: {
-      backgroundColor: colors.border,
-    },
-    tabText: {
-      ...typography.labelMedium,
-      color: colors.textSecondary,
-    },
-    tabTextActive: {
-      color: colors.textPrimary,
-    },
-    emptyTitle: {
-      ...typography.headlineLarge,
-      color: colors.textPrimary,
-      marginBottom: 8,
-    },
-    emptyDescription: {
-      ...typography.bodyMedium,
-      color: colors.textSecondary,
-      textAlign: 'center' as const,
-      marginBottom: 32,
-    },
-    savedCardSelected: {
-      borderColor: colors.accent,
-    },
-    favoriteBadge: {
-      position: 'absolute' as const,
-      top: 8,
-      right: 8,
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: colors.bgTertiary,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-    },
-    selectionIndicator: {
-      position: 'absolute' as const,
-      top: 8,
-      right: 8,
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      borderWidth: 2,
-      borderColor: colors.textSecondary,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      backgroundColor: 'transparent',
-    },
-    selectionIndicatorActive: {
-      borderWidth: 0,
-      backgroundColor: colors.accent,
-    },
-  }), [colors]);
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        screen: {
+          flex: 1,
+          backgroundColor: colors.bgPrimary,
+        },
+        headerTitle: {
+          ...typography.displayMedium,
+          color: colors.textPrimary,
+        },
+        headerSubtitle: {
+          ...typography.bodyMedium,
+          color: colors.textSecondary,
+          marginTop: 4,
+        },
+        editText: {
+          ...typography.labelLarge,
+          color: colors.accent,
+        },
+        summaryCard: {
+          marginTop: 18,
+          backgroundColor: colors.bgSecondary,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: borderRadius.xl,
+          padding: 14,
+        },
+        summaryTitle: {
+          ...typography.labelLarge,
+          color: colors.textPrimary,
+        },
+        summaryMeta: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          marginTop: 2,
+        },
+        statPill: {
+          flex: 1,
+          borderRadius: borderRadius.lg,
+          paddingVertical: 10,
+          paddingHorizontal: 12,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.bgCard,
+        },
+        statLabel: {
+          ...typography.caption,
+          color: colors.textSecondary,
+        },
+        statValue: {
+          ...typography.headlineMedium,
+          color: colors.textPrimary,
+        },
+        tabsWrap: {
+          flexDirection: 'row',
+          marginTop: 16,
+          padding: 4,
+          borderRadius: borderRadius.xl,
+          backgroundColor: colors.bgTertiary,
+        },
+        tab: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 10,
+          borderRadius: borderRadius.lg,
+          flexDirection: 'row',
+          gap: 6,
+        },
+        tabActive: {
+          backgroundColor: colors.bgCard,
+        },
+        tabText: {
+          ...typography.labelMedium,
+          color: colors.textSecondary,
+        },
+        tabTextActive: {
+          color: colors.textPrimary,
+        },
+        countBadge: {
+          minWidth: 22,
+          paddingHorizontal: 6,
+          height: 18,
+          borderRadius: borderRadius.full,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.accentMuted,
+        },
+        countBadgeText: {
+          ...typography.labelSmall,
+          color: colors.textPrimary,
+        },
+        emptyTitle: {
+          ...typography.headlineLarge,
+          color: colors.textPrimary,
+          marginTop: 16,
+        },
+        emptyDescription: {
+          ...typography.bodyMedium,
+          color: colors.textSecondary,
+          textAlign: 'center',
+          marginTop: 8,
+          marginBottom: 30,
+        },
+        loadingText: {
+          ...typography.bodyMedium,
+          color: colors.textSecondary,
+          marginTop: 12,
+        },
+        bottomBar: {
+          position: 'absolute',
+          left: layout.screenPadding,
+          right: layout.screenPadding,
+          bottom: layout.tabBarHeight + 10,
+          borderRadius: borderRadius.xl,
+          backgroundColor: colors.bgCard,
+          borderWidth: 1,
+          borderColor: colors.border,
+          padding: 10,
+          gap: 10,
+        },
+        bottomBarTop: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        },
+        bottomBarDone: {
+          ...typography.labelMedium,
+          color: colors.accent,
+        },
+        bottomBarActions: {
+          flexDirection: 'row',
+          gap: 10,
+        },
+        bottomMeta: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          marginBottom: 2,
+        },
+      }),
+    [colors]
+  );
+
+  const showEmpty = !isLoading && displayedLooks.length === 0;
 
   return (
-    <View style={[dynamicStyles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={dynamicStyles.title}>Saved Looks</Text>
-        {selectionMode ? (
-          <Pressable onPress={exitSelectionMode}>
-            <Text style={dynamicStyles.editButton}>Done</Text>
+    <View style={[dynamicStyles.screen, { paddingTop: insets.top }]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: selectionMode ? layout.tabBarHeight + 120 : layout.tabBarHeight + 30 },
+        ]}
+      >
+        <View style={styles.headerRow}>
+          <View style={styles.headerTextWrap}>
+            <Text style={dynamicStyles.headerTitle}>Saved</Text>
+            <Text style={dynamicStyles.headerSubtitle}>Your transformation archive</Text>
+          </View>
+          <Pressable onPress={selectionMode ? exitSelectionMode : () => setSelectionMode(true)}>
+            <Text style={dynamicStyles.editText}>{selectionMode ? 'Done' : 'Select'}</Text>
           </Pressable>
-        ) : (
-          <Pressable onPress={() => setSelectionMode(true)}>
-            <Text style={dynamicStyles.editButton}>Edit</Text>
-          </Pressable>
-        )}
-      </View>
-
-      {/* Tabs */}
-      <View style={dynamicStyles.tabsContainer}>
-        <Pressable
-          onPress={() => handleTabChange('all')}
-          style={[dynamicStyles.tab, activeTab === 'all' && dynamicStyles.tabActive]}
-        >
-          <Text style={[dynamicStyles.tabText, activeTab === 'all' && dynamicStyles.tabTextActive]}>
-            All ({savedLooks.length})
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => handleTabChange('favorites')}
-          style={[dynamicStyles.tab, activeTab === 'favorites' && dynamicStyles.tabActive]}
-        >
-          <Text style={[dynamicStyles.tabText, activeTab === 'favorites' && dynamicStyles.tabTextActive]}>
-            Favorites
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Grid or Empty State */}
-      {displayedLooks.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="camera-outline" size={64} color={colors.textTertiary} style={styles.emptyIcon} />
-          <Text style={dynamicStyles.emptyTitle}>
-            {activeTab === 'favorites' ? 'No favorites yet' : 'Start your collection'}
-          </Text>
-          <Text style={dynamicStyles.emptyDescription}>
-            {activeTab === 'favorites'
-              ? 'Tap the heart on any saved look to add it here.'
-              : 'Explore some looks and save your favorites to build your style inspiration board!'}
-          </Text>
-          {activeTab === 'all' && (
-            <PrimaryButton
-              label="Try a Look"
-              onPress={handleTryALook}
-              style={styles.emptyButton}
-            />
-          )}
         </View>
-      ) : (
-        <ScrollView
-          style={styles.gridScroll}
-          contentContainerStyle={styles.gridContent}
-          showsVerticalScrollIndicator={false}
-        >
+
+        <View style={dynamicStyles.summaryCard}>
+          <Text style={dynamicStyles.summaryTitle}>Style Vault</Text>
+          <Text style={dynamicStyles.summaryMeta}>Track recent looks and quickly compare favorites.</Text>
+          <View style={styles.statsRow}>
+            <View style={dynamicStyles.statPill}>
+              <Text style={dynamicStyles.statLabel}>Total Looks</Text>
+              <Text style={dynamicStyles.statValue}>{savedLooks.length}</Text>
+            </View>
+            <View style={dynamicStyles.statPill}>
+              <Text style={dynamicStyles.statLabel}>Saved This Week</Text>
+              <Text style={dynamicStyles.statValue}>{recentCount}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={dynamicStyles.tabsWrap}>
+          <Pressable
+            style={[dynamicStyles.tab, activeTab === 'all' && dynamicStyles.tabActive]}
+            onPress={() => handleTabChange('all')}
+          >
+            <Text style={[dynamicStyles.tabText, activeTab === 'all' && dynamicStyles.tabTextActive]}>All</Text>
+            <View style={dynamicStyles.countBadge}>
+              <Text style={dynamicStyles.countBadgeText}>{savedLooks.length}</Text>
+            </View>
+          </Pressable>
+          <Pressable
+            style={[dynamicStyles.tab, activeTab === 'favorites' && dynamicStyles.tabActive]}
+            onPress={() => handleTabChange('favorites')}
+          >
+            <Text style={[dynamicStyles.tabText, activeTab === 'favorites' && dynamicStyles.tabTextActive]}>Favorites</Text>
+            <View style={dynamicStyles.countBadge}>
+              <Text style={dynamicStyles.countBadgeText}>{favoriteCount}</Text>
+            </View>
+          </Pressable>
+        </View>
+
+        {isLoading && savedLooks.length === 0 && (
+          <View style={styles.centerState}>
+            <ActivityIndicator color={colors.accent} size="small" />
+            <Text style={dynamicStyles.loadingText}>Loading your saved looks...</Text>
+          </View>
+        )}
+
+        {showEmpty && (
+          <View style={styles.centerState}>
+            <View style={[styles.emptyIconWrap, { backgroundColor: colors.bgTertiary }]}>
+              <Ionicons name={activeTab === 'favorites' ? 'heart-outline' : 'images-outline'} size={32} color={colors.textSecondary} />
+            </View>
+            <Text style={dynamicStyles.emptyTitle}>
+              {activeTab === 'favorites' ? 'No favorites yet' : 'No saved looks yet'}
+            </Text>
+            <Text style={dynamicStyles.emptyDescription}>
+              {activeTab === 'favorites'
+                ? 'Tap the heart on any look to keep your top picks here.'
+                : 'Generate looks to build your personal transformation library.'}
+            </Text>
+            <PrimaryButton label="Create a look" onPress={handleTryALook} style={styles.emptyButton} />
+          </View>
+        )}
+
+        {!showEmpty && displayedLooks.length > 0 && (
           <View style={styles.grid}>
             {displayedLooks.map((look, index) => (
               <SavedLookCard
@@ -242,25 +348,47 @@ export default function SavedScreen() {
                 index={index}
                 selected={selectedIds.includes(look.id)}
                 selectionMode={selectionMode}
-                onPress={() => handlePress(look.id)}
-                onLongPress={() => handleLongPress(look.id)}
-                onToggleFavorite={() => handleToggleFavorite(look.id)}
+                onPress={() => handleCardPress(look.id)}
+                onLongPress={() => handleCardLongPress(look.id)}
+                onToggleFavorite={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  toggleFavorite(look.id);
+                }}
                 colors={colors}
               />
             ))}
           </View>
-        </ScrollView>
-      )}
+        )}
+      </ScrollView>
 
-      {/* Compare Button */}
-      {selectionMode && selectedIds.length > 0 && (
-        <Animated.View entering={FadeIn} style={styles.compareContainer}>
-          <PrimaryButton
-            label={`Compare (${selectedIds.length})`}
-            onPress={handleCompare}
-            disabled={selectedIds.length !== 2}
-            style={styles.compareButton}
-          />
+      {selectionMode && (
+        <Animated.View entering={FadeIn} style={dynamicStyles.bottomBar}>
+          <View style={dynamicStyles.bottomBarTop}>
+            <View>
+              <Text style={dynamicStyles.bottomMeta}>Selection</Text>
+              <Text style={[typography.labelLarge, { color: colors.textPrimary }]}>
+                {selectedIds.length} selected
+              </Text>
+            </View>
+            <Pressable onPress={exitSelectionMode}>
+              <Text style={dynamicStyles.bottomBarDone}>Done</Text>
+            </Pressable>
+          </View>
+          <View style={dynamicStyles.bottomBarActions}>
+            <SecondaryButton
+              label="Delete"
+              icon="trash-outline"
+              onPress={handleDeleteSelected}
+              disabled={!selectedIds.length}
+              style={styles.selectionAction}
+            />
+            <PrimaryButton
+              label="Compare"
+              onPress={handleCompare}
+              disabled={selectedIds.length !== 2}
+              style={styles.selectionAction}
+            />
+          </View>
         </Animated.View>
       )}
     </View>
@@ -284,7 +412,15 @@ function SavedLookCard({
   onPress: () => void;
   onLongPress: () => void;
   onToggleFavorite: () => void;
-  colors: ColorsType;
+  colors: {
+    bgCard: string;
+    border: string;
+    accent: string;
+    accentMuted: string;
+    textPrimary: string;
+    textSecondary: string;
+    textOnAccent: string;
+  };
 }) {
   const scale = useSharedValue(1);
 
@@ -292,50 +428,65 @@ function SavedLookCard({
     transform: [{ scale: scale.value }],
   }));
 
+  const cardStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        card: {
+          width: CARD_WIDTH,
+          height: CARD_HEIGHT,
+          borderRadius: borderRadius.lg,
+          overflow: 'hidden',
+          backgroundColor: colors.bgCard,
+          borderWidth: selected ? 2 : 1,
+          borderColor: selected ? colors.accent : colors.border,
+        },
+        favoriteButton: {
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          width: 30,
+          height: 30,
+          borderRadius: borderRadius.full,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0,0,0,0.34)',
+        },
+        selectionIndicator: {
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          width: 28,
+          height: 28,
+          borderRadius: borderRadius.full,
+          borderWidth: selected ? 0 : 2,
+          borderColor: 'rgba(255,255,255,0.75)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: selected ? colors.accent : 'rgba(0,0,0,0.25)',
+        },
+        footerTitle: {
+          ...typography.labelMedium,
+          color: '#FFFFFF',
+        },
+        footerMeta: {
+          ...typography.caption,
+          color: 'rgba(255,255,255,0.86)',
+          marginTop: 2,
+        },
+      }),
+    [colors, selected]
+  );
+
   const handlePressIn = () => {
-    scale.value = withSpring(0.95, springs.snappy);
+    scale.value = withSpring(0.97, springs.snappy);
   };
 
   const handlePressOut = () => {
     scale.value = withSpring(1, springs.snappy);
   };
 
-  const cardStyles = useMemo(() => ({
-    savedCard: {
-      width: CARD_WIDTH,
-      height: CARD_WIDTH * 1.3,
-      marginHorizontal: CARD_GAP / 2,
-      marginBottom: CARD_GAP,
-      borderRadius: borderRadius.md,
-      overflow: 'hidden' as const,
-      borderWidth: 2,
-      borderColor: selected ? colors.accent : 'transparent',
-    },
-    favoriteBadge: {
-      position: 'absolute' as const,
-      top: 8,
-      right: 8,
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: colors.bgTertiary,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-    },
-    selectionIndicator: {
-      position: 'absolute' as const,
-      top: 8,
-      right: 8,
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      borderWidth: selected ? 0 : 2,
-      borderColor: colors.textSecondary,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      backgroundColor: selected ? colors.accent : 'transparent',
-    },
-  }), [colors, selected]);
+  const title = look.elements?.length ? look.elements[0] : 'Custom look';
+  const subtitle = formatSavedDate(look.createdAt, look.elements?.length ?? 0);
 
   return (
     <AnimatedPressable
@@ -343,73 +494,109 @@ function SavedLookCard({
       onLongPress={onLongPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[cardStyles.savedCard, animatedStyle]}
+      style={[styles.cardWrap, animatedStyle]}
     >
-      <Animated.View entering={FadeIn.delay(index * 50)}>
+      <Animated.View entering={FadeIn.delay(Math.min(index * 40, 240))} style={cardStyles.card}>
         <Image source={{ uri: look.result }} style={styles.savedImage} />
 
-        {/* Favorite badge */}
-        {look.isFavorite && !selectionMode && (
-          <View style={cardStyles.favoriteBadge}>
-            <Ionicons name="heart" size={12} color={colors.accent} />
+        {!selectionMode && (
+          <Pressable style={cardStyles.favoriteButton} onPress={onToggleFavorite} hitSlop={8}>
+            <Ionicons name={look.isFavorite ? 'heart' : 'heart-outline'} size={16} color="#FFFFFF" />
+          </Pressable>
+        )}
+
+        {selectionMode && (
+          <View style={cardStyles.selectionIndicator}>
+            {selected && <Ionicons name="checkmark" size={16} color={colors.textOnAccent} />}
           </View>
         )}
 
-        {/* Selection indicator */}
-        {selectionMode && (
-          <View style={cardStyles.selectionIndicator}>
-            {selected && <Ionicons name="checkmark" size={14} color={colors.textPrimary} />}
-          </View>
-        )}
+        <LinearGradient
+          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.72)']}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.cardFooter}
+        >
+          <Text numberOfLines={1} style={cardStyles.footerTitle}>
+            {title}
+          </Text>
+          <Text numberOfLines={1} style={cardStyles.footerMeta}>
+            {subtitle}
+          </Text>
+        </LinearGradient>
       </Animated.View>
     </AnimatedPressable>
   );
 }
 
+function formatSavedDate(timestamp: number, elementCount: number) {
+  const dateLabel = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(timestamp));
+
+  if (!elementCount) return dateLabel;
+  return `${dateLabel} • ${elementCount} traits`;
+}
+
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  content: {
     paddingHorizontal: layout.screenPadding,
-    paddingVertical: 16,
   },
-  emptyState: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  headerTextWrap: {
     flex: 1,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  centerState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: layout.screenPadding,
+    paddingHorizontal: 12,
+    paddingTop: 56,
   },
-  emptyIcon: {
-    marginBottom: 24,
+  emptyIconWrap: {
+    width: 74,
+    height: 74,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyButton: {
-    minWidth: 160,
-  },
-  gridScroll: {
-    flex: 1,
-  },
-  gridContent: {
-    paddingHorizontal: layout.screenPadding,
-    paddingBottom: layout.tabBarHeight + 80,
+    minWidth: 190,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -CARD_GAP / 2,
+    gap: CARD_GAP,
+    marginTop: 18,
+  },
+  cardWrap: {
+    width: CARD_WIDTH,
   },
   savedImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  compareContainer: {
+  cardFooter: {
     position: 'absolute',
-    bottom: layout.tabBarHeight + 20,
-    left: layout.screenPadding,
-    right: layout.screenPadding,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 10,
+    paddingTop: 24,
+    paddingBottom: 10,
   },
-  compareButton: {
-    width: '100%',
+  selectionAction: {
+    flex: 1,
   },
 });

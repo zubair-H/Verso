@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -25,11 +24,6 @@ import { borderRadius, layout } from '@/constants/spacing';
 import { API_BASE_URL, recolorFaceFeaturesFast, recolorHairFast } from '@/utils/api';
 import { getHairSwapSession } from '@/utils/hairSwapSession';
 import { recolorEyesFast } from '@/utils/api';
-
-type DebugStep = {
-  atMs: number;
-  message: string;
-};
 
 async function healthCheck(baseUrl: string): Promise<{ ok: boolean; status?: number; body?: string }> {
   const controller = new AbortController();
@@ -56,7 +50,7 @@ export default function HairColorLoadingScreen() {
   const [running, setRunning] = useState(true);
   const [error, setError] = useState('');
   const [statusText, setStatusText] = useState('Preparing your image');
-  const [stageIndex, setStageIndex] = useState(0);
+  const stoppedRef = useRef(false);
 
   const pulse = useSharedValue(0);
   const spin = useSharedValue(0);
@@ -69,6 +63,7 @@ export default function HairColorLoadingScreen() {
 
   const runHairSwap = useCallback(async () => {
     const runStarted = Date.now();
+    stoppedRef.current = false;
     setRunning(true);
     setError('');
     setStatusText('Preparing your image');
@@ -141,7 +136,9 @@ export default function HairColorLoadingScreen() {
       }
 
       pushStep('Finalizing result', runStarted);
+      if (stoppedRef.current) return;
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (stoppedRef.current) return;
       router.replace({
         pathname: '/create/result',
         params: {
@@ -158,6 +155,7 @@ export default function HairColorLoadingScreen() {
         },
       });
     } catch (caught) {
+      if (stoppedRef.current) return;
       const err = caught as Error & { details?: { debug?: { steps?: Array<{ message?: string }> } } };
       const message = err?.message || 'Hair color swap failed';
       setError(message);
@@ -179,25 +177,22 @@ export default function HairColorLoadingScreen() {
       -1,
       false
     );
-    spin.value = withRepeat(withTiming(1, { duration: 3200, easing: Easing.linear }), -1, false);
+    spin.value = withRepeat(withTiming(360, { duration: 2800, easing: Easing.linear }), -1, false);
   }, [pulse, spin]);
 
-  useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(() => {
-      setStageIndex((prev) => (prev + 1) % 4);
-    }, 1800);
-    return () => clearInterval(timer);
-  }, [running]);
+  const handleStopOrBack = async () => {
+    stoppedRef.current = true;
+    await Haptics.selectionAsync();
+    router.back();
+  };
 
-  const stageText = ['Preparing your image', 'Styling and recoloring', 'Enhancing details', 'Finalizing output'][stageIndex];
   const orbStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 0.92 + pulse.value * 0.1 }],
     opacity: 0.55 + pulse.value * 0.35,
   }));
   const ringStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${spin.value * 360}deg` }],
-    opacity: 0.4 + pulse.value * 0.4,
+    transform: [{ rotate: `${spin.value}deg` }],
+    opacity: 0.72,
   }));
 
   const styles = useMemo(
@@ -225,11 +220,16 @@ export default function HairColorLoadingScreen() {
           ...typography.headlineMedium,
           color: colors.textPrimary,
         },
+        subtitle: {
+          ...typography.caption,
+          color: colors.textSecondary,
+        },
         body: {
           flex: 1,
           paddingHorizontal: layout.screenPadding,
           paddingTop: 12,
           paddingBottom: insets.bottom + 24,
+          justifyContent: 'center',
         },
         statusCard: {
           borderRadius: borderRadius.xl,
@@ -278,21 +278,15 @@ export default function HairColorLoadingScreen() {
           color: '#ef6f6c',
           textAlign: 'center',
         },
-        logsCard: {
-          marginTop: 14,
-          borderRadius: borderRadius.xl,
-          backgroundColor: colors.bgCard,
-          borderWidth: 1,
-          borderColor: colors.borderLight,
-          padding: 14,
-        },
         actionsRow: {
-          flexDirection: 'row',
-          gap: 10,
+          width: '100%',
+          alignItems: 'center',
+          justifyContent: 'center',
           marginTop: 14,
         },
         actionButton: {
-          flex: 1,
+          width: '100%',
+          maxWidth: 360,
           borderRadius: borderRadius.lg,
           borderWidth: 1,
           borderColor: colors.borderLight,
@@ -314,7 +308,10 @@ export default function HairColorLoadingScreen() {
         <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.title}>Applying Hair Color</Text>
+        <View>
+          <Text style={styles.title}>Analyzing your photo</Text>
+          <Text style={styles.subtitle}>Preparing your result</Text>
+        </View>
       </View>
 
       <View style={styles.body}>
@@ -325,26 +322,17 @@ export default function HairColorLoadingScreen() {
             <Ionicons name="sparkles" size={26} color={colors.accent} />
           </View>
           <Text style={styles.statusText}>
-            {running ? 'Processing your hair color swap...' : error ? 'Swap failed' : 'Done'}
+            {running ? 'Analyzing your photo...' : error ? 'Analysis failed' : 'Done'}
           </Text>
-          <Text style={styles.subtleText}>{running ? stageText : 'You can retry if needed.'}</Text>
+          <Text style={styles.subtleText}>{running ? statusText : 'You can retry if needed.'}</Text>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
 
-        <View style={styles.logsCard}>
-          <Text style={styles.subtleText}>{statusText}</Text>
+        <View style={styles.actionsRow}>
+          <Pressable style={styles.actionButton} onPress={() => void handleStopOrBack()}>
+            <Text style={styles.actionText}>{running ? 'Stop and go back' : 'Go back'}</Text>
+          </Pressable>
         </View>
-
-        {!running && error ? (
-          <View style={styles.actionsRow}>
-            <Pressable style={styles.actionButton} onPress={() => router.back()}>
-              <Text style={styles.actionText}>Back</Text>
-            </Pressable>
-            <Pressable style={styles.actionButton} onPress={() => void runHairSwap()}>
-              <Text style={styles.actionText}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : null}
       </View>
     </View>
   );

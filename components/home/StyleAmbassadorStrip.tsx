@@ -50,76 +50,38 @@ const LONG_CARD_HEIGHT = SHORT_CARD_HEIGHT * 2 + GRID_VERTICAL_GAP;
 const ANALYSIS_CARD_HEIGHT = 210;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const UNIQUE_TILE_ICONS: Array<keyof typeof Ionicons.glyphMap> = [
-  'aperture-outline',
-  'analytics-outline',
-  'at-outline',
-  'bandage-outline',
-  'barbell-outline',
-  'basketball-outline',
-  'beaker-outline',
-  'bicycle-outline',
-  'boat-outline',
-  'bonfire-outline',
-  'book-outline',
-  'bowling-ball-outline',
-  'briefcase-outline',
-  'brush-outline',
-  'build-outline',
-  'bulb-outline',
-  'bus-outline',
-  'cafe-outline',
-  'camera-outline',
-  'car-outline',
-  'card-outline',
-  'chatbubble-outline',
-  'cloud-outline',
-  'compass-outline',
-  'construct-outline',
-  'diamond-outline',
-  'disc-outline',
-  'earth-outline',
-  'extension-puzzle-outline',
-  'flask-outline',
-  'flower-outline',
-  'football-outline',
-  'game-controller-outline',
-  'gift-outline',
+  'eye-outline',
+  'eye-off-outline',
   'glasses-outline',
-  'headset-outline',
+  'happy-outline',
+  'sad-outline',
   'heart-outline',
-  'ice-cream-outline',
-  'key-outline',
-  'leaf-outline',
-  'library-outline',
-  'magnet-outline',
-  'medal-outline',
-  'moon-outline',
-  'musical-notes-outline',
-  'navigate-outline',
-  'newspaper-outline',
-  'nutrition-outline',
-  'paw-outline',
-  'planet-outline',
-  'pricetag-outline',
-  'rainy-outline',
-  'ribbon-outline',
-  'rocket-outline',
-  'rose-outline',
-  'school-outline',
-  'send-outline',
-  'shield-outline',
-  'shirt-outline',
+  'heart-half-outline',
+  'cut-outline',
+  'color-palette-outline',
   'sparkles-outline',
-  'star-outline',
+  'body-outline',
+  'accessibility-outline',
+  'man-outline',
+  'woman-outline',
+  'male-female-outline',
+  'walk-outline',
+  'fitness-outline',
+  'hand-left-outline',
+  'hand-right-outline',
+  'finger-print-outline',
+  'medkit-outline',
+  'bandage-outline',
+  'shirt-outline',
+  'diamond-outline',
+  'flower-outline',
+  'leaf-outline',
+  'rose-outline',
+  'water-outline',
+  'flame-outline',
+  'moon-outline',
   'sunny-outline',
-  'tennisball-outline',
-  'thumbs-up-outline',
-  'time-outline',
-  'trophy-outline',
-  'umbrella-outline',
-  'wallet-outline',
-  'watch-outline',
-  'wine-outline',
+  'star-outline',
 ];
 const LIGHT_TILE_COLORS = [
   '#8FA8D6',
@@ -525,18 +487,26 @@ export function StyleAmbassadorStrip({
         return;
       }
 
-      // Keep banners inside each attribute section, but surface the first one early.
-      blocks.push(attributeBlocks[0]);
-      if (attributeAnalysis[0]) {
-        blocks.push({
-          id: `analysis-${attribute}-${attributeAnalysis[0].id}`,
-          type: 'analysis',
-          tile: attributeAnalysis[0],
-        });
-      }
-      for (let i = 1; i < attributeBlocks.length; i += 1) {
-        blocks.push(attributeBlocks[i]);
-      }
+      // Keep banners inside each attribute section, but place the first banner
+      // after one long-vertical tile block when available.
+      let firstBannerInserted = false;
+      const firstLongBlockIndex = attributeBlocks.findIndex(
+        (block) => block.type === 'mosaic' || block.type === 'long-row'
+      );
+      const bannerInsertAfterIndex = firstLongBlockIndex >= 0 ? firstLongBlockIndex : 0;
+
+      attributeBlocks.forEach((block, index) => {
+        blocks.push(block);
+        if (!firstBannerInserted && attributeAnalysis[0] && index === bannerInsertAfterIndex) {
+          blocks.push({
+            id: `analysis-${attribute}-${attributeAnalysis[0].id}`,
+            type: 'analysis',
+            tile: attributeAnalysis[0],
+          });
+          firstBannerInserted = true;
+        }
+      });
+
       for (let i = 1; i < attributeAnalysis.length; i += 1) {
         blocks.push({
           id: `analysis-${attribute}-${attributeAnalysis[i].id}`,

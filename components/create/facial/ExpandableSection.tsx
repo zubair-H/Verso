@@ -58,9 +58,11 @@ export function ExpandableSection({
               <Text style={styles.actionText}>View all</Text>
             </Pressable>
           ) : null}
-          <Pressable onPress={onClear} disabled={clearDisabled} style={styles.clearButton} hitSlop={8}>
-            <Ionicons name="close" size={16} color={clearDisabled ? colors.textTertiary : colors.textSecondary} />
-          </Pressable>
+          {!clearDisabled ? (
+            <Pressable onPress={onClear} style={styles.clearButton} hitSlop={8}>
+              <Ionicons name="close" size={16} color={colors.textSecondary} />
+            </Pressable>
+          ) : null}
         </View>
       </View>
       <Animated.View
