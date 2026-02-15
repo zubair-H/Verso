@@ -3,6 +3,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 let sharp = null;
 try {
   // Optional dependency: only needed for region mask generation endpoints.
@@ -32,6 +33,10 @@ loadEnvFile();
 
 const PORT = Number(process.env.PORT || 4000);
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+
+const GEMINI_OUTFIT_REGION_CACHE = new Map();
 
 if (!globalThis.fetch) throw new Error('Node 18+ required');
 
@@ -283,6 +288,284 @@ function normalizeOutputToUrl(output) {
   return Array.isArray(output) ? output[0] : output;
 }
 
+function parseDataUriParts(dataUri) {
+  if (!isDataUri(dataUri)) throw new Error('Expected data URI');
+  const match = /^data:([^;]+);base64,(.+)$/i.exec(dataUri);
+  if (!match) throw new Error('Invalid data URI format');
+  return { mimeType: match[1], base64: match[2] };
+}
+
+function extractJsonFromText(text) {
+  if (!text) return null;
+  const trimmed = String(text).trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {}
+  const fenced = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(trimmed);
+  if (fenced) {
+    try {
+      return JSON.parse(fenced[1]);
+    } catch {}
+  }
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
+  if (start >= 0 && end > start) {
+    try {
+      return JSON.parse(trimmed.slice(start, end + 1));
+    } catch {}
+  }
+  return null;
+}
+
+function clampPoint01(point) {
+  const x = Number(point?.x);
+  const y = Number(point?.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return {
+    x: Math.max(0, Math.min(1, x)),
+    y: Math.max(0, Math.min(1, y)),
+  };
+}
+
+function sanitizePolygonList(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((polygon) => {
+      if (!Array.isArray(polygon)) return null;
+      const points = polygon
+        .map((p) => clampPoint01(p))
+        .filter(Boolean);
+      if (points.length < 3) return null;
+      return points.slice(0, 80);
+    })
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function normalizeGeminiRegions(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  const upper = sanitizePolygonList(payload.upper);
+  const lower = sanitizePolygonList(payload.lower);
+  const skin = sanitizePolygonList(payload.skin);
+  if (!upper.length && !lower.length) return null;
+  return { upper, lower, skin };
+}
+
+function polygonToSvgPath(points, width, height) {
+  if (!Array.isArray(points) || points.length < 3) return '';
+  const [first, ...rest] = points;
+  const firstX = Math.round(first.x * width);
+  const firstY = Math.round(first.y * height);
+  let path = `M ${firstX} ${firstY}`;
+  for (const point of rest) {
+    path += ` L ${Math.round(point.x * width)} ${Math.round(point.y * height)}`;
+  }
+  return `${path} Z`;
+}
+
+function hashBufferSha1(buf) {
+  return crypto.createHash('sha1').update(buf).digest('hex');
+}
+
+async function detectOutfitRegionsWithGemini(imageDataUri) {
+  if (!GEMINI_API_KEY) return null;
+  const { mimeType, base64 } = parseDataUriParts(imageDataUri);
+  const cacheKey = hashBufferSha1(Buffer.from(base64, 'base64'));
+  const cached = GEMINI_OUTFIT_REGION_CACHE.get(cacheKey);
+  if (cached) return cached;
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+  const prompt = [
+    'You are a precise clothing segmenter.',
+    'Return ONLY JSON with normalized polygons (0..1) for visible human outfit regions.',
+    'Output schema:',
+    '{"upper":[[{"x":0.1,"y":0.1},{"x":0.2,"y":0.1},{"x":0.2,"y":0.2}]],"lower":[[...]],"skin":[[...]]}',
+    'Rules:',
+    '- upper: shirt/jacket/top including sleeves, exclude exposed skin and accessories.',
+    '- lower: pants/shorts/skirt, exclude exposed skin.',
+    '- skin: exposed neck/arms/hands polygons.',
+    '- Multiple polygons allowed.',
+    '- Do not include markdown or commentary.',
+  ].join('\n');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: prompt },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+        },
+      }),
+    });
+
+    const text = await resp.text();
+    if (!resp.ok) throw new Error(`Gemini detect failed (${resp.status}): ${text}`);
+    const parsed = JSON.parse(text);
+    const partText = parsed?.candidates?.[0]?.content?.parts?.find((p) => typeof p?.text === 'string')?.text || '';
+    const rawRegions = extractJsonFromText(partText);
+    const regions = normalizeGeminiRegions(rawRegions);
+    if (!regions) return null;
+    GEMINI_OUTFIT_REGION_CACHE.set(cacheKey, regions);
+    return regions;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function hexToRgb(hex) {
+  const normalized = String(hex || '')
+    .trim()
+    .replace('#', '');
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return { r: 128, g: 128, b: 128 };
+  return {
+    r: parseInt(normalized.slice(0, 2), 16),
+    g: parseInt(normalized.slice(2, 4), 16),
+    b: parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+function rgbToHsl(r, g, b) {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const d = max - min;
+  let h = 0;
+  const l = (max + min) / 2;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (d !== 0) {
+    if (max === rn) h = ((gn - bn) / d) % 6;
+    else if (max === gn) h = (bn - rn) / d + 2;
+    else h = (rn - gn) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return { h, s, l };
+}
+
+function hslToRgb(h, s, l) {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r1 = 0;
+  let g1 = 0;
+  let b1 = 0;
+  if (h < 60) [r1, g1, b1] = [c, x, 0];
+  else if (h < 120) [r1, g1, b1] = [x, c, 0];
+  else if (h < 180) [r1, g1, b1] = [0, c, x];
+  else if (h < 240) [r1, g1, b1] = [0, x, c];
+  else if (h < 300) [r1, g1, b1] = [x, 0, c];
+  else [r1, g1, b1] = [c, 0, x];
+  return {
+    r: Math.round((r1 + m) * 255),
+    g: Math.round((g1 + m) * 255),
+    b: Math.round((b1 + m) * 255),
+  };
+}
+
+function skinSuppressionFactor(r, g, b) {
+  const { h, s, l } = rgbToHsl(r, g, b);
+  const inSkinHue = h >= 5 && h <= 50;
+  const inSkinSat = s >= 0.12 && s <= 0.68;
+  const inSkinLight = l >= 0.20 && l <= 0.92;
+  const hslSkin = inSkinHue && inSkinSat && inSkinLight;
+
+  const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+  const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+  const ycbcrSkin = cb >= 80 && cb <= 125 && cr >= 135 && cr <= 170;
+
+  if (!(hslSkin && ycbcrSkin)) return 0;
+
+  const hueCenter = 26;
+  const hueDist = Math.min(Math.abs(h - hueCenter), 360 - Math.abs(h - hueCenter));
+  const hueScore = clamp01(1 - hueDist / 26);
+  const satScore = clamp01((s - 0.12) / 0.35);
+  const lightScore = 1 - Math.abs(l - 0.58) / 0.38;
+  return clamp01(hueScore * 0.5 + satScore * 0.25 + clamp01(lightScore) * 0.25);
+}
+
+async function recolorWithMaskBuffer({
+  imageBuf,
+  maskBuf,
+  targetHex,
+  strength = 0.88,
+  minMaskAlpha = 36,
+}) {
+  if (!sharp) throw new Error('sharp is required for outfit recolor. Run: npm install sharp');
+
+  const imageRaw = await sharp(imageBuf).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const maskRaw = await sharp(maskBuf)
+    .resize(imageRaw.info.width, imageRaw.info.height)
+    .greyscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const { data: imageData, info } = imageRaw;
+  const { data: maskData } = maskRaw;
+  const targetRgb = hexToRgb(targetHex);
+  const targetHsl = rgbToHsl(targetRgb.r, targetRgb.g, targetRgb.b);
+  const channels = info.channels;
+  const pixelCount = info.width * info.height;
+
+  for (let i = 0; i < pixelCount; i += 1) {
+    const m = maskData[i];
+    if (m <= minMaskAlpha) continue;
+
+    const idx = i * channels;
+    const origR = imageData[idx];
+    const origG = imageData[idx + 1];
+    const origB = imageData[idx + 2];
+    const origHsl = rgbToHsl(origR, origG, origB);
+
+    const recoloredHsl = {
+      h: targetHsl.h,
+      s: clamp01(Math.max(origHsl.s * 0.45, targetHsl.s * 0.9)),
+      l: clamp01(origHsl.l * 0.86 + targetHsl.l * 0.14),
+    };
+    const recoloredRgb = hslToRgb(recoloredHsl.h, recoloredHsl.s, recoloredHsl.l);
+    const maskNorm = clamp01((m - minMaskAlpha) / (255 - minMaskAlpha));
+    const smoothMask = maskNorm * maskNorm * (3 - 2 * maskNorm);
+    const skinSuppression = skinSuppressionFactor(origR, origG, origB);
+    const alpha = smoothMask * strength * (1 - skinSuppression * 0.92);
+    if (alpha <= 0.01) continue;
+
+    imageData[idx] = Math.round(origR * (1 - alpha) + recoloredRgb.r * alpha);
+    imageData[idx + 1] = Math.round(origG * (1 - alpha) + recoloredRgb.g * alpha);
+    imageData[idx + 2] = Math.round(origB * (1 - alpha) + recoloredRgb.b * alpha);
+  }
+
+  return sharp(imageData, {
+    raw: { width: info.width, height: info.height, channels },
+  })
+    .png()
+    .toBuffer();
+}
+
 async function generateHairMask(imageUrlOrDataUri) {
   const prediction = await createReplicatePrediction({
     version: REPLICATE_HAIR_MASK_VERSION,
@@ -324,11 +607,59 @@ async function makeRegionMaskDataUri(sourceImage, region) {
   }
 
   if (region === 'upper_body') {
-    svg += `<rect x="${Math.round(w * 0.11)}" y="${Math.round(h * 0.12)}" width="${Math.round(w * 0.78)}" height="${Math.round(h * 0.49)}" rx="${Math.round(w * 0.06)}" fill="white"/>`;
+    svg += `<rect x="${Math.round(w * 0.15)}" y="${Math.round(h * 0.19)}" width="${Math.round(w * 0.70)}" height="${Math.round(h * 0.39)}" rx="${Math.round(w * 0.06)}" fill="white"/>`;
   }
 
   if (region === 'lower_body') {
-    svg += `<rect x="${Math.round(w * 0.14)}" y="${Math.round(h * 0.48)}" width="${Math.round(w * 0.72)}" height="${Math.round(h * 0.48)}" rx="${Math.round(w * 0.06)}" fill="white"/>`;
+    svg += `<rect x="${Math.round(w * 0.20)}" y="${Math.round(h * 0.60)}" width="${Math.round(w * 0.60)}" height="${Math.round(h * 0.36)}" rx="${Math.round(w * 0.06)}" fill="white"/>`;
+  }
+
+  if (region === 'outfit_combined') {
+    svg += `<rect x="${Math.round(w * 0.15)}" y="${Math.round(h * 0.19)}" width="${Math.round(w * 0.70)}" height="${Math.round(h * 0.39)}" rx="${Math.round(w * 0.06)}" fill="white"/>`;
+    svg += `<rect x="${Math.round(w * 0.20)}" y="${Math.round(h * 0.60)}" width="${Math.round(w * 0.60)}" height="${Math.round(h * 0.36)}" rx="${Math.round(w * 0.06)}" fill="white"/>`;
+  }
+
+  svg += '</svg>';
+
+  const blurSigma = region === 'upper_body' || region === 'lower_body' || region === 'outfit_combined' ? 0.7 : 1.8;
+
+  const maskBuf = await sharp(Buffer.from(svg))
+    .resize(w, h)
+    .grayscale()
+    .blur(blurSigma)
+    .png()
+    .toBuffer();
+
+  return `data:image/png;base64,${maskBuf.toString('base64')}`;
+}
+
+async function makePolygonMaskDataUri({
+  sourceImage,
+  includePolygons = [],
+  excludePolygons = [],
+  blurSigma = 0.6,
+}) {
+  if (!sharp) {
+    throw new Error('sharp is required for this endpoint. Run: npm install sharp');
+  }
+  if (!Array.isArray(includePolygons) || includePolygons.length === 0) return null;
+
+  const meta = await sharp(sourceImage).metadata();
+  const w = meta.width || 1024;
+  const h = meta.height || 1024;
+
+  let svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${w}" height="${h}" fill="black"/>`;
+
+  for (const polygon of includePolygons) {
+    const path = polygonToSvgPath(polygon, w, h);
+    if (!path) continue;
+    svg += `<path d="${path}" fill="white"/>`;
+  }
+
+  for (const polygon of excludePolygons) {
+    const path = polygonToSvgPath(polygon, w, h);
+    if (!path) continue;
+    svg += `<path d="${path}" fill="black"/>`;
   }
 
   svg += '</svg>';
@@ -336,7 +667,7 @@ async function makeRegionMaskDataUri(sourceImage, region) {
   const maskBuf = await sharp(Buffer.from(svg))
     .resize(w, h)
     .grayscale()
-    .blur(1.8)
+    .blur(blurSigma)
     .png()
     .toBuffer();
 
@@ -410,8 +741,11 @@ function buildFeaturePrompt({ noseId, lipsId, eyebrowsId, eyebrowColorId }) {
 
 function buildOutfitPrompt({ topHex, bottomHex }) {
   return [
-    topHex ? `Force upper garment color to ${topHex}.` : '',
-    bottomHex ? `Force lower garment color to ${bottomHex}.` : '',
+    topHex ? `Change ONLY the top garment color to ${topHex}.` : '',
+    bottomHex ? `Change ONLY the bottom garment color to ${bottomHex}.` : '',
+    topHex && bottomHex
+      ? 'Apply both requested colors in one pass: top and bottom must both match their requested color.'
+      : '',
     'Color shift must be obvious and clearly visible.',
     'Maintain garment texture, folds, seams, and lighting.',
     'Keep skin tone, face, tattoos, jewelry, watch, and background unchanged.',
@@ -436,6 +770,7 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       service: 'lookr-feature-transform',
       replicateConfigured: !!REPLICATE_API_TOKEN,
+      geminiConfigured: !!GEMINI_API_KEY,
       sharpAvailable: !!sharp,
       timestamp: new Date().toISOString(),
     });
@@ -604,7 +939,6 @@ const server = http.createServer(async (req, res) => {
 
   if (method === 'POST' && pathname === '/api/recolor-outfit-fast') {
     try {
-      if (!REPLICATE_API_TOKEN) throw new Error('REPLICATE_API_TOKEN is not configured');
       const body = await parseBody(req);
       const {
         userImageUrl,
@@ -627,35 +961,61 @@ const server = http.createServer(async (req, res) => {
       }
 
       const source = isDataUri(userImageUrl) ? userImageUrl : await urlToDataUri(userImageUrl);
-      let output = source;
+      let outputBuf = await fetchBuffer(source);
+      let geminiRegions = null;
+      if (GEMINI_API_KEY) {
+        try {
+          geminiRegions = await detectOutfitRegionsWithGemini(source);
+        } catch (geminiErr) {
+          console.warn('Gemini outfit regions failed, falling back to default masks:', geminiErr?.message || geminiErr);
+        }
+      }
 
       if (topColor) {
-        const upperMask = await makeRegionMaskDataUri(await fetchBuffer(output), 'upper_body');
-        output = await inpaintRegion({
-          imageUrlOrDataUri: output,
-          maskUrlOrDataUri: upperMask,
-          prompt: buildOutfitPrompt({ topHex: topColor.hex }),
-          numInferenceSteps: 34,
-          guidanceScale: 8.5,
-          promptStrength: 0.92,
-          negativePrompt:
-            'identity change, different person, altered face, altered body shape, altered tattoos, altered jewelry, text, watermark, cartoon',
+        let upperMaskDataUri = null;
+        if (geminiRegions?.upper?.length) {
+          upperMaskDataUri = await makePolygonMaskDataUri({
+            sourceImage: outputBuf,
+            includePolygons: geminiRegions.upper,
+            excludePolygons: [...(geminiRegions.skin || []), ...(geminiRegions.lower || [])],
+            blurSigma: 0.55,
+          });
+        }
+        if (!upperMaskDataUri) {
+          upperMaskDataUri = await makeRegionMaskDataUri(outputBuf, 'upper_body');
+        }
+        const upperMaskBuf = await fetchBuffer(upperMaskDataUri);
+        outputBuf = await recolorWithMaskBuffer({
+          imageBuf: outputBuf,
+          maskBuf: upperMaskBuf,
+          targetHex: topColor.hex,
+          strength: 0.92,
         });
       }
 
       if (bottomColor) {
-        const lowerMask = await makeRegionMaskDataUri(await fetchBuffer(output), 'lower_body');
-        output = await inpaintRegion({
-          imageUrlOrDataUri: output,
-          maskUrlOrDataUri: lowerMask,
-          prompt: buildOutfitPrompt({ bottomHex: bottomColor.hex }),
-          numInferenceSteps: 34,
-          guidanceScale: 8.5,
-          promptStrength: 0.92,
-          negativePrompt:
-            'identity change, different person, altered face, altered body shape, altered tattoos, altered jewelry, text, watermark, cartoon',
+        let lowerMaskDataUri = null;
+        if (geminiRegions?.lower?.length) {
+          lowerMaskDataUri = await makePolygonMaskDataUri({
+            sourceImage: outputBuf,
+            includePolygons: geminiRegions.lower,
+            excludePolygons: [...(geminiRegions.skin || []), ...(geminiRegions.upper || [])],
+            blurSigma: 0.55,
+          });
+        }
+        if (!lowerMaskDataUri) {
+          lowerMaskDataUri = await makeRegionMaskDataUri(outputBuf, 'lower_body');
+        }
+        const lowerMaskBuf = await fetchBuffer(lowerMaskDataUri);
+        outputBuf = await recolorWithMaskBuffer({
+          imageBuf: outputBuf,
+          maskBuf: lowerMaskBuf,
+          targetHex: bottomColor.hex,
+          strength: 0.92,
         });
       }
+
+      const output = `data:image/png;base64,${outputBuf.toString('base64')}`;
 
       return sendJson(res, 200, {
         success: true,
@@ -706,4 +1066,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`LookR backend running at http://localhost:${PORT}`);
   console.log(`Replicate token: ${REPLICATE_API_TOKEN ? 'set' : 'missing'}`);
+  console.log(`Gemini key: ${GEMINI_API_KEY ? 'set' : 'missing'} (${GEMINI_MODEL})`);
 });

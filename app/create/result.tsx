@@ -53,6 +53,21 @@ interface ColorsType {
   border: string;
 }
 
+const OUTFIT_COLOR_LABELS: Record<string, string> = {
+  black: 'Black',
+  white: 'White',
+  beige: 'Beige',
+  brown: 'Brown',
+  navy: 'Navy',
+  green: 'Green',
+  red: 'Red',
+  pink: 'Pink',
+  gray: 'Gray',
+  olive: 'Olive',
+  blue: 'Blue',
+  current: 'Current',
+};
+
 export default function ResultScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -88,6 +103,7 @@ export default function ResultScreen() {
   const [hairMaskUrl, setHairMaskUrl] = useState<string>('');
   const [generationError, setGenerationError] = useState<string>('');
   const [usedPrecomputed, setUsedPrecomputed] = useState(false);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
 
   const hairSession = useMemo(
     () => (params.sessionId ? getHairSwapSession(params.sessionId) : null),
@@ -108,6 +124,8 @@ export default function ResultScreen() {
   const products = getProductsForElements(elements);
   const isHairColorMode = params.hairColorMode === '1';
   const isOutfitMode = params.outfitMode === '1';
+  const selectedTopColorId = outfitSession?.topColorId || params.topColorId || 'current';
+  const selectedBottomColorId = outfitSession?.bottomColorId || params.bottomColorId || 'current';
 
   const ensureDataUri = useCallback(async (uri: string): Promise<string> => {
     if (!uri) return uri;
@@ -135,6 +153,14 @@ export default function ResultScreen() {
     startAmbientAnimation();
     runGenerationAndReveal();
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    const id = setInterval(() => {
+      setLoadingMessageIndex((prev) => prev + 1);
+    }, 1200);
+    return () => clearInterval(id);
+  }, [isLoading]);
 
   // Phase 1: Anticipation - Pulsing loader
   const startLoadingAnimation = () => {
@@ -406,6 +432,33 @@ export default function ResultScreen() {
     ? 'Entire look'
     : elements.map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(' + ');
 
+  const loadingMessages = useMemo(() => {
+    if (isOutfitMode) {
+      return [
+        'Analyzing your outfit regions...',
+        'Applying selected color palette...',
+        'Preserving texture and lighting...',
+      ];
+    }
+    if (isHairColorMode) {
+      return [
+        'Detecting hair region...',
+        'Applying your selected tone...',
+        'Refining natural details...',
+      ];
+    }
+    return ['Creating your transformation...'];
+  }, [isHairColorMode, isOutfitMode]);
+
+  const loadingText = loadingMessages[loadingMessageIndex % loadingMessages.length];
+  const outfitLoadingSummary = useMemo(() => {
+    if (!isOutfitMode) return '';
+    const parts: string[] = [];
+    if (selectedTopColorId !== 'current') parts.push(`Top: ${OUTFIT_COLOR_LABELS[selectedTopColorId] || selectedTopColorId}`);
+    if (selectedBottomColorId !== 'current') parts.push(`Bottom: ${OUTFIT_COLOR_LABELS[selectedBottomColorId] || selectedBottomColorId}`);
+    return parts.join('  •  ');
+  }, [isOutfitMode, selectedBottomColorId, selectedTopColorId]);
+
   const dynamicStyles = useMemo(() => ({
     container: {
       flex: 1,
@@ -499,6 +552,13 @@ export default function ResultScreen() {
     loaderText: {
       ...typography.bodyMedium,
       color: colors.textSecondary,
+      textAlign: 'center' as const,
+    },
+    loaderSubtext: {
+      marginTop: 8,
+      ...typography.caption,
+      color: colors.textTertiary,
+      textAlign: 'center' as const,
     },
     resultTitle: {
       ...typography.headlineLarge,
@@ -606,7 +666,8 @@ export default function ResultScreen() {
                       <Ionicons name="sparkles" size={32} color={colors.accent} />
                     </View>
                   </View>
-                  <Text style={dynamicStyles.loaderText}>Creating your transformation...</Text>
+                  <Text style={dynamicStyles.loaderText}>{loadingText}</Text>
+                  {Boolean(outfitLoadingSummary) && <Text style={dynamicStyles.loaderSubtext}>{outfitLoadingSummary}</Text>}
                 </Animated.View>
               )}
 
