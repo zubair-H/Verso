@@ -28,6 +28,7 @@ const tabs: TabItem[] = [
   { name: 'index', label: 'Home', icon: 'home-outline' },
   { name: 'saved', label: 'Saved', icon: 'heart-outline' },
   { name: 'live', label: 'Live', icon: 'sparkles-outline' },
+  { name: 'body-reshape', label: 'Reshape', icon: 'body-outline' },
   { name: 'settings', label: 'More', icon: 'menu-outline' },
 ];
 

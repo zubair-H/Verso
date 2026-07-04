@@ -125,6 +125,14 @@ export interface RecolorOutfitFastResponse {
   };
 }
 
+export interface BodyTransformResponse {
+  success: boolean;
+  mode: 'body-transform';
+  originalImageUrl: string;
+  editedImageUrl: string;
+  transformMode: 'slim' | 'muscular';
+}
+
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/$/, '');
 }
@@ -364,6 +372,24 @@ export async function recolorOutfitFast(payload: {
     {
       method: 'POST',
       body: JSON.stringify(payload),
+    },
+    270000
+  );
+}
+
+export async function bodyTransform(payload: {
+  userImageUrl: string;
+  transformMode: 'slim' | 'muscular';
+  sessionId?: string;
+  signal?: AbortSignal;
+}): Promise<BodyTransformResponse> {
+  const { signal, ...bodyPayload } = payload;
+  return apiRequest<BodyTransformResponse>(
+    '/api/body-transform',
+    {
+      method: 'POST',
+      body: JSON.stringify(bodyPayload),
+      signal,
     },
     270000
   );

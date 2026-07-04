@@ -49,6 +49,10 @@ const REPLICATE_FAST_HAIR_VERSION =
   '3c68f21745b553cc6de2c8b487d6620cde4435e927740547d89e970689902c03';
 const REPLICATE_EYE_EDIT_MODEL =
   process.env.REPLICATE_EYE_EDIT_MODEL || 'black-forest-labs/flux-kontext-pro';
+const REPLICATE_BODY_EDIT_MODEL =
+  process.env.REPLICATE_BODY_EDIT_MODEL || 'google/nano-banana';
+const REPLICATE_BODY_EDIT_FALLBACK_MODEL =
+  process.env.REPLICATE_BODY_EDIT_FALLBACK_MODEL || 'black-forest-labs/flux-kontext-pro';
 
 const HAIR_COLOR_PRESETS = [
   { id: 'current', name: 'Current', hex: '#9b9b9b', strength: 0.0 },
@@ -584,6 +588,52 @@ async function generateFastEyeEditUrl({ imageDataUri, eyeColorName, cancelCtx })
   return outputUrl;
 }
 
+function buildInstructionEditInput(modelSlug, { imageDataUri, prompt }) {
+  if (modelSlug.includes('nano-banana')) {
+    return { prompt, image_input: [imageDataUri], output_format: 'png' };
+  }
+  return {
+    prompt,
+    input_image: imageDataUri,
+    output_format: 'png',
+    aspect_ratio: 'match_input_image',
+    safety_tolerance: 2,
+    prompt_upsampling: false,
+  };
+}
+
+async function generateBodyTransformUrl({ imageDataUri, mode, cancelCtx }) {
+  const prompt = buildBodyTransformPrompt({ mode });
+  const models = [...new Set([REPLICATE_BODY_EDIT_MODEL, REPLICATE_BODY_EDIT_FALLBACK_MODEL].filter(Boolean))];
+
+  let lastError = null;
+  for (const modelSlug of models) {
+    try {
+      const version = await getReplicateLatestVersionId(modelSlug);
+      const created = await createReplicatePrediction({
+        version,
+        input: buildInstructionEditInput(modelSlug, { imageDataUri, prompt }),
+        signal: cancelCtx?.signal,
+        sessionId: cancelCtx?.sessionId,
+      });
+      const { data } = await pollReplicatePrediction(created.id, {
+        maxAttempts: 180,
+        intervalMs: 1300,
+        signal: cancelCtx?.signal,
+        sessionId: cancelCtx?.sessionId,
+      });
+      const outputUrl = normalizeOutputToUrl(data.output);
+      if (!outputUrl) throw new Error(`Body transform model ${modelSlug} returned empty output`);
+      return outputUrl;
+    } catch (err) {
+      if (cancelCtx?.signal?.aborted || err?.name === 'AbortError') throw err;
+      console.error(`body-transform via ${modelSlug} failed:`, err?.message || err);
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('Body transform failed');
+}
+
 function parseDataUriParts(dataUri) {
   if (!isDataUri(dataUri)) throw new Error('Expected data URI');
   const match = /^data:([^;]+);base64,(.+)$/i.exec(dataUri);
@@ -1069,6 +1119,33 @@ function buildOutfitPrompt({ topHex, bottomHex }) {
     .join(' ');
 }
 
+function buildBodyTransformPrompt({ mode = 'slim' }) {
+  const preserve = [
+    'Keep the exact same person and identity: same face, expression, hairstyle, skin tone, tattoos, and pose.',
+    'Keep the clothing, background, camera angle, framing, and lighting exactly the same.',
+    'The result must look like a real unedited photograph: natural skin texture, no airbrushing or smoothing,',
+    'no warping or distortion of the background or body edges.',
+  ];
+  if (mode === 'slim') {
+    return [
+      'Edit this photo so the same person looks like they lost a significant amount of weight, around 20 kg lighter.',
+      'Slim the waist, flatten and tighten the stomach, reduce chest and back fat,',
+      'and slightly slim the face, neck, and arms so the whole body is consistent.',
+      'The new body should be realistic and believable for this person\'s frame, not skinny or exaggerated.',
+      ...preserve,
+    ].join(' ');
+  }
+  if (mode === 'muscular') {
+    return [
+      'Edit this photo so the same person looks like they gained significant lean muscle after years of gym training.',
+      'Broader shoulders, developed chest, muscular arms, visible abdominal definition, and lower body fat.',
+      'A strong athletic physique that is realistic for this person\'s frame, not exaggerated bodybuilder proportions.',
+      ...preserve,
+    ].join(' ');
+  }
+  return '';
+}
+
 function sendRouteError(res, err, fallbackMessage) {
   const inferredAbort =
     err?.name === 'AbortError' ||
@@ -1396,6 +1473,40 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('recolor-outfit-fast error:', err);
       return sendJson(res, 500, { error: err.message || 'Outfit recolor failed' });
+    }
+  }
+
+  if (method === 'POST' && pathname === '/api/body-transform') {
+    let cancelCtx = null;
+    try {
+      if (!REPLICATE_API_TOKEN) throw new Error('REPLICATE_API_TOKEN is not configured');
+      const body = await parseBody(req);
+      const { userImageUrl, transformMode = 'slim', sessionId } = body;
+      if (!userImageUrl) return sendJson(res, 400, { error: 'Missing userImageUrl' });
+      if (!['slim', 'muscular'].includes(transformMode)) {
+        return sendJson(res, 400, { error: 'Invalid transformMode: must be slim or muscular' });
+      }
+      cancelCtx = acquireCancellationContext(sessionId);
+
+      const source = isDataUri(userImageUrl) ? userImageUrl : await urlToDataUri(userImageUrl);
+      const editedImageUrl = await generateBodyTransformUrl({
+        imageDataUri: source,
+        mode: transformMode,
+        cancelCtx,
+      });
+
+      return sendJson(res, 200, {
+        success: true,
+        mode: 'body-transform',
+        originalImageUrl: source,
+        editedImageUrl,
+        transformMode,
+      });
+    } catch (err) {
+      console.error('body-transform error:', err);
+      return sendRouteError(res, err, 'Body transform failed');
+    } finally {
+      cancelCtx?.release?.();
     }
   }
 
