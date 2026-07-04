@@ -6,6 +6,7 @@ export interface HairSwapSession {
   selfie: string;
   look: string;
   elements: string;
+  analyzeSessionId?: string;
   hairColorId?: string;
   hairStyleId?: string;
   eyeColorId?: string;

@@ -21,7 +21,7 @@ import Animated, {
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/constants/typography';
 import { borderRadius, layout } from '@/constants/spacing';
-import { API_BASE_URL, cancelSession, recolorFaceFeaturesFast, recolorHairFast } from '@/utils/api';
+import { API_BASE_URL, cancelSession, editSession, recolorFaceFeaturesFast, recolorHairFast } from '@/utils/api';
 import { getHairSwapSession } from '@/utils/hairSwapSession';
 import { recolorEyesFast } from '@/utils/api';
 
@@ -109,18 +109,42 @@ export default function HairColorLoadingScreen() {
       const shouldApplyHair = Boolean(session.hairColorId || session.hairStyleId);
       if (shouldApplyHair) {
         if (stoppedRef.current) return;
-        pushStep('Applying hair style and hair color', runStarted);
-        activeAbortRef.current?.abort();
-        const controller = new AbortController();
-        activeAbortRef.current = controller;
-        const response = await recolorHairFast({
-          userImageUrl: session.selfie,
-          colorId: session.hairColorId || 'current',
-          hairStyleId: session.hairStyleId || 'no_change',
-          sessionId: session.id,
-          signal: controller.signal,
-        });
-        outputImage = response.editedImageUrl || outputImage;
+        const canUseMappedEdit = Boolean(session.analyzeSessionId);
+        if (canUseMappedEdit) {
+          pushStep('Applying mapped hair edit', runStarted);
+          const hasStyle = Boolean(session.hairStyleId && session.hairStyleId !== 'no_change');
+          const hasColor = Boolean(session.hairColorId && session.hairColorId !== 'current');
+          const response = await editSession({
+            sessionId: session.analyzeSessionId as string,
+            feature: 'hair',
+            action: hasStyle ? 'style' : 'color',
+            value: hasStyle
+              ? {
+                  styleId: session.hairStyleId,
+                  colorId: session.hairColorId || 'current',
+                }
+              : {
+                  colorId: hasColor ? session.hairColorId : 'current',
+                },
+          });
+          outputImage =
+            response.tier === 1
+              ? response.editedImageDataUri || outputImage
+              : response.editedImageUrl || outputImage;
+        } else {
+          pushStep('Applying hair style and hair color', runStarted);
+          activeAbortRef.current?.abort();
+          const controller = new AbortController();
+          activeAbortRef.current = controller;
+          const response = await recolorHairFast({
+            userImageUrl: session.selfie,
+            colorId: session.hairColorId || 'current',
+            hairStyleId: session.hairStyleId || 'no_change',
+            sessionId: session.id,
+            signal: controller.signal,
+          });
+          outputImage = response.editedImageUrl || outputImage;
+        }
       }
 
       if (session.eyeColorId) {

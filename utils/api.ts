@@ -40,6 +40,80 @@ export interface EyeColorPreset {
   name: string;
 }
 
+export interface LipColorPreset {
+  id: string;
+  name: string;
+  hex: string;
+}
+
+export interface NailColorPreset {
+  id: string;
+  name: string;
+  hex: string;
+}
+
+export interface ShapePreset {
+  id: string;
+  name: string;
+  prompt: string;
+}
+
+export interface AnalyzeSessionResponse {
+  success: boolean;
+  sessionId: string;
+  analysisStatus: 'pending' | 'complete' | 'failed';
+  estimatedMs: number;
+  debug?: {
+    traceId?: string;
+    steps?: Array<{ atMs?: number; message?: string }>;
+  };
+}
+
+export interface AnalyzeStatusResponse {
+  success: boolean;
+  sessionId: string;
+  analysisStatus: 'pending' | 'complete' | 'failed';
+  availableMasks: string[];
+  landmarks: Record<string, unknown> | null;
+  analysisError?: string | null;
+  analysisDebug?: Array<{ at?: string; message?: string }>;
+}
+
+export interface EditResponseTier1 {
+  success: boolean;
+  tier: 1;
+  feature: string;
+  action: string;
+  editedImageDataUri: string;
+  elapsedMs: number;
+}
+
+export interface EditResponseTier2 {
+  success: boolean;
+  tier: 2;
+  feature: string;
+  action: string;
+  editedImageUrl: string;
+  elapsedMs: number;
+}
+
+export type EditResponse = EditResponseTier1 | EditResponseTier2;
+
+export interface SessionInspectResponse {
+  success: boolean;
+  session: {
+    id: string;
+    createdAt: number;
+    lastAccessedAt: number;
+    width: number;
+    height: number;
+    masks: Record<string, string | null>;
+    landmarks: Record<string, unknown> | null;
+    analysisStatus: 'pending' | 'complete' | 'failed';
+    analysisError: string | null;
+  };
+}
+
 export interface RecolorHairResponse {
   success: boolean;
   editedImageDataUri: string;
@@ -267,6 +341,79 @@ export async function fetchHairStyles(): Promise<HairStylePreset[]> {
 export async function fetchEyeColors(): Promise<EyeColorPreset[]> {
   const data = await apiRequest<{ success: boolean; colors: EyeColorPreset[] }>('/api/eye-colors');
   return data.colors || [];
+}
+
+export async function fetchLipColors(): Promise<LipColorPreset[]> {
+  const data = await apiRequest<{ success: boolean; colors: LipColorPreset[] }>('/api/lip-colors');
+  return data.colors || [];
+}
+
+export async function fetchNailColors(): Promise<NailColorPreset[]> {
+  const data = await apiRequest<{ success: boolean; colors: NailColorPreset[] }>('/api/nail-colors');
+  return data.colors || [];
+}
+
+export async function fetchEyebrowShapes(): Promise<ShapePreset[]> {
+  const data = await apiRequest<{ success: boolean; shapes: ShapePreset[] }>('/api/eyebrow-shapes');
+  return data.shapes || [];
+}
+
+export async function fetchLipShapes(): Promise<ShapePreset[]> {
+  const data = await apiRequest<{ success: boolean; shapes: ShapePreset[] }>('/api/lip-shapes');
+  return data.shapes || [];
+}
+
+export async function fetchJawlinePresets(): Promise<ShapePreset[]> {
+  const data = await apiRequest<{ success: boolean; presets: ShapePreset[] }>('/api/jawline-presets');
+  return data.presets || [];
+}
+
+export async function analyzeImageSession(userImageUrl: string): Promise<AnalyzeSessionResponse> {
+  return apiRequest<AnalyzeSessionResponse>(
+    '/api/analyze',
+    {
+      method: 'POST',
+      body: JSON.stringify({ userImageUrl }),
+    },
+    30000
+  );
+}
+
+export async function fetchAnalyzeStatus(sessionId: string): Promise<AnalyzeStatusResponse> {
+  return apiRequest<AnalyzeStatusResponse>(`/api/analyze/${encodeURIComponent(sessionId)}`);
+}
+
+export async function editSession(payload: {
+  sessionId: string;
+  baseImageUrl?: string;
+  feature: string;
+  action: string;
+  value?: Record<string, unknown>;
+  signal?: AbortSignal;
+}): Promise<EditResponse> {
+  const { signal, ...bodyPayload } = payload;
+  return apiRequest<EditResponse>(
+    '/api/edit',
+    {
+      method: 'POST',
+      body: JSON.stringify(bodyPayload),
+      signal,
+    },
+    270000
+  );
+}
+
+export async function inspectSession(sessionId: string): Promise<SessionInspectResponse> {
+  return apiRequest<SessionInspectResponse>(`/api/sessions/${encodeURIComponent(sessionId)}`);
+}
+
+export async function clearSession(sessionId: string): Promise<{ success: boolean; sessionId: string; deleted: boolean }> {
+  return apiRequest<{ success: boolean; sessionId: string; deleted: boolean }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}`,
+    {
+      method: 'DELETE',
+    }
+  );
 }
 
 export async function recolorHair(payload: {

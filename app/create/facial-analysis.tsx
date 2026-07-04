@@ -1,9 +1,10 @@
 import React, { ReactNode, useMemo } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 
 import { PrimaryButton } from '@/components/ui';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -55,6 +56,11 @@ export default function CreateScreen() {
     canGenerate,
     pickImage,
     handleGenerate,
+    analysisStatus,
+    analysisError,
+    analysisDebugLog,
+    clearAnalysisState,
+    isApplying,
   } = useFacialAnalysisState();
   const styles = useMemo(() => createFacialStyles(colors, insets.bottom), [colors, insets.bottom]);
 
@@ -346,7 +352,43 @@ export default function CreateScreen() {
 
           <Animated.View entering={FadeInDown.delay(120).duration(280)} style={{ marginTop: 16 }}>
             <Text style={styles.sectionTitle}>Your Photo</Text>
-            <UploadTile image={selfieImage} onSelect={pickImage} onRemove={() => setSelfieImage(null)} />
+            <View>
+              <UploadTile
+                image={selfieImage}
+                onSelect={pickImage}
+                onRemove={() => {
+                  clearAnalysisState();
+                  setSelfieImage(null);
+                }}
+              />
+              {analysisStatus === 'pending' && (
+                <View style={styles.analysisOverlay} pointerEvents="auto">
+                  <BlurView intensity={40} tint="dark" style={{ flex: 1 }}>
+                    <View style={styles.analysisOverlayInner}>
+                      <ActivityIndicator size="large" color="#ffffff" />
+                      <Text style={styles.analysisOverlayTitle}>Analyzing your photo</Text>
+                      <Text style={styles.analysisOverlaySubtitle}>
+                        Mapping face and hair regions. This runs once, then edits are faster.
+                      </Text>
+                    </View>
+                  </BlurView>
+                </View>
+              )}
+            </View>
+            {(analysisStatus === 'pending' || analysisStatus === 'failed' || analysisDebugLog.length > 0) && (
+              <View style={styles.debugCard}>
+                <Text style={styles.debugTitle}>Analysis Debug</Text>
+                <Text style={analysisStatus === 'failed' ? styles.debugError : styles.debugRow}>
+                  Status: {analysisStatus}
+                </Text>
+                {analysisError ? <Text style={styles.debugError}>Error: {analysisError}</Text> : null}
+                {analysisDebugLog.slice(-6).map((line, index) => (
+                  <Text key={`${index}-${line}`} style={styles.debugRow}>
+                    {line}
+                  </Text>
+                ))}
+              </View>
+            )}
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(160).duration(280)}>
@@ -441,8 +483,29 @@ export default function CreateScreen() {
           </Animated.View>
         ) : null}
 
+        {analysisStatus === 'pending' && (
+          <View style={styles.analysisPageOverlay} pointerEvents="auto">
+            <BlurView intensity={24} tint="dark" style={{ flex: 1 }}>
+              <View style={styles.analysisOverlayInner}>
+                <ActivityIndicator size="large" color="#ffffff" />
+                <Text style={styles.analysisOverlayTitle}>Analyzing your photo</Text>
+                <Text style={styles.analysisOverlaySubtitle}>
+                  Please wait while we map hair and facial regions.
+                </Text>
+              </View>
+            </BlurView>
+          </View>
+        )}
+
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + layout.tabBarHeight + 8 }]}> 
-          <PrimaryButton label={ctaLabel} onPress={handleGenerate} disabled={!canGenerate} icon={canGenerate ? 'sparkles' : undefined} style={{ width: '100%' }} />
+          <PrimaryButton
+            label={ctaLabel}
+            onPress={handleGenerate}
+            disabled={!canGenerate}
+            loading={isApplying}
+            icon={canGenerate && !isApplying ? 'sparkles' : undefined}
+            style={{ width: '100%' }}
+          />
         </View>
       </View>
     </KeyboardAvoidingView>
